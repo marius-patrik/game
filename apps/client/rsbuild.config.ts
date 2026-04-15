@@ -9,6 +9,7 @@ export default defineConfig({
   },
   source: {
     entry: { index: "./src/main.tsx" },
+    decorators: { version: "legacy" },
   },
   server: {
     port: 3000,
