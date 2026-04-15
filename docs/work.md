@@ -12,12 +12,12 @@ _Nothing in flight._ Pick from **Next**.
 
 ## Next
 
-- [ ] **Wire client ↔ server Colyseus connection** — join `game` room from client, render other players' cubes, emit `move` on input. [#1](../../issues/1)
-- [ ] **Better Auth + SQLite setup** — signup/login routes, session cookie, user table via Drizzle. [#2](../../issues/2)
-- [ ] **Single-binary deploy pipeline** — `bun build --compile` embedding client static assets into the server binary. [#3](../../issues/3)
-- [ ] **Role-gated admin route** — `/admin/*` reads session, redirects if not `role=admin`. Server enforces on REST endpoints. [#4](../../issues/4)
-- [ ] **First zone** — a named zone ("lobby") with spawn point, bounds, max occupancy. Zone transition API stub. [#5](../../issues/5)
-- [ ] **Biome + typecheck in CI** — GitHub Actions workflow runs on PR. [#6](../../issues/6)
+- [ ] **Wire client ↔ server Colyseus connection** — join `game` room from client, render other players' cubes, emit `move` on input. [#3](../../issues/3)
+- [ ] **Better Auth + SQLite setup** — signup/login routes, session cookie, user table via Drizzle. [#4](../../issues/4)
+- [ ] **Single-binary deploy pipeline** — `bun build --compile` embedding client static assets into the server binary. [#8](../../issues/8)
+- [ ] **Role-gated admin route** — `/admin/*` reads session, redirects if not `role=admin`. Server enforces on REST endpoints. [#5](../../issues/5)
+- [ ] **First zone** — a named zone ("lobby") with spawn point, bounds, max occupancy. Zone transition API stub. [#6](../../issues/6)
+- [ ] **Biome + typecheck in CI** — GitHub Actions workflow runs on PR. [#7](../../issues/7)
 
 ## Backlog
 
