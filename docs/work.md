@@ -2,35 +2,37 @@
 
 Single source of truth for what's being done, what's next, and what's parked.
 
-Format: one line per item, linked to its GitHub issue. Move items up as they're picked; strike through and move to Done when shipped.
+**Rule for any agent picking this up cold:** if **Now** is empty, take the top of **Next**, move it to Now, and start the `ship-feature` skill. Do not stop for permission — the scope is already agreed in the linked issue. If **Next** is empty, ask the user only then.
 
 ---
 
 ## Now
 
-_Nothing in flight._ Pick from **Next**.
+_Nothing in flight._ Pick the top of **Next**.
 
 ## Next
 
-_Next unit is now one of the Backlog items. Pick and file an issue before picking up._
+Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
+
+- [ ] #16 — Server-side logging rotation (pino file transport, daily rotation).
+- [ ] #17 — Shadcn component set (card, dialog, dropdown-menu, input, label, table, toast).
+- [ ] #18 — Anti-cheat baseline — input rate limits, movement validation.
+- [ ] #19 — Zone persistence — snapshot/restore per zone in SQLite.
+- [ ] #20 — Asset pipeline — gltf-transform, Draco, KTX2.
+- [ ] #21 — Audio engine — Howler with positional audio bridged to R3F.
+- [ ] #22 — Particle FX library — three-nebula with one reference spell effect.
+- [ ] #23 — theatre.js cinematic — zone transition sequence.
+- [ ] #24 — Combat loop — damage, one spell, death + respawn.
+- [ ] #25 — Inventory + progression persistence.
 
 ## Backlog
 
-- [ ] Particle FX library — wire three-nebula, ship one spell effect as a reference.
-- [ ] theatre.js cinematic intro — zone transition sequence.
-- [ ] Shadcn component set — add `card`, `dialog`, `dropdown-menu`, `input`, `label`, `table`, `toast` (sonner wrapper).
 - [ ] Admin players page — live player list via REST + polling (or WS subscription).
 - [ ] Admin rooms page — Colyseus monitor iframe or custom view.
-- [ ] Audio engine — Howler wrapper with positional audio bridging to R3F.
-- [ ] Asset pipeline — gltf-transform, Draco, KTX2.
-- [ ] Zone persistence — snapshot/restore per zone in SQLite.
-- [ ] Anti-cheat baseline — input rate limits, movement validation.
-- [ ] Combat loop — damage, spells, death/respawn.
-- [ ] Inventory + progression persistence.
-- [ ] Server-side logging rotation (pino to file).
 
 ## Done
 
+- [x] Client legacy decorators for Colyseus schema. [#14](../../issues/14)
 - [x] Wire client ↔ server Colyseus connection. [#3](../../issues/3)
 - [x] Better Auth + SQLite gating the GameRoom. [#4](../../issues/4)
 - [x] Role-gated admin route with live player/room data. [#5](../../issues/5)

@@ -8,6 +8,10 @@ A 3D browser MMO. Instanced-zone topology (RoTMG-style): persistent accounts, zo
 
 Claude is the sole maintainer. Humans drive direction, Claude executes.
 
+**Autonomous model.** If [docs/work.md](docs/work.md) has items in **Next**, you have standing approval to pick the top and ship it end-to-end (issue → branch → PR → merge → update work.md). Do not ask the user "what should I work on?" unless **Next** is empty. The issue is the scope agreement.
+
+To bootstrap a fresh session without writing a prompt, the user runs [scripts/spawn-dev-agent.sh](scripts/spawn-dev-agent.sh) or invokes `/spawn-dev-agent` in Claude Code.
+
 ## Stack
 
 | Layer | Choice |
@@ -44,7 +48,13 @@ docs/
 .github/         Issue + PR templates, CI workflow
 .claude/
   launch.json    Dev server configs for Claude Code preview
+  memory/        Project-scoped memory (loaded into every session)
+  skills/        Project-local skills (ship-feature, preflight, update-work)
+  commands/      Slash commands (/spawn-dev-agent)
+  hooks/         Session/pre-push hook scripts
   worktrees/     Feature worktrees (gitignored)
+scripts/
+  spawn-dev-agent.sh   One-liner to launch an autonomous dev session
 ```
 
 **Shared code is the key leverage point.** `@game/shared` holds Colyseus Schema classes — client and server import the same types. When you add network state, add it there.
@@ -155,10 +165,27 @@ The generated `embedded.ts` / `migrations-embedded.ts` files are ignored by Biom
 When you start a session:
 
 1. Read this file.
-2. Read `docs/work.md` — what's the current focus?
-3. Read the linked GitHub issue.
-4. If the task is clear, branch and execute. If ambiguous, ask the user **before** writing code.
-5. After landing a change: update `docs/work.md` (tick off the item, promote the next).
-6. If you learned something about the codebase worth remembering: update this file.
+2. Read [.claude/memory/MEMORY.md](.claude/memory/MEMORY.md) + [.claude/memory/project.md](.claude/memory/project.md) + [.claude/memory/pitfalls.md](.claude/memory/pitfalls.md).
+3. Read `docs/work.md` — what's the current focus?
+4. Read the linked GitHub issue.
+5. If the task is clear, invoke the `ship-feature` skill and execute. If ambiguous, ask the user **before** writing code.
+6. After landing a change: invoke the `update-work` skill.
+7. If you learned something non-obvious: append to [.claude/memory/pitfalls.md](.claude/memory/pitfalls.md).
+
+## Project skills ([.claude/skills/](.claude/skills/))
+
+- **ship-feature** — the full issue → branch → PR → merge → update-work flow
+- **preflight** — biome + typecheck, run before every commit
+- **update-work** — move a shipped item to Done in docs/work.md
+- **maintenance** — dead-code / docs / deps / bundle-size sweep; run between features
+
+## Proactive mindset
+
+You are always on. Between features, polish: delete dead code, resolve TODOs, refresh stale docs, trim unused deps, keep the bundle small. File issues for anything you spot tangentially that's bigger than a few-minute fix. Don't wait to be told.
+
+## Project memory ([.claude/memory/](.claude/memory/))
+
+- **project.md** — stack, invariants, workflow, paths
+- **pitfalls.md** — non-obvious gotchas (decorators, pino, SPA fallback, …). Append when you learn something new.
 
 Do **not** build planning docs, status reports, or decision logs the user didn't ask for. `work.md` and ADRs are the only long-lived artifacts.
