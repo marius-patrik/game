@@ -1,26 +1,76 @@
 import { BunWebSockets } from "@colyseus/bun-websockets";
 import { Server } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
+import express from "express";
 import pino from "pino";
+import { auth } from "./auth";
+import { runMigrations } from "./db/migrate";
 import { GameRoom } from "./rooms/GameRoom";
+
+runMigrations();
 
 const log = pino({ transport: { target: "pino-pretty" } });
 
 const PORT = Number(process.env.PORT ?? 2567);
 
 const transport = new BunWebSockets({});
-
 const gameServer = new Server({ transport });
 
 gameServer.define("game", GameRoom);
 
-// biome-ignore lint/suspicious/noExplicitAny: BunWebSockets exposes a Hono-like `.app` at runtime
-const app = (transport as any).app;
+const app = transport.expressApp;
 
-if (app?.get) {
-  app.get("/health", () => new Response("ok"));
-  app.use("/colyseus", monitor());
-}
+const trustedOrigins = new Set([
+  "http://localhost:3000",
+  ...(process.env.TRUSTED_ORIGINS?.split(",").filter(Boolean) ?? []),
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && trustedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
+app.use(express.json());
+
+app.all("/api/auth/*", async (req, res) => {
+  const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;
+  const headers = new Headers();
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === "string") headers.set(k, v);
+    else if (Array.isArray(v)) headers.set(k, v.join(", "));
+  }
+  const hasBody = req.method !== "GET" && req.method !== "HEAD";
+  const response = await auth.handler(
+    new Request(url, {
+      method: req.method,
+      headers,
+      body: hasBody ? JSON.stringify(req.body) : undefined,
+    }),
+  );
+  res.status(response.status);
+  const setCookie = response.headers.getSetCookie();
+  if (setCookie.length > 0) res.setHeader("Set-Cookie", setCookie);
+  response.headers.forEach((v, k) => {
+    if (k.toLowerCase() !== "set-cookie") res.setHeader(k, v);
+  });
+  res.send(await response.text());
+});
+
+app.get("/health", (_req, res) => {
+  res.type("text/plain").send("ok");
+});
+app.use("/colyseus", monitor());
 
 await gameServer.listen(PORT);
 

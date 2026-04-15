@@ -27,3 +27,10 @@ Thumbs.db
 
 # Claude worktrees
 .claude/worktrees/
+
+# SQLite data (runtime)
+apps/server/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

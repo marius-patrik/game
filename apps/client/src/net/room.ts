@@ -1,3 +1,4 @@
+import { tokenStore } from "@/auth/client";
 import type { GameRoomState } from "@game/shared";
 import { Client, type Room } from "colyseus.js";
 
@@ -8,5 +9,6 @@ const endpoint =
 export const client = new Client(endpoint);
 
 export async function joinGame(): Promise<Room<GameRoomState>> {
-  return client.joinOrCreate<GameRoomState>("game");
+  const token = tokenStore.get() ?? undefined;
+  return client.joinOrCreate<GameRoomState>("game", { token });
 }

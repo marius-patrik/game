@@ -1,8 +1,9 @@
+import { signOut, tokenStore, useSession } from "@/auth/client";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/theme/theme-toggle";
 import { motion } from "framer-motion";
-import { Gamepad2, Shield, Wifi, WifiOff } from "lucide-react";
-import { Link } from "wouter";
+import { Gamepad2, LogOut, Shield, Wifi, WifiOff } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 export function HUD({
   status,
@@ -11,6 +12,13 @@ export function HUD({
   status: "idle" | "connecting" | "connected" | "error";
   playerCount: number;
 }) {
+  const { data: session } = useSession();
+  const [, setLocation] = useLocation();
+  async function onSignOut() {
+    await signOut();
+    tokenStore.clear();
+    setLocation("/login");
+  }
   const connected = status === "connected";
   const label =
     status === "connected"
@@ -53,6 +61,11 @@ export function HUD({
           </div>
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
+          {session?.user?.name ? (
+            <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md">
+              {session.user.name}
+            </div>
+          ) : null}
           <ThemeToggle />
           <Link href="/admin">
             <Button variant="outline" size="sm" className="backdrop-blur-md bg-background/40">
@@ -60,6 +73,15 @@ export function HUD({
               admin
             </Button>
           </Link>
+          <Button
+            variant="outline"
+            size="sm"
+            className="backdrop-blur-md bg-background/40"
+            onClick={onSignOut}
+          >
+            <LogOut />
+            sign out
+          </Button>
         </div>
       </motion.div>
 
