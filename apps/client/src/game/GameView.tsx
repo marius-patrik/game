@@ -1,12 +1,15 @@
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense } from "react";
+import { useTheme } from "@/theme/theme-provider";
 import { HUD } from "./HUD";
 import { Scene } from "./Scene";
 
 export function GameView() {
+  const { resolved } = useTheme();
+  const bg = resolved === "dark" ? "#09090b" : "#fafafa";
   return (
-    <div className="relative h-full w-full bg-black">
+    <div className="relative h-full w-full" style={{ background: bg }}>
       <Canvas
         shadows
         dpr={[1, 2]}

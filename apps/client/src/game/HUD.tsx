@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Gamepad2, Shield } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/theme/theme-toggle";
 
 export function HUD() {
   return (
@@ -18,7 +19,8 @@ export function HUD() {
             <span>game · dev</span>
           </div>
         </div>
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto flex items-center gap-2">
+          <ThemeToggle />
           <Link href="/admin">
             <Button variant="outline" size="sm" className="backdrop-blur-md bg-background/40">
               <Shield />
