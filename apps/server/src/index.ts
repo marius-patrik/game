@@ -1,10 +1,14 @@
 import { BunWebSockets } from "@colyseus/bun-websockets";
-import { Server } from "@colyseus/core";
+import { Server, matchMaker } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
+import { desc } from "drizzle-orm";
 import express from "express";
 import pino from "pino";
 import { auth } from "./auth";
+import { db } from "./db/client";
 import { runMigrations } from "./db/migrate";
+import { user as userTable } from "./db/schema";
+import { requireAdmin } from "./middleware/auth";
 import { GameRoom } from "./rooms/GameRoom";
 
 runMigrations();
@@ -70,6 +74,36 @@ app.all("/api/auth/*", async (req, res) => {
 app.get("/health", (_req, res) => {
   res.type("text/plain").send("ok");
 });
+
+app.get("/admin/api/players", requireAdmin(), async (_req, res) => {
+  const rows = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      email: userTable.email,
+      role: userTable.role,
+      createdAt: userTable.createdAt,
+    })
+    .from(userTable)
+    .orderBy(desc(userTable.createdAt))
+    .limit(200);
+  res.json({ players: rows });
+});
+
+app.get("/admin/api/rooms", requireAdmin(), async (_req, res) => {
+  const rooms = await matchMaker.query();
+  res.json({
+    rooms: rooms.map((r) => ({
+      roomId: r.roomId,
+      name: r.name,
+      clients: r.clients,
+      maxClients: r.maxClients,
+      locked: r.locked,
+      createdAt: r.createdAt,
+    })),
+  });
+});
+
 app.use("/colyseus", monitor());
 
 await gameServer.listen(PORT);

@@ -4,6 +4,7 @@ import { AdminOverview } from "./admin/routes/Overview";
 import { AdminPlayers } from "./admin/routes/Players";
 import { AdminRooms } from "./admin/routes/Rooms";
 import { AuthForm } from "./auth/AuthForm";
+import { RequireRole } from "./auth/RequireRole";
 import { useSession } from "./auth/client";
 import { GameView } from "./game/GameView";
 
@@ -31,25 +32,25 @@ export function App() {
         </Protected>
       </Route>
       <Route path="/admin">
-        <Protected>
+        <RequireRole allow="admin">
           <AdminLayout>
             <AdminOverview />
           </AdminLayout>
-        </Protected>
+        </RequireRole>
       </Route>
       <Route path="/admin/players">
-        <Protected>
+        <RequireRole allow="admin">
           <AdminLayout>
             <AdminPlayers />
           </AdminLayout>
-        </Protected>
+        </RequireRole>
       </Route>
       <Route path="/admin/rooms">
-        <Protected>
+        <RequireRole allow="admin">
           <AdminLayout>
             <AdminRooms />
           </AdminLayout>
-        </Protected>
+        </RequireRole>
       </Route>
       <Route>
         <div className="flex h-full items-center justify-center text-muted-foreground">404</div>
