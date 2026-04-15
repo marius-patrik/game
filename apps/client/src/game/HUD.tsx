@@ -1,10 +1,26 @@
-import { motion } from "framer-motion";
-import { Gamepad2, Shield } from "lucide-react";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/theme/theme-toggle";
+import { motion } from "framer-motion";
+import { Gamepad2, Shield, Wifi, WifiOff } from "lucide-react";
+import { Link } from "wouter";
 
-export function HUD() {
+export function HUD({
+  status,
+  playerCount,
+}: {
+  status: "idle" | "connecting" | "connected" | "error";
+  playerCount: number;
+}) {
+  const connected = status === "connected";
+  const label =
+    status === "connected"
+      ? `online · ${playerCount}`
+      : status === "connecting"
+        ? "connecting…"
+        : status === "error"
+          ? "offline"
+          : "idle";
+
   return (
     <>
       <motion.div
@@ -13,10 +29,27 @@ export function HUD() {
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4"
       >
-        <div className="pointer-events-auto rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Gamepad2 className="size-3.5" />
-            <span>game · dev</span>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Gamepad2 className="size-3.5" />
+              <span>game · dev</span>
+            </div>
+          </div>
+          <div
+            data-testid="net-status"
+            className="rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2">
+              {connected ? (
+                <Wifi className="size-3.5 text-emerald-500" />
+              ) : (
+                <WifiOff className="size-3.5 text-muted-foreground" />
+              )}
+              <span className={connected ? "text-foreground" : "text-muted-foreground"}>
+                {label}
+              </span>
+            </div>
           </div>
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
@@ -37,7 +70,7 @@ export function HUD() {
         className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4"
       >
         <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md">
-          drag to orbit · scroll to zoom
+          WASD to move · drag to orbit · scroll to zoom
         </div>
       </motion.div>
     </>

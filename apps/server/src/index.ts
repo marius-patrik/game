@@ -1,5 +1,5 @@
-import { Server } from "@colyseus/core";
 import { BunWebSockets } from "@colyseus/bun-websockets";
+import { Server } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
 import pino from "pino";
 import { GameRoom } from "./rooms/GameRoom";
