@@ -1,7 +1,7 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion } from "framer-motion";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { type Theme, useTheme } from "./theme-provider";
 
 const order: Theme[] = ["system", "light", "dark"];

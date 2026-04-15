@@ -1,10 +1,18 @@
+import type { PlayerSnapshot } from "@/net/useRoom";
+import { useTheme } from "@/theme/theme-provider";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Mesh } from "three";
-import { useTheme } from "@/theme/theme-provider";
+import { Players } from "./Players";
 
-export function Scene() {
+export function Scene({
+  players,
+  sessionId,
+}: {
+  players: Map<string, PlayerSnapshot>;
+  sessionId?: string;
+}) {
   const cube = useRef<Mesh>(null);
   const { resolved } = useTheme();
   const palette =
@@ -46,7 +54,7 @@ export function Scene() {
       <Environment preset={palette.preset} />
 
       <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.6}>
-        <mesh ref={cube} castShadow position={[0, 1.2, 0]}>
+        <mesh ref={cube} castShadow position={[0, 3, 0]}>
           <boxGeometry args={[1.4, 1.4, 1.4]} />
           <meshStandardMaterial
             color="#a78bfa"
@@ -57,6 +65,8 @@ export function Scene() {
           />
         </mesh>
       </Float>
+
+      <Players players={players} sessionId={sessionId} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[40, 40]} />

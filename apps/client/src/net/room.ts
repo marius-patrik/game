@@ -1,5 +1,5 @@
-import { Client, type Room } from "colyseus.js";
 import type { GameRoomState } from "@game/shared";
+import { Client, type Room } from "colyseus.js";
 
 const endpoint =
   (typeof window !== "undefined" && (window as unknown as { __WS__?: string }).__WS__) ||

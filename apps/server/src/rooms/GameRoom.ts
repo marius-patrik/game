@@ -1,13 +1,13 @@
-import { Room, type Client } from "@colyseus/core";
+import { type Client, Room } from "@colyseus/core";
 import { GameRoomState, Player } from "@game/shared";
 
 type MoveMessage = { x: number; y: number; z: number };
 
 export class GameRoom extends Room<GameRoomState> {
-  maxClients = 64;
-  state = new GameRoomState();
+  override maxClients = 64;
+  override state = new GameRoomState();
 
-  onCreate() {
+  override onCreate() {
     this.onMessage<MoveMessage>("move", (client, msg) => {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
@@ -19,13 +19,13 @@ export class GameRoom extends Room<GameRoomState> {
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
   }
 
-  onJoin(client: Client) {
+  override onJoin(client: Client) {
     const p = new Player();
     p.id = client.sessionId;
     this.state.players.set(client.sessionId, p);
   }
 
-  onLeave(client: Client) {
+  override onLeave(client: Client) {
     this.state.players.delete(client.sessionId);
   }
 
