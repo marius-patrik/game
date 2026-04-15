@@ -4,7 +4,7 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/admin", label: "overview", icon: Home },
+  { href: "/admin", label: "overview", icon: Home, exact: true },
   { href: "/admin/players", label: "players", icon: Users },
   { href: "/admin/rooms", label: "rooms", icon: Activity },
 ];
@@ -17,7 +17,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         <div className="mb-6 px-2 text-sm font-medium text-muted-foreground">admin</div>
         <nav className="flex flex-col gap-1">
           {nav.map((item) => {
-            const active = location === item.href || location.startsWith(`${item.href}/`);
+            const active = item.exact
+              ? location === item.href
+              : location === item.href || location.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
