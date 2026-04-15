@@ -7,9 +7,10 @@ description: End-to-end feature delivery — issue → branch → implement → 
 
 Canonical flow for landing a feature in this repo. Each step is mandatory unless flagged optional.
 
-## 1. Confirm scope
+## 1. Confirm scope + plan
 - Read the linked GitHub issue. It must have explicit **Scope** and **Acceptance** sections. If not — update the issue before writing code.
-- Read [docs/work.md](../../../docs/work.md). Move the item to **Now**.
+- Read the plan at `docs/plans/<issue>-<slug>.md`. For non-trivial work, **a plan must exist** (written by the overseer or an architect agent). If missing, stop and ask the overseer to draft one.
+- Read [docs/work.md](../../../docs/work.md). Move the item to **Now** (overseer does this, not the execution agent).
 
 ## 2. Branch
 ```bash
@@ -56,8 +57,19 @@ gh pr merge <pr> --squash --delete-branch
 git checkout main && git pull
 ```
 
-## 9. Update work.md
-Invoke the `update-work` skill. Strike-through the item and add it to **Done** with the PR link.
+## 8.5. Request review (non-trivial PRs)
+Overseer spawns a reviewer agent. Execution agent does not self-merge.
 
-## 10. Update memory (if learned something)
-If you discovered a non-obvious gotcha, append to [.claude/memory/pitfalls.md](../../memory/pitfalls.md).
+## 9. Merge + cleanup
+Overseer merges after review is clean:
+```bash
+gh pr merge <PR> --squash --delete-branch
+git checkout main && git pull
+```
+
+## 10. Update work.md
+Overseer invokes the `update-work` skill. Strike-through the item and add it to **Done** with the PR link.
+
+## 11. Update plan retro + memory
+- Fill the **Retro** section of `docs/plans/<issue>-<slug>.md` and set Status to `shipped`.
+- If you discovered a non-obvious gotcha, append to [.claude/memory/pitfalls.md](../../memory/pitfalls.md).
