@@ -13,6 +13,7 @@ export function HUD({
   playerCount: number;
 }) {
   const { data: session } = useSession();
+  const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
   const [, setLocation] = useLocation();
   async function onSignOut() {
     await signOut();
@@ -67,12 +68,14 @@ export function HUD({
             </div>
           ) : null}
           <ThemeToggle />
-          <Link href="/admin">
-            <Button variant="outline" size="sm" className="backdrop-blur-md bg-background/40">
-              <Shield />
-              admin
-            </Button>
-          </Link>
+          {isAdmin ? (
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="backdrop-blur-md bg-background/40">
+                <Shield />
+                admin
+              </Button>
+            </Link>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
