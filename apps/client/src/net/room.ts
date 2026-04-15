@@ -1,10 +1,9 @@
 import { tokenStore } from "@/auth/client";
+import { resolveWsEndpoint } from "@/lib/endpoint";
 import { DEFAULT_ZONE, type GameRoomState, type ZoneId } from "@game/shared";
 import { Client, type Room } from "colyseus.js";
 
-const endpoint =
-  (typeof window !== "undefined" && (window as unknown as { __WS__?: string }).__WS__) ||
-  "ws://localhost:2567";
+const endpoint = resolveWsEndpoint();
 
 export const client = new Client(endpoint);
 

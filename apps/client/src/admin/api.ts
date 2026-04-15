@@ -1,8 +1,7 @@
 import { tokenStore } from "@/auth/client";
+import { resolveApiBase } from "@/lib/endpoint";
 
-const API_BASE =
-  (typeof window !== "undefined" && (window as unknown as { __API__?: string }).__API__) ||
-  "http://localhost:2567";
+const API_BASE = resolveApiBase();
 
 export async function adminFetch<T>(path: string): Promise<T> {
   const token = tokenStore.get();

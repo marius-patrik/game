@@ -10,10 +10,12 @@ import { runMigrations } from "./db/migrate";
 import { user as userTable } from "./db/schema";
 import { requireAdmin } from "./middleware/auth";
 import { GameRoom } from "./rooms/GameRoom";
+import { hasEmbeddedClient, mountStatic } from "./static/serve";
 
-runMigrations();
+await runMigrations();
 
-const log = pino({ transport: { target: "pino-pretty" } });
+const log =
+  process.env.NODE_ENV === "production" ? pino() : pino({ transport: { target: "pino-pretty" } });
 
 const PORT = Number(process.env.PORT ?? 2567);
 
@@ -106,6 +108,8 @@ app.get("/admin/api/rooms", requireAdmin(), async (_req, res) => {
 
 app.use("/colyseus", monitor());
 
+mountStatic(app);
+
 await gameServer.listen(PORT);
 
-log.info({ port: PORT }, "game server ready");
+log.info({ port: PORT, embeddedClient: hasEmbeddedClient() }, "game server ready");

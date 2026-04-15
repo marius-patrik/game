@@ -130,9 +130,25 @@ Keep subject ≤ 72 chars, imperative mood. Body optional but preferred for non-
 
 No tests yet. Before we write any, pick a runner — `bun test` is the default. Write tests as the game loop solidifies; don't over-invest until mechanics stabilize.
 
-## Deploy (TBD)
+## Deploy
 
-Target: single binary. Client built → static files embedded → server imports them → `bun build --compile --target bun-linux-x64 apps/server/src/index.ts -o game-server`. Not wired yet. See `docs/work.md`.
+Single binary, wired via `bun run build:release`:
+
+1. `bun --filter @game/client run build` → `apps/client/dist/`
+2. `apps/server/scripts/generate-static.ts` walks the client dist and writes `apps/server/src/static/embedded.ts` with `import ... with { type: "file" }` bindings (each value is a file path that works inside the compiled binary via `Bun.file`).
+3. `apps/server/scripts/generate-migrations.ts` does the same for `apps/server/drizzle/`, so drizzle migrations ship inside the binary and are materialized to a temp dir at startup.
+4. `bun build --compile --minify --define process.env.NODE_ENV='"production"' apps/server/src/index.ts --outfile dist/game-server`.
+
+`apps/server/src/static/serve.ts` mounts a catch-all route that serves embedded assets, falls back to `index.html` for extensionless paths (SPA routing), and defers to upstream handlers for `/api/*`, `/admin/api/*`, `/colyseus*`, `/matchmake*`, `/health`.
+
+Client endpoint resolution (`apps/client/src/lib/endpoint.ts`):
+- Dev (rsbuild on :3000) → talks to `:2567`.
+- Binary (any other origin) → uses `window.location.origin` for HTTP and `wss?://host` for WS.
+- Overridable via `window.__API__` / `window.__WS__`.
+
+Production requirements: `BETTER_AUTH_SECRET` must be set (auth throws at startup otherwise); `pino` drops the `pino-pretty` transport under `NODE_ENV=production` (it cannot resolve in a compiled binary).
+
+The generated `embedded.ts` / `migrations-embedded.ts` files are ignored by Biome and checked into git as stubs.
 
 ## Session workflow
 
