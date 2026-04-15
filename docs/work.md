@@ -12,7 +12,7 @@ _Nothing in flight._ Pick from **Next**.
 
 ## Next
 
-- [ ] **Biome + typecheck in CI** — GitHub Actions workflow runs on PR. [#7](../../issues/7)
+_Next unit is now one of the Backlog items. Pick and file an issue before picking up._
 
 ## Backlog
 
@@ -36,3 +36,4 @@ _Nothing in flight._ Pick from **Next**.
 - [x] Role-gated admin route with live player/room data. [#5](../../issues/5)
 - [x] First named zone with spawn + bounds. [#6](../../issues/6)
 - [x] Single-binary deploy pipeline — `bun run build:release` → `dist/game-server`. [#8](../../issues/8)
+- [x] Biome + typecheck in CI — `.github/workflows/ci.yml` runs on every PR. [#7](../../issues/7)
