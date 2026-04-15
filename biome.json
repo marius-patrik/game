@@ -36,6 +36,16 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", "build", "out", ".rsbuild", "apps/*/dist", "apps/*/build"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "build",
+      "out",
+      ".rsbuild",
+      "apps/*/dist",
+      "apps/*/build",
+      "apps/server/src/static/embedded.ts",
+      "apps/server/src/db/migrations-embedded.ts"
+    ]
   }
 }

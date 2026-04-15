@@ -12,11 +12,6 @@ _Nothing in flight._ Pick from **Next**.
 
 ## Next
 
-- [ ] **Wire client ↔ server Colyseus connection** — join `game` room from client, render other players' cubes, emit `move` on input. [#3](../../issues/3)
-- [ ] **Better Auth + SQLite setup** — signup/login routes, session cookie, user table via Drizzle. [#4](../../issues/4)
-- [ ] **Single-binary deploy pipeline** — `bun build --compile` embedding client static assets into the server binary. [#8](../../issues/8)
-- [ ] **Role-gated admin route** — `/admin/*` reads session, redirects if not `role=admin`. Server enforces on REST endpoints. [#5](../../issues/5)
-- [ ] **First zone** — a named zone ("lobby") with spawn point, bounds, max occupancy. Zone transition API stub. [#6](../../issues/6)
 - [ ] **Biome + typecheck in CI** — GitHub Actions workflow runs on PR. [#7](../../issues/7)
 
 ## Backlog
@@ -36,4 +31,8 @@ _Nothing in flight._ Pick from **Next**.
 
 ## Done
 
-_Empty — project just bootstrapped._
+- [x] Wire client ↔ server Colyseus connection. [#3](../../issues/3)
+- [x] Better Auth + SQLite gating the GameRoom. [#4](../../issues/4)
+- [x] Role-gated admin route with live player/room data. [#5](../../issues/5)
+- [x] First named zone with spawn + bounds. [#6](../../issues/6)
+- [x] Single-binary deploy pipeline — `bun run build:release` → `dist/game-server`. [#8](../../issues/8)

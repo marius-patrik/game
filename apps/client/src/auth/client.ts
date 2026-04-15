@@ -1,8 +1,7 @@
+import { resolveApiBase } from "@/lib/endpoint";
 import { createAuthClient } from "better-auth/react";
 
-const API_BASE =
-  (typeof window !== "undefined" && (window as unknown as { __API__?: string }).__API__) ||
-  "http://localhost:2567";
+const API_BASE = resolveApiBase();
 
 const TOKEN_KEY = "game.session.token";
 

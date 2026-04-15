@@ -34,6 +34,17 @@ bun run dev:client    # client only (http://localhost:3000)
 bun run dev:server    # server only (ws://localhost:2567)
 ```
 
+## Release — single binary
+
+```bash
+bun run build:release          # → dist/game-server (self-contained)
+BETTER_AUTH_SECRET=... ./dist/game-server
+```
+
+One executable serves WebSocket, REST, and the static client on a single port (default `2567`, override with `PORT=...`). No `node_modules` needed at runtime. The binary creates `./data/game.db` beside itself on first start.
+
+Required env in production: `BETTER_AUTH_SECRET`. Optional: `PORT`, `TRUSTED_ORIGINS` (comma-separated, add your public origin).
+
 ## Worktrees
 
 ```bash
