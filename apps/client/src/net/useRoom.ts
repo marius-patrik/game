@@ -1,37 +1,46 @@
-import type { GameRoomState, Player } from "@game/shared";
-import type { Room } from "colyseus.js";
-import { getStateCallbacks } from "colyseus.js";
-import { useEffect, useState } from "react";
-import { joinGame } from "./room";
+import { DEFAULT_ZONE, type GameRoomState, type Player, type ZoneId } from "@game/shared";
+import { type Room, getStateCallbacks } from "colyseus.js";
+import { useEffect, useRef, useState } from "react";
+import { joinZone } from "./room";
 
-export type PlayerSnapshot = { id: string; x: number; y: number; z: number };
+export type PlayerSnapshot = { id: string; name: string; x: number; y: number; z: number };
 
 export type RoomState = {
   status: "idle" | "connecting" | "connected" | "error";
   error?: string;
   sessionId?: string;
+  zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   send: (type: "move", payload: { x: number; y: number; z: number }) => void;
-};
-
-const empty: RoomState = {
-  status: "idle",
-  players: new Map(),
-  send: () => {},
+  travel: (zoneId: ZoneId) => void;
 };
 
 export function useRoom(): RoomState {
-  const [state, setState] = useState<RoomState>(empty);
+  const [zoneId, setZoneId] = useState<ZoneId>(DEFAULT_ZONE);
+  const [state, setState] = useState<RoomState>(() => ({
+    status: "idle",
+    players: new Map(),
+    zoneId: DEFAULT_ZONE,
+    send: () => {},
+    travel: () => {},
+  }));
+  const roomRef = useRef<Room<GameRoomState> | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     let room: Room<GameRoomState> | undefined;
 
-    setState((s) => ({ ...s, status: "connecting" }));
+    setState((s) => ({ ...s, status: "connecting", zoneId }));
+
+    const travel = (next: ZoneId) => {
+      if (next === zoneId) return;
+      setZoneId(next);
+    };
 
     (async () => {
       try {
-        room = await joinGame();
+        room = await joinZone(zoneId);
+        roomRef.current = room;
         if (cancelled) {
           room.leave();
           return;
@@ -44,17 +53,19 @@ export function useRoom(): RoomState {
           setState({
             status: "connected",
             sessionId: room?.sessionId,
+            zoneId,
             players: new Map(players),
             send,
+            travel,
           });
         };
 
         const $ = getStateCallbacks(room);
         $(room.state).players.onAdd((p: Player, key: string) => {
-          players.set(key, { id: key, x: p.x, y: p.y, z: p.z });
+          players.set(key, { id: key, name: p.name, x: p.x, y: p.y, z: p.z });
           commit();
           $(p).onChange(() => {
-            players.set(key, { id: key, x: p.x, y: p.y, z: p.z });
+            players.set(key, { id: key, name: p.name, x: p.x, y: p.y, z: p.z });
             commit();
           });
         });
@@ -65,25 +76,31 @@ export function useRoom(): RoomState {
 
         room.onLeave(() => {
           if (cancelled) return;
-          setState({ ...empty, status: "idle" });
+          setState((s) => ({ ...s, status: "idle", players: new Map() }));
         });
         room.onError((_code, message) => {
           if (cancelled) return;
-          setState({ ...empty, status: "error", error: message });
+          setState((s) => ({ ...s, status: "error", error: message, players: new Map() }));
         });
 
         commit();
       } catch (err) {
         if (cancelled) return;
-        setState({ ...empty, status: "error", error: (err as Error).message });
+        setState((s) => ({
+          ...s,
+          status: "error",
+          error: (err as Error).message,
+          players: new Map(),
+        }));
       }
     })();
 
     return () => {
       cancelled = true;
       room?.leave();
+      roomRef.current = undefined;
     };
-  }, []);
+  }, [zoneId]);
 
   return state;
 }

@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT ?? 2567);
 const transport = new BunWebSockets({});
 const gameServer = new Server({ transport });
 
-gameServer.define("game", GameRoom);
+gameServer.define("zone", GameRoom).filterBy(["zoneId"]);
 
 const app = transport.expressApp;
 

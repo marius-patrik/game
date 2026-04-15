@@ -40,7 +40,12 @@ export function GameView() {
           </EffectComposer>
         </Suspense>
       </Canvas>
-      <HUD status={room.status} playerCount={room.players.size} />
+      <HUD
+        status={room.status}
+        playerCount={room.players.size}
+        zoneId={room.zoneId}
+        onTravel={room.travel}
+      />
     </div>
   );
 }
