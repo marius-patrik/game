@@ -1,0 +1,29 @@
+node_modules/
+dist/
+build/
+out/
+.rsbuild/
+.cache/
+.turbo/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Claude worktrees
+.claude/worktrees/
