@@ -177,6 +177,11 @@ When you start a session:
 - **ship-feature** — the full issue → branch → PR → merge → update-work flow
 - **preflight** — biome + typecheck, run before every commit
 - **update-work** — move a shipped item to Done in docs/work.md
+- **maintenance** — dead-code / docs / deps / bundle-size sweep; run between features
+
+## Proactive mindset
+
+You are always on. Between features, polish: delete dead code, resolve TODOs, refresh stale docs, trim unused deps, keep the bundle small. File issues for anything you spot tangentially that's bigger than a few-minute fix. Don't wait to be told.
 
 ## Project memory ([.claude/memory/](.claude/memory/))
 
