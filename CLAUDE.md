@@ -8,9 +8,23 @@ A 3D browser MMO. Instanced-zone topology (RoTMG-style): persistent accounts, zo
 
 Claude is the sole maintainer. Humans drive direction, Claude executes.
 
-**Autonomous model.** If [docs/work.md](docs/work.md) has items in **Next**, you have standing approval to pick the top and ship it end-to-end (issue → branch → PR → merge → update work.md). Do not ask the user "what should I work on?" unless **Next** is empty. The issue is the scope agreement.
+**Org chart.** The user is the client. The default Claude session is the **overseer** (CEO). Execution work is delegated to **execution agents** spawned via the `Agent` tool. Specialist roles exist for high-leverage domains:
 
-To bootstrap a fresh session without writing a prompt, the user runs [scripts/spawn-dev-agent.sh](scripts/spawn-dev-agent.sh) or invokes `/spawn-dev-agent` in Claude Code.
+| Role | Purpose |
+|---|---|
+| `overseer` | CEO. Plans, dispatches, monitors, merges, talks to the user. Doesn't write feature code. |
+| `architect` | Drafts plans in `docs/plans/`, writes ADRs. No code. |
+| `execution` | Generalist dev — ships one issue end-to-end. |
+| `frontend` | R3F, React, Shadcn, Tailwind, particles, cinematics, HUD. |
+| `backend` | Colyseus, Drizzle, Bun server, auth, anti-cheat, persistence. |
+| `reviewer` | Critiques an open PR. No code. |
+
+**Autonomous model.** If `docs/work.md` has items in **Next**, the overseer has standing approval to plan + dispatch + ship without further user input. The user is asked only when scope itself is unclear or **Next** is empty.
+
+**Bootstrap fresh sessions:**
+- `./scripts/spawn-agent.sh overseer` (default — for the CEO seat)
+- `./scripts/spawn-agent.sh <role> [notes]` for any other role
+- Or `/spawn-overseer-agent`, `/spawn-execution-agent`, etc. as Claude Code slash commands.
 
 ## Stack
 
@@ -49,12 +63,14 @@ docs/
 .claude/
   launch.json    Dev server configs for Claude Code preview
   memory/        Project-scoped memory (loaded into every session)
-  skills/        Project-local skills (ship-feature, preflight, update-work)
-  commands/      Slash commands (/spawn-dev-agent)
+  skills/        Project-local skills (ship-feature, preflight, update-work, planning, maintenance)
+  commands/      Slash commands — one per agent role (overseer, execution, frontend, backend, reviewer, architect)
   hooks/         Session/pre-push hook scripts
   worktrees/     Feature worktrees (gitignored)
+docs/
+  plans/         One plan per non-trivial feature; drafted before code is written
 scripts/
-  spawn-dev-agent.sh   One-liner to launch an autonomous dev session
+  spawn-agent.sh <role>   Launch a Claude Code session in the given role
 ```
 
 **Shared code is the key leverage point.** `@game/shared` holds Colyseus Schema classes — client and server import the same types. When you add network state, add it there.
@@ -174,6 +190,7 @@ When you start a session:
 
 ## Project skills ([.claude/skills/](.claude/skills/))
 
+- **planning** — draft `docs/plans/<issue>-<slug>.md` before any non-trivial feature
 - **ship-feature** — the full issue → branch → PR → merge → update-work flow
 - **preflight** — biome + typecheck, run before every commit
 - **update-work** — move a shipped item to Done in docs/work.md

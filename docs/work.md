@@ -2,7 +2,9 @@
 
 Single source of truth for what's being done, what's next, and what's parked.
 
-**Rule for any agent picking this up cold:** if **Now** is empty, take the top of **Next**, move it to Now, and start the `ship-feature` skill. Do not stop for permission — the scope is already agreed in the linked issue. If **Next** is empty, ask the user only then.
+**Rule for the overseer picking this up cold:** if **Now** is empty, take the top of **Next**, draft a plan in `docs/plans/`, then dispatch an execution (or specialist) agent. Do not stop for permission — the scope is already agreed in the linked issue. If **Next** is empty, run the `maintenance` skill before asking the user.
+
+**Rule for an execution agent:** the overseer assigns you exactly one issue + branch. Do not pick from this file — the overseer dispatches.
 
 ---
 
