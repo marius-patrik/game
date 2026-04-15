@@ -1,16 +1,21 @@
 import { signOut, tokenStore, useSession } from "@/auth/client";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/theme/theme-toggle";
+import { ZONES, type ZoneId } from "@game/shared";
 import { motion } from "framer-motion";
-import { Gamepad2, LogOut, Shield, Wifi, WifiOff } from "lucide-react";
+import { Gamepad2, LogOut, MapPin, Shield, Wifi, WifiOff } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 export function HUD({
   status,
   playerCount,
+  zoneId,
+  onTravel,
 }: {
   status: "idle" | "connecting" | "connected" | "error";
   playerCount: number;
+  zoneId: ZoneId;
+  onTravel: (zoneId: ZoneId) => void;
 }) {
   const { data: session } = useSession();
   const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
@@ -59,6 +64,24 @@ export function HUD({
                 {label}
               </span>
             </div>
+          </div>
+          <div
+            data-testid="zone-select"
+            className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/40 px-3 py-1.5 text-xs backdrop-blur-md"
+          >
+            <MapPin className="size-3.5 text-muted-foreground" />
+            <select
+              aria-label="Zone"
+              value={zoneId}
+              onChange={(e) => onTravel(e.target.value as ZoneId)}
+              className="bg-transparent text-foreground outline-none"
+            >
+              {Object.values(ZONES).map((z) => (
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="pointer-events-auto flex items-center gap-2">

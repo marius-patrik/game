@@ -1,5 +1,5 @@
 import { tokenStore } from "@/auth/client";
-import type { GameRoomState } from "@game/shared";
+import { DEFAULT_ZONE, type GameRoomState, type ZoneId } from "@game/shared";
 import { Client, type Room } from "colyseus.js";
 
 const endpoint =
@@ -8,7 +8,15 @@ const endpoint =
 
 export const client = new Client(endpoint);
 
-export async function joinGame(): Promise<Room<GameRoomState>> {
+export async function joinZone(zoneId: ZoneId = DEFAULT_ZONE): Promise<Room<GameRoomState>> {
   const token = tokenStore.get() ?? undefined;
-  return client.joinOrCreate<GameRoomState>("game", { token });
+  return client.joinOrCreate<GameRoomState>("zone", { zoneId, token });
+}
+
+export async function travel(
+  current: Room<GameRoomState> | undefined,
+  zoneId: ZoneId,
+): Promise<Room<GameRoomState>> {
+  if (current) await current.leave();
+  return joinZone(zoneId);
 }
