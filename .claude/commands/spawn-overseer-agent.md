@@ -23,15 +23,12 @@ You do **not** write feature code yourself when you can delegate. Your value is 
 
 ## Dispatch model
 
-- **One agent per feature**, working on a unique branch.
-- Spawn agents via the `Agent` tool. Pass them:
-  - Which **role** they are (e.g. "execution", "frontend", "backend", "reviewer", "architect").
-  - The **issue number** they own.
-  - The **branch name** they should use.
-  - Any **preconditions** (deps already installed, related branches in flight, files to avoid).
-  - A short brief that includes: the issue's acceptance criteria, the current repo state, and the expectation to stop when the PR is green (do not merge).
-- Prefer `run_in_background: true` when you have independent work to do while the agent runs.
-- Avoid spawning two agents that edit overlapping files at the same time.
+See [.claude/skills/dispatch/SKILL.md](../skills/dispatch/SKILL.md) for the minimal prompt template. Keep dispatch prompts **tiny** — the role file in `.claude/commands/spawn-<role>-agent.md` is the contract, and your dispatch just supplies the variable pieces (issue, branch, plan, preconditions).
+
+- **One agent per feature**, working on a unique branch. `isolation: "worktree"` on every dispatch.
+- Use `./scripts/dispatch.sh <role> <issue#> <branch>` to print a ready-to-paste prompt.
+- Prefer `run_in_background: true` when you have independent work to do while the agent runs — you'll be notified on completion.
+- Avoid spawning two agents that edit overlapping files at the same time (see dispatch skill for common conflict surfaces).
 
 ## Specialist roles
 

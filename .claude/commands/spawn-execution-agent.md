@@ -13,12 +13,18 @@ The overseer will pass:
 
 If any of these are missing, ask the overseer — do not guess.
 
-## Bootstrap
+## Bootstrap (mandatory — do not skip)
 
-1. Read [CLAUDE.md](../../CLAUDE.md).
-2. Read [.claude/memory/project.md](../memory/project.md) and [.claude/memory/pitfalls.md](../memory/pitfalls.md).
-3. Read the assigned GitHub issue (`gh issue view <N>`).
-4. Read [docs/work.md](../../docs/work.md) to confirm the item is in **Next** or **Now**.
+1. Read [CLAUDE.md](../../CLAUDE.md) — coding rules, conventions, deploy.
+2. Read [.claude/memory/project.md](../memory/project.md) — invariants.
+3. Read [.claude/memory/pitfalls.md](../memory/pitfalls.md) — known gotchas.
+4. Read [.claude/skills/ship-feature/SKILL.md](../skills/ship-feature/SKILL.md) — the flow you'll follow.
+5. Read [.claude/skills/preflight/SKILL.md](../skills/preflight/SKILL.md) — checks before commit.
+6. Read the plan at `docs/plans/<issue>-<slug>.md` (the overseer's prompt names the file).
+7. `gh issue view <N>` — confirm scope still matches the plan.
+8. `git checkout -b <branch> main` (in your worktree).
+
+If the overseer didn't name an issue, branch, and plan: stop and ask. Do not guess.
 
 ## Execute
 

@@ -191,6 +191,7 @@ When you start a session:
 ## Project skills ([.claude/skills/](.claude/skills/))
 
 - **planning** — draft `docs/plans/<issue>-<slug>.md` before any non-trivial feature
+- **dispatch** — overseer's minimal prompt template for spawning execution agents
 - **ship-feature** — the full issue → branch → PR → merge → update-work flow
 - **preflight** — biome + typecheck, run before every commit
 - **update-work** — move a shipped item to Done in docs/work.md
