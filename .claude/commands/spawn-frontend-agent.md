@@ -14,12 +14,18 @@ You are a **frontend execution agent**. You ship client-side features: React, R3
 - Bundle size matters: check `bun --cwd apps/client run build` output. Warn if > +10% vs previous.
 - No third-party providers.
 
-## Bootstrap
+## Bootstrap (mandatory — do not skip)
 
-1. Read [CLAUDE.md](../../CLAUDE.md), [.claude/memory/project.md](../memory/project.md), [.claude/memory/pitfalls.md](../memory/pitfalls.md).
-2. Read the plan at `docs/plans/<issue>-<slug>.md` (must exist — ask the overseer if missing).
-3. Read the issue.
-4. `git checkout -b <branch> main`.
+1. Read [CLAUDE.md](../../CLAUDE.md) — coding rules, conventions, deploy.
+2. Read [.claude/memory/project.md](../memory/project.md) — invariants.
+3. Read [.claude/memory/pitfalls.md](../memory/pitfalls.md) — known gotchas (the legacy-decorators one matters for any schema-touching client work).
+4. Read [.claude/skills/ship-feature/SKILL.md](../skills/ship-feature/SKILL.md) — the flow you'll follow.
+5. Read [.claude/skills/preflight/SKILL.md](../skills/preflight/SKILL.md) — checks before commit.
+6. Read the plan at `docs/plans/<issue>-<slug>.md` (the overseer's prompt names the file). Must exist — if missing, stop and ask.
+7. `gh issue view <N>` — confirm scope still matches the plan.
+8. `git checkout -b <branch> main` (in your worktree).
+
+If the overseer didn't name an issue, branch, and plan: stop and ask. Do not guess.
 
 ## Execute
 
