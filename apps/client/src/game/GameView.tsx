@@ -1,8 +1,10 @@
+import { VirtualJoystick } from "@/input/VirtualJoystick";
+import { isTouchDevice } from "@/input/isTouchDevice";
 import { useRoom } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Suspense, useCallback } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { HUD } from "./HUD";
 import { Scene } from "./Scene";
 import { useMovement } from "./useMovement";
@@ -11,6 +13,8 @@ export function GameView() {
   const { resolved } = useTheme();
   const room = useRoom();
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
+  const [touch, setTouch] = useState(false);
+  useEffect(() => setTouch(isTouchDevice()), []);
 
   const onMove = useCallback(
     (pos: { x: number; y: number; z: number }) => room.send("move", pos),
@@ -46,6 +50,7 @@ export function GameView() {
         zoneId={room.zoneId}
         onTravel={room.travel}
       />
+      {touch && room.sessionId ? <VirtualJoystick /> : null}
     </div>
   );
 }

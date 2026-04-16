@@ -9,11 +9,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { isTouchDevice } from "@/input/isTouchDevice";
 import { ThemeToggle } from "@/theme/theme-toggle";
 import { ZONES, type ZoneId } from "@game/shared";
 import { motion } from "framer-motion";
 import { Gamepad2, LogOut, MapPin, Shield, Wifi, WifiOff } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 export function HUD({
@@ -32,6 +33,8 @@ export function HUD({
   const [, setLocation] = useLocation();
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [touch, setTouch] = useState(false);
+  useEffect(() => setTouch(isTouchDevice()), []);
 
   async function onConfirmSignOut() {
     setSigningOut(true);
@@ -159,8 +162,9 @@ export function HUD({
         className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-2 sm:p-4"
       >
         <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:text-xs">
-          <span className="hidden sm:inline">WASD to move · drag to orbit · scroll to zoom</span>
-          <span className="sm:hidden">drag to orbit · pinch to zoom</span>
+          {touch
+            ? "joystick to move · drag to orbit · pinch to zoom"
+            : "WASD to move · drag to orbit · scroll to zoom"}
         </div>
       </motion.div>
     </>
