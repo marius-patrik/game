@@ -1,6 +1,7 @@
 import { type AuthContext, type Client, Room } from "@colyseus/core";
 import { DEFAULT_ZONE, GameRoomState, Player, type Vec3, type Zone, getZone } from "@game/shared";
 import { auth } from "../auth";
+import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
 import { log } from "../logger";
 import {
   DEFAULT_SECURITY,
@@ -16,6 +17,8 @@ export type SessionUser = { id: string; name: string; role: string };
 
 type PlayerSecurityState = { lastPos: Vec3; lastMoveAt: number };
 
+const SAVE_INTERVAL_MS = 10_000;
+
 export class GameRoom extends Room<GameRoomState> {
   override maxClients = 64;
   override state = new GameRoomState();
@@ -24,6 +27,7 @@ export class GameRoom extends Room<GameRoomState> {
   private rateLimiter = new RateLimiter(this.security.rateLimits);
   private violations = new ViolationTracker(this.security.violations);
   private playerSec = new Map<string, PlayerSecurityState>();
+  private saveInterval?: ReturnType<typeof setInterval>;
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -54,15 +58,29 @@ export class GameRoom extends Room<GameRoomState> {
     });
 
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
+    this.saveInterval = setInterval(() => this.flushAllPositions(), SAVE_INTERVAL_MS);
   }
 
-  override onJoin(client: Client<unknown, SessionUser>) {
+  override async onJoin(client: Client<unknown, SessionUser>) {
     const p = new Player();
     p.id = client.sessionId;
     p.name = client.auth?.name ?? "";
-    p.x = this.zone.spawn.x;
-    p.y = this.zone.spawn.y;
-    p.z = this.zone.spawn.z;
+
+    const userId = client.auth?.id;
+    let spawn: Vec3 = { x: this.zone.spawn.x, y: this.zone.spawn.y, z: this.zone.spawn.z };
+    if (userId) {
+      try {
+        const saved = await getPlayerLocation(userId, this.zone.id);
+        if (saved) {
+          spawn = { x: saved.x, y: saved.y, z: saved.z };
+        }
+      } catch (err) {
+        log.warn({ err, userId, zoneId: this.zone.id }, "failed to load player location");
+      }
+    }
+    p.x = spawn.x;
+    p.y = spawn.y;
+    p.z = spawn.z;
     this.state.players.set(client.sessionId, p);
     this.playerSec.set(client.sessionId, {
       lastPos: { x: p.x, y: p.y, z: p.z },
@@ -70,11 +88,25 @@ export class GameRoom extends Room<GameRoomState> {
     });
   }
 
-  override onLeave(client: Client) {
+  override async onLeave(client: Client<unknown, SessionUser>) {
+    const p = this.state.players.get(client.sessionId);
+    const userId = client.auth?.id;
+    if (p && userId) {
+      try {
+        await savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z });
+      } catch (err) {
+        log.warn({ err, userId, zoneId: this.zone.id }, "failed to save player location on leave");
+      }
+    }
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
+  }
+
+  override async onDispose() {
+    if (this.saveInterval) clearInterval(this.saveInterval);
+    await this.flushAllPositions();
   }
 
   private handleMove(client: Client<unknown, SessionUser>, msg: MoveMessage) {
@@ -123,6 +155,22 @@ export class GameRoom extends Room<GameRoomState> {
       );
       client.leave(4003);
     }
+  }
+
+  private async flushAllPositions() {
+    const saves: Promise<void>[] = [];
+    for (const client of this.clients) {
+      const typed = client as Client<unknown, SessionUser>;
+      const p = this.state.players.get(typed.sessionId);
+      const userId = typed.auth?.id;
+      if (!p || !userId) continue;
+      saves.push(
+        savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
+          log.warn({ err, userId, zoneId: this.zone.id }, "periodic save failed");
+        }),
+      );
+    }
+    await Promise.all(saves);
   }
 
   private tick(_dt: number) {
