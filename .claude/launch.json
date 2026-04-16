@@ -4,13 +4,13 @@
     {
       "name": "client",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["--cwd", "apps/client", "run", "dev"],
+      "runtimeArgs": ["run", "--filter", "@game/client", "dev"],
       "port": 3000
     },
     {
       "name": "server",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["--cwd", "apps/server", "run", "dev"],
+      "runtimeArgs": ["run", "--filter", "@game/server", "dev"],
       "port": 2567
     }
   ]
