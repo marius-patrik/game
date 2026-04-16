@@ -16,11 +16,11 @@ _Nothing in flight._ Pick the top of **Next**.
 
 Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 
-- [ ] #17 — Shadcn component set (card, dialog, dropdown-menu, input, label, table, toast). Mobile + desktop verified per ADR-0002.
-- [ ] #32 — Input abstraction — keyboard/mouse + touch, per-modality mapping (new, per ADR-0002).
-- [ ] #18 — Anti-cheat baseline — input rate limits, movement validation.
-- [ ] #19 — Zone persistence — snapshot/restore per zone in SQLite.
-- [ ] #20 — Asset pipeline — gltf-transform, Draco, KTX2.
+- [ ] ~~#17 — Shadcn component set~~ ✅ merged (#33).
+- [ ] ~~#32 — Input abstraction~~ ✅ merged (#34).
+- [ ] ~~#18 — Anti-cheat baseline~~ ✅ merged (#35).
+- [ ] ~~#19 — Zone persistence~~ ✅ merged (#36).
+- [ ] #20 — Asset pipeline — Draco + KTX2 + meshopt glTF loader, quality tier detection, tier-aware LOD, tier-scaled DPR/postFX/shadows per ADR-0002.
 - [ ] #21 — Audio engine — Howler with positional audio bridged to R3F.
 - [ ] #22 — Particle FX library — three-nebula with one reference spell effect.
 - [ ] #23 — theatre.js cinematic — zone transition sequence.

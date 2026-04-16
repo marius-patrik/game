@@ -7,7 +7,8 @@
     "dev": "rsbuild dev",
     "build": "rsbuild build",
     "preview": "rsbuild preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -57,6 +58,7 @@
     "postcss": "^8.4.49",
     "tailwindcss-animate": "^1.0.7",
     "@theatre/studio": "^0.7.2",
+    "@types/bun": "^1.1.14",
     "typescript": "^5.7.2"
   }
 }
