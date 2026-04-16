@@ -1,4 +1,5 @@
 import { TierAwareLOD, useQuality } from "@/assets";
+import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
@@ -11,13 +12,22 @@ import { Players } from "./Players";
 export function Scene({
   players,
   sessionId,
+  cinematicActive = false,
+  onCinematicComplete,
 }: {
   players: Map<string, PlayerSnapshot>;
   sessionId?: string;
+  cinematicActive?: boolean;
+  onCinematicComplete?: () => void;
 }) {
   const cubeGroup = useRef<Group>(null);
   const { resolved } = useTheme();
   const { tier, budget } = useQuality();
+
+  useCameraIntro({
+    active: cinematicActive,
+    onComplete: onCinematicComplete ?? (() => {}),
+  });
   const palette =
     resolved === "dark"
       ? {
@@ -105,7 +115,7 @@ export function Scene({
 
       <gridHelper args={[40, 40, palette.gridMajor, palette.gridMinor]} />
 
-      <OrbitControls makeDefault enableDamping dampingFactor={0.08} />
+      <OrbitControls makeDefault enableDamping dampingFactor={0.08} enabled={!cinematicActive} />
     </>
   );
 }
