@@ -14,25 +14,18 @@ _Nothing in flight._ Pick the top of **Next**.
 
 ## Next
 
-_Next is empty — the #17→#25 block is all landed. Run the `maintenance` skill or file new issues before picking up more work._
+Pick top-down. Each line is a filed issue with explicit Scope + Acceptance. Wave 1 of the "demoable MVP" push — dispatched in parallel by the overseer.
 
-Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
-
-- [ ] ~~#17 — Shadcn component set~~ ✅ merged (#33).
-- [ ] ~~#32 — Input abstraction~~ ✅ merged (#34).
-- [ ] ~~#18 — Anti-cheat baseline~~ ✅ merged (#35).
-- [ ] ~~#19 — Zone persistence~~ ✅ merged (#36).
-- [ ] ~~#20 — Asset pipeline~~ ✅ merged (#37).
-- [ ] ~~#21 — Audio engine~~ ✅ merged (#38).
-- [ ] ~~#22 — Particle FX library~~ ✅ merged (#39).
-- [ ] ~~#23 — theatre.js cinematic~~ ✅ merged (#40).
-- [ ] ~~#24 — Combat loop~~ ✅ merged (#41).
-- [ ] ~~#25 — Inventory + progression persistence~~ ✅ merged (#42).
+- [ ] [#45](../../issues/45) — Hostile mobs + loot drops. Plan: [docs/plans/45-mobs.md](plans/45-mobs.md).
+- [ ] [#46](../../issues/46) — Chat (global + zone channels). Plan: [docs/plans/46-chat.md](plans/46-chat.md).
+- [ ] [#47](../../issues/47) — Visible portals + zone polish. Plan: [docs/plans/47-portals.md](plans/47-portals.md).
 
 ## Backlog
 
-- [ ] Admin players page — live player list via REST + polling (or WS subscription).
-- [ ] Admin rooms page — Colyseus monitor iframe or custom view.
+- [ ] Admin live-sessions view — cross-reference DB users with live Colyseus clients (currently `/admin/players` shows registered accounts only; `/admin/rooms` and overview already show live counts).
+- [ ] Mob variety — types beyond default (ranged, boss), aggro tables, pathfinding. Follow-up to #45.
+- [ ] Chat persistence + moderation — DB-backed history, profanity filter, DMs. Follow-up to #46.
+- [ ] Gated portals + cinematic transition + minimap. Follow-up to #47.
 
 ## Done
 
