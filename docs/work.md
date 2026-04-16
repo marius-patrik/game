@@ -16,7 +16,8 @@ _Nothing in flight._ Pick the top of **Next**.
 
 Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 
-- [ ] #17 — Shadcn component set (card, dialog, dropdown-menu, input, label, table, toast).
+- [ ] #17 — Shadcn component set (card, dialog, dropdown-menu, input, label, table, toast). Mobile + desktop verified per ADR-0002.
+- [ ] #32 — Input abstraction — keyboard/mouse + touch, per-modality mapping (new, per ADR-0002).
 - [ ] #18 — Anti-cheat baseline — input rate limits, movement validation.
 - [ ] #19 — Zone persistence — snapshot/restore per zone in SQLite.
 - [ ] #20 — Asset pipeline — gltf-transform, Draco, KTX2.
@@ -42,3 +43,5 @@ Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 - [x] Biome + typecheck in CI — `.github/workflows/ci.yml` runs on every PR. [#7](../../issues/7)
 - [x] Server-side logging rotation — `pino-roll` daily + 20 MB, 7-day retention. [#16](../../issues/16)
 - [x] Overseer/execution agent infra — spawn commands, dispatch skill, role-scoped bootstraps. [#30](../../pull/30)
+- [x] Fresh-clone dev boot — `embedded.ts` + `migrations-embedded.ts` reset to stubs. [#29](../../issues/29) / [#31](../../pull/31)
+- [x] `/flush` handoff command + ADR-0002 mobile+desktop invariant.
