@@ -1,8 +1,34 @@
 import { type AuthContext, type Client, Room } from "@colyseus/core";
-import { DEFAULT_ZONE, GameRoomState, Player, type Vec3, type Zone, getZone } from "@game/shared";
+import { ArraySchema } from "@colyseus/schema";
+import {
+  DEFAULT_ZONE,
+  GameRoomState,
+  InventorySlot,
+  type ItemId,
+  Player,
+  type Vec3,
+  WorldDrop,
+  type Zone,
+  applyXp,
+  getItem,
+  getZone,
+  isItemId,
+  xpToNextLevel,
+} from "@game/shared";
 import { auth } from "../auth";
 import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
+import { loadProgress, saveProgress } from "../db/playerProgress";
+import {
+  DEFAULT_LOOT,
+  INVENTORY_SLOT_CAP,
+  type LootConfig,
+  type Slot,
+  addItem,
+  countItem,
+  findSlotIndex,
+  removeItem,
+} from "../inventory";
 import { log } from "../logger";
 import {
   DEFAULT_SECURITY,
@@ -13,6 +39,10 @@ import {
 } from "../security";
 
 type MoveMessage = { x: number; y: number; z: number };
+type UseMessage = { itemId: string };
+type EquipMessage = { itemId: string };
+type PickupMessage = { dropId: string };
+type DropMessage = { itemId: string; qty: number };
 type JoinOptions = { token?: string; zoneId?: string };
 export type SessionUser = { id: string; name: string; role: string };
 
@@ -20,6 +50,7 @@ type PlayerSecurityState = { lastPos: Vec3; lastMoveAt: number };
 type PlayerCombatState = { invulnerableUntil: number };
 
 const SAVE_INTERVAL_MS = 10_000;
+const LOOT_SPAWN_INTERVAL_MS = 5_000;
 
 export class GameRoom extends Room<GameRoomState> {
   override maxClients = 64;
@@ -27,11 +58,15 @@ export class GameRoom extends Room<GameRoomState> {
   private zone!: Zone;
   private security: SecurityConfig = DEFAULT_SECURITY;
   private combat: CombatConfig = DEFAULT_COMBAT;
+  private loot: LootConfig = DEFAULT_LOOT;
   private rateLimiter = new RateLimiter(this.security.rateLimits);
   private violations = new ViolationTracker(this.security.violations);
   private playerSec = new Map<string, PlayerSecurityState>();
   private playerCombat = new Map<string, PlayerCombatState>();
+  private playerUserId = new Map<string, string>();
   private saveInterval?: ReturnType<typeof setInterval>;
+  private lootInterval?: ReturnType<typeof setInterval>;
+  private dropCounter = 0;
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -60,13 +95,25 @@ export class GameRoom extends Room<GameRoomState> {
     this.onMessage<MoveMessage>("move", (client, msg) => {
       this.handleMove(client, msg);
     });
-
     this.onMessage("attack", (client) => {
       this.handleAttack(client);
     });
+    this.onMessage<PickupMessage>("pickup", (client, msg) => {
+      this.handlePickup(client, msg);
+    });
+    this.onMessage<UseMessage>("use", (client, msg) => {
+      this.handleUse(client, msg);
+    });
+    this.onMessage<EquipMessage>("equip", (client, msg) => {
+      this.handleEquip(client, msg);
+    });
+    this.onMessage<DropMessage>("drop", (client, msg) => {
+      this.handleDrop(client, msg);
+    });
 
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
-    this.saveInterval = setInterval(() => this.flushAllPositions(), SAVE_INTERVAL_MS);
+    this.saveInterval = setInterval(() => this.flushAllProgress(), SAVE_INTERVAL_MS);
+    this.lootInterval = setInterval(() => this.tickLootSpawns(), LOOT_SPAWN_INTERVAL_MS);
   }
 
   override async onJoin(client: Client<unknown, SessionUser>) {
@@ -77,15 +124,37 @@ export class GameRoom extends Room<GameRoomState> {
     const userId = client.auth?.id;
     let spawn: Vec3 = { x: this.zone.spawn.x, y: this.zone.spawn.y, z: this.zone.spawn.z };
     if (userId) {
+      this.playerUserId.set(client.sessionId, userId);
       try {
         const saved = await getPlayerLocation(userId, this.zone.id);
-        if (saved) {
-          spawn = { x: saved.x, y: saved.y, z: saved.z };
-        }
+        if (saved) spawn = { x: saved.x, y: saved.y, z: saved.z };
       } catch (err) {
         log.warn({ err, userId, zoneId: this.zone.id }, "failed to load player location");
       }
+      try {
+        const { progress, inventory } = await loadProgress(userId);
+        if (progress) {
+          p.level = progress.level;
+          p.xp = progress.xp;
+          p.xpToNext = xpToNextLevel(progress.level);
+          p.equippedItemId = progress.equippedItemId;
+        } else {
+          p.xpToNext = xpToNextLevel(1);
+        }
+        for (const row of inventory) {
+          const slot = new InventorySlot();
+          slot.itemId = row.itemId;
+          slot.qty = row.qty;
+          p.inventory.push(slot);
+        }
+      } catch (err) {
+        log.warn({ err, userId }, "failed to load player progress");
+        p.xpToNext = xpToNextLevel(1);
+      }
+    } else {
+      p.xpToNext = xpToNextLevel(1);
     }
+
     p.x = spawn.x;
     p.y = spawn.y;
     p.z = spawn.z;
@@ -111,17 +180,25 @@ export class GameRoom extends Room<GameRoomState> {
       } catch (err) {
         log.warn({ err, userId, zoneId: this.zone.id }, "failed to save player location on leave");
       }
+      try {
+        await this.persistProgress(userId, p);
+      } catch (err) {
+        log.warn({ err, userId }, "failed to save player progress on leave");
+      }
     }
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
     this.playerCombat.delete(client.sessionId);
+    this.playerUserId.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
   }
 
   override async onDispose() {
     if (this.saveInterval) clearInterval(this.saveInterval);
+    if (this.lootInterval) clearInterval(this.lootInterval);
     await this.flushAllPositions();
+    await this.flushAllProgress();
   }
 
   private handleMove(client: Client<unknown, SessionUser>, msg: MoveMessage) {
@@ -175,7 +252,9 @@ export class GameRoom extends Room<GameRoomState> {
       alive: attacker.alive,
       hp: attacker.hp,
     };
-    const result = resolveAttack(attackerC, candidates, this.combat);
+    const bonus = this.damageBonusFor(attacker);
+    const cfg: CombatConfig = { ...this.combat, attackDamage: this.combat.attackDamage + bonus };
+    const result = resolveAttack(attackerC, candidates, cfg);
     if (!result.ok) return;
 
     const target = this.state.players.get(result.targetId);
@@ -186,15 +265,151 @@ export class GameRoom extends Room<GameRoomState> {
     target.hp = result.newHp;
     if (result.killed) {
       target.alive = false;
+      this.spawnKillDrop(target);
       const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
       this.scheduleRespawn(result.targetId, targetClient);
     }
 
-    this.broadcast(
-      "attack",
-      { attackerId: client.sessionId, targetId: result.targetId, killed: result.killed },
-      { except: [] },
-    );
+    this.broadcast("attack", {
+      attackerId: client.sessionId,
+      targetId: result.targetId,
+      killed: result.killed,
+    });
+  }
+
+  private damageBonusFor(p: Player): number {
+    if (!p.equippedItemId) return 0;
+    const def = getItem(p.equippedItemId);
+    if (!def || def.kind !== "weapon") return 0;
+    if (countItem(this.slotsFromPlayer(p), p.equippedItemId) <= 0) return 0;
+    return def.damageBonus ?? 0;
+  }
+
+  private slotsFromPlayer(p: Player): Slot[] {
+    const out: Slot[] = [];
+    for (const s of p.inventory) {
+      out.push({ itemId: s.itemId, qty: s.qty });
+    }
+    return out;
+  }
+
+  private writeSlotsToPlayer(p: Player, slots: readonly Slot[]) {
+    const next = new ArraySchema<InventorySlot>();
+    for (const s of slots) {
+      const slot = new InventorySlot();
+      slot.itemId = s.itemId;
+      slot.qty = s.qty;
+      next.push(slot);
+    }
+    p.inventory = next;
+  }
+
+  private handlePickup(client: Client<unknown, SessionUser>, msg: PickupMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || !p.alive) return;
+    if (!this.rateLimiter.consume(client.sessionId, "move")) return;
+    const drop = this.state.drops.get(msg?.dropId ?? "");
+    if (!drop) return;
+    const dx = drop.x - p.x;
+    const dz = drop.z - p.z;
+    if (dx * dx + dz * dz > this.loot.pickupRange * this.loot.pickupRange) return;
+
+    const currentSlots = this.slotsFromPlayer(p);
+    const result = addItem(currentSlots, drop.itemId, drop.qty, INVENTORY_SLOT_CAP);
+    if (!result.ok) return;
+    this.writeSlotsToPlayer(p, result.slots);
+    this.state.drops.delete(drop.id);
+
+    const def = getItem(drop.itemId);
+    if (def?.xpReward) this.awardXp(p, def.xpReward);
+
+    client.send("pickup", { itemId: drop.itemId, qty: result.added });
+  }
+
+  private handleUse(client: Client<unknown, SessionUser>, msg: UseMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || !p.alive) return;
+    if (!this.rateLimiter.consume(client.sessionId, "attack")) return;
+    const itemId = msg?.itemId;
+    if (!itemId || !isItemId(itemId)) return;
+    const def = getItem(itemId);
+    if (!def || def.kind !== "consumable") return;
+    if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) return;
+
+    const result = removeItem(this.slotsFromPlayer(p), itemId, 1);
+    if (!result.ok) return;
+    this.writeSlotsToPlayer(p, result.slots);
+
+    if (def.healAmount) {
+      p.hp = Math.min(p.maxHp, p.hp + def.healAmount);
+    }
+    client.send("used", { itemId, hp: p.hp });
+  }
+
+  private handleEquip(client: Client<unknown, SessionUser>, msg: EquipMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p) return;
+    const itemId = msg?.itemId ?? "";
+    if (itemId === "") {
+      p.equippedItemId = "";
+      return;
+    }
+    if (!isItemId(itemId)) return;
+    const def = getItem(itemId);
+    if (!def || def.kind !== "weapon") return;
+    if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) return;
+    p.equippedItemId = itemId;
+  }
+
+  private handleDrop(client: Client<unknown, SessionUser>, msg: DropMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || !p.alive) return;
+    const qty = Math.max(1, Math.floor(msg?.qty ?? 1));
+    const itemId = msg?.itemId;
+    if (!itemId || !isItemId(itemId)) return;
+
+    const result = removeItem(this.slotsFromPlayer(p), itemId, qty);
+    if (!result.ok) return;
+    this.writeSlotsToPlayer(p, result.slots);
+
+    if (p.equippedItemId === itemId && countItem(result.slots, itemId) <= 0) {
+      p.equippedItemId = "";
+    }
+
+    this.spawnDrop(itemId as ItemId, qty, { x: p.x, y: p.y, z: p.z });
+  }
+
+  private awardXp(p: Player, amount: number) {
+    const r = applyXp(p.level, p.xp, amount);
+    p.level = r.level;
+    p.xp = r.xp;
+    p.xpToNext = r.xpToNext;
+    if (r.leveledUp) {
+      p.maxHp = this.combat.maxHp + (r.level - 1) * 10;
+      p.hp = p.maxHp;
+    }
+  }
+
+  private spawnKillDrop(victim: Player) {
+    this.spawnDrop(this.loot.killDropItemId, this.loot.killDropQty, {
+      x: victim.x,
+      y: victim.y,
+      z: victim.z,
+    });
+  }
+
+  private spawnDrop(itemId: ItemId, qty: number, pos: Vec3) {
+    if (!isItemId(itemId)) return;
+    this.dropCounter += 1;
+    const id = `d${this.dropCounter.toString(36)}`;
+    const drop = new WorldDrop();
+    drop.id = id;
+    drop.itemId = itemId;
+    drop.qty = qty;
+    drop.x = pos.x;
+    drop.y = pos.y;
+    drop.z = pos.z;
+    this.state.drops.set(id, drop);
   }
 
   private scheduleRespawn(targetId: string, client: Client | undefined) {
@@ -205,7 +420,7 @@ export class GameRoom extends Room<GameRoomState> {
       p.x = this.zone.spawn.x;
       p.y = this.zone.spawn.y;
       p.z = this.zone.spawn.z;
-      p.hp = this.combat.maxHp;
+      p.hp = p.maxHp;
       p.alive = true;
       combatState.invulnerableUntil = Date.now() + this.combat.invulnerableAfterRespawnMs;
       const sec = this.playerSec.get(targetId);
@@ -213,9 +428,7 @@ export class GameRoom extends Room<GameRoomState> {
         sec.lastPos = { x: p.x, y: p.y, z: p.z };
         sec.lastMoveAt = Date.now();
       }
-      if (client) {
-        client.send("respawned", { x: p.x, y: p.y, z: p.z });
-      }
+      if (client) client.send("respawned", { x: p.x, y: p.y, z: p.z });
     }, this.combat.respawnDelayMs);
   }
 
@@ -249,6 +462,45 @@ export class GameRoom extends Room<GameRoomState> {
       );
     }
     await Promise.all(saves);
+  }
+
+  private async flushAllProgress() {
+    const saves: Promise<void>[] = [];
+    for (const client of this.clients) {
+      const typed = client as Client<unknown, SessionUser>;
+      const p = this.state.players.get(typed.sessionId);
+      const userId = typed.auth?.id;
+      if (!p || !userId) continue;
+      saves.push(
+        this.persistProgress(userId, p).catch((err) => {
+          log.warn({ err, userId }, "periodic progress save failed");
+        }),
+      );
+    }
+    await Promise.all(saves);
+  }
+
+  private async persistProgress(userId: string, p: Player) {
+    await saveProgress({
+      userId,
+      level: p.level,
+      xp: p.xp,
+      equippedItemId: p.equippedItemId,
+      inventory: this.slotsFromPlayer(p),
+    });
+  }
+
+  private tickLootSpawns() {
+    let potions = 0;
+    for (const [, d] of this.state.drops) {
+      if (d.itemId === "heal_potion") potions += 1;
+    }
+    if (potions >= this.loot.potionMaxInZone) return;
+    const min = this.zone.bounds.min;
+    const max = this.zone.bounds.max;
+    const x = min.x + Math.random() * (max.x - min.x);
+    const z = min.z + Math.random() * (max.z - min.z);
+    this.spawnDrop("heal_potion", 1, { x, y: 0, z });
   }
 
   private tick(_dt: number) {

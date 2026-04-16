@@ -1,21 +1,24 @@
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
-import type { PlayerSnapshot } from "@/net/useRoom";
+import type { DropSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
+import { Drops } from "./Drops";
 import { Players } from "./Players";
 
 export function Scene({
   players,
+  drops,
   sessionId,
   cinematicActive = false,
   onCinematicComplete,
 }: {
   players: Map<string, PlayerSnapshot>;
+  drops: Map<string, DropSnapshot>;
   sessionId?: string;
   cinematicActive?: boolean;
   onCinematicComplete?: () => void;
@@ -107,6 +110,7 @@ export function Scene({
       </group>
 
       <Players players={players} sessionId={sessionId} />
+      <Drops drops={drops} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[40, 40]} />

@@ -10,6 +10,9 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AttackButton } from "./AttackButton";
 import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
+import { InventoryBar } from "./InventoryBar";
+import { PickupPrompt } from "./PickupPrompt";
+import { ProgressBar } from "./ProgressBar";
 import { Scene } from "./Scene";
 import { useAttack } from "./useAttack";
 import { useMovement } from "./useMovement";
@@ -49,6 +52,9 @@ function GameViewInner() {
     [room.send],
   );
   const onAttack = useCallback(() => room.send("attack"), [room.send]);
+  const onPickup = useCallback((dropId: string) => room.send("pickup", { dropId }), [room.send]);
+  const onUse = useCallback((itemId: string) => room.send("use", { itemId }), [room.send]);
+  const onEquip = useCallback((itemId: string) => room.send("equip", { itemId }), [room.send]);
 
   const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
   const alive = self?.alive ?? true;
@@ -80,6 +86,7 @@ function GameViewInner() {
         <Suspense fallback={null}>
           <Scene
             players={room.players}
+            drops={room.drops}
             sessionId={room.sessionId}
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
@@ -103,6 +110,13 @@ function GameViewInner() {
         <>
           <VirtualJoystick />
           <AttackButton disabled={!alive} />
+        </>
+      ) : null}
+      {!cinematicActive && room.sessionId ? (
+        <>
+          <ProgressBar player={self} />
+          <InventoryBar player={self} onUse={onUse} onEquip={onEquip} />
+          <PickupPrompt player={self} drops={room.drops} onPickup={onPickup} />
         </>
       ) : null}
       <DeathOverlay

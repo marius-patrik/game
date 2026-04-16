@@ -1,4 +1,9 @@
-import { MapSchema, Schema, type } from "@colyseus/schema";
+import { ArraySchema, MapSchema, Schema, type } from "@colyseus/schema";
+
+export class InventorySlot extends Schema {
+  @type("string") itemId = "";
+  @type("number") qty = 0;
+}
 
 export class Player extends Schema {
   @type("string") id = "";
@@ -10,8 +15,23 @@ export class Player extends Schema {
   @type("number") hp = 100;
   @type("number") maxHp = 100;
   @type("boolean") alive = true;
+  @type("number") level = 1;
+  @type("number") xp = 0;
+  @type("number") xpToNext = 100;
+  @type("string") equippedItemId = "";
+  @type([InventorySlot]) inventory = new ArraySchema<InventorySlot>();
+}
+
+export class WorldDrop extends Schema {
+  @type("string") id = "";
+  @type("string") itemId = "";
+  @type("number") qty = 0;
+  @type("number") x = 0;
+  @type("number") y = 0;
+  @type("number") z = 0;
 }
 
 export class GameRoomState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
+  @type({ map: WorldDrop }) drops = new MapSchema<WorldDrop>();
 }
