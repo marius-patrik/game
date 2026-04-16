@@ -1,3 +1,4 @@
+import { QualityProvider, useQuality } from "@/assets";
 import { VirtualJoystick } from "@/input/VirtualJoystick";
 import { isTouchDevice } from "@/input/isTouchDevice";
 import { useRoom } from "@/net/useRoom";
@@ -10,7 +11,16 @@ import { Scene } from "./Scene";
 import { useMovement } from "./useMovement";
 
 export function GameView() {
+  return (
+    <QualityProvider>
+      <GameViewInner />
+    </QualityProvider>
+  );
+}
+
+function GameViewInner() {
   const { resolved } = useTheme();
+  const { budget } = useQuality();
   const room = useRoom();
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
   const [touch, setTouch] = useState(false);
@@ -32,16 +42,18 @@ export function GameView() {
     <div className="relative h-full w-full" style={{ background: bg }}>
       <Canvas
         shadows
-        dpr={[1, 2]}
+        dpr={[1, budget.maxDPR]}
         camera={{ position: [4, 4, 8], fov: 55 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
         <Suspense fallback={null}>
           <Scene players={room.players} sessionId={room.sessionId} />
-          <EffectComposer multisampling={0}>
-            <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
-            <Vignette eskil={false} offset={0.15} darkness={0.6} />
-          </EffectComposer>
+          {budget.postFX ? (
+            <EffectComposer multisampling={0}>
+              <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
+              <Vignette eskil={false} offset={0.15} darkness={0.6} />
+            </EffectComposer>
+          ) : null}
         </Suspense>
       </Canvas>
       <HUD

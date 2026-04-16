@@ -1,9 +1,10 @@
+import { TierAwareLOD, useQuality } from "@/assets";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import type { Mesh } from "three";
+import type { Group } from "three";
 import { Players } from "./Players";
 
 export function Scene({
@@ -13,8 +14,9 @@ export function Scene({
   players: Map<string, PlayerSnapshot>;
   sessionId?: string;
 }) {
-  const cube = useRef<Mesh>(null);
+  const cubeGroup = useRef<Group>(null);
   const { resolved } = useTheme();
+  const { tier, budget } = useQuality();
   const palette =
     resolved === "dark"
       ? {
@@ -35,10 +37,20 @@ export function Scene({
         };
 
   useFrame((_, dt) => {
-    if (!cube.current) return;
-    cube.current.rotation.x += dt * 0.4;
-    cube.current.rotation.y += dt * 0.6;
+    if (!cubeGroup.current) return;
+    cubeGroup.current.rotation.x += dt * 0.4;
+    cubeGroup.current.rotation.y += dt * 0.6;
   });
+
+  const material = (
+    <meshStandardMaterial
+      color="#a78bfa"
+      emissive="#6d28d9"
+      emissiveIntensity={0.35}
+      metalness={0.5}
+      roughness={0.18}
+    />
+  );
 
   return (
     <>
@@ -49,21 +61,34 @@ export function Scene({
         position={[6, 10, 4]}
         intensity={1.4}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[budget.shadowMapSize, budget.shadowMapSize]}
       />
       <Environment preset={palette.preset} />
 
       <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.6}>
-        <mesh ref={cube} castShadow position={[0, 3, 0]}>
-          <boxGeometry args={[1.4, 1.4, 1.4]} />
-          <meshStandardMaterial
-            color="#a78bfa"
-            emissive="#6d28d9"
-            emissiveIntensity={0.35}
-            metalness={0.5}
-            roughness={0.18}
+        <group ref={cubeGroup} position={[0, 3, 0]}>
+          <TierAwareLOD
+            tier={tier}
+            high={
+              <mesh castShadow>
+                <icosahedronGeometry args={[1, 3]} />
+                {material}
+              </mesh>
+            }
+            medium={
+              <mesh castShadow>
+                <icosahedronGeometry args={[1, 1]} />
+                {material}
+              </mesh>
+            }
+            low={
+              <mesh castShadow>
+                <boxGeometry args={[1.4, 1.4, 1.4]} />
+                {material}
+              </mesh>
+            }
           />
-        </mesh>
+        </group>
       </Float>
 
       <Players players={players} sessionId={sessionId} />
