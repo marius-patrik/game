@@ -1,3 +1,6 @@
+import { readMoveIntent } from "@/input/intentStore";
+import type { MoveIntent } from "@/input/types";
+import { useKeyboardSource } from "@/input/useKeyboardSource";
 import { useEffect, useRef } from "react";
 
 type MoveFn = (pos: { x: number; y: number; z: number }) => void;
@@ -16,51 +19,24 @@ export function useMovement({
   initial: { x: number; y: number; z: number };
   onSend: MoveFn;
 }) {
-  const keys = useRef<Record<string, boolean>>({});
   const pos = useRef({ ...initial });
   const lastPos = useRef({ ...initial });
 
-  useEffect(() => {
-    if (!enabled) return;
-    const down = (e: KeyboardEvent) => {
-      keys.current[e.key.toLowerCase()] = true;
-    };
-    const up = (e: KeyboardEvent) => {
-      keys.current[e.key.toLowerCase()] = false;
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, [enabled]);
+  useKeyboardSource(enabled);
 
   useEffect(() => {
     if (!enabled) return;
     let last = performance.now();
     let sinceSend = 0;
+    const intent: MoveIntent = { x: 0, z: 0 };
     const interval = setInterval(() => {
       const now = performance.now();
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      const k = keys.current;
-      let dx = 0;
-      let dz = 0;
-      if (k.w || k.arrowup) dz -= 1;
-      if (k.s || k.arrowdown) dz += 1;
-      if (k.a || k.arrowleft) dx -= 1;
-      if (k.d || k.arrowright) dx += 1;
-      if (dx || dz) {
-        const len = Math.hypot(dx, dz);
-        pos.current.x = Math.max(
-          -BOUNDS,
-          Math.min(BOUNDS, pos.current.x + (dx / len) * SPEED * dt),
-        );
-        pos.current.z = Math.max(
-          -BOUNDS,
-          Math.min(BOUNDS, pos.current.z + (dz / len) * SPEED * dt),
-        );
+      readMoveIntent(intent);
+      if (intent.x || intent.z) {
+        pos.current.x = Math.max(-BOUNDS, Math.min(BOUNDS, pos.current.x + intent.x * SPEED * dt));
+        pos.current.z = Math.max(-BOUNDS, Math.min(BOUNDS, pos.current.z + intent.z * SPEED * dt));
       }
       sinceSend += dt;
       const moved =
