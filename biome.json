@@ -45,7 +45,8 @@
       "apps/*/dist",
       "apps/*/build",
       "apps/server/src/static/embedded.ts",
-      "apps/server/src/db/migrations-embedded.ts"
+      "apps/server/src/db/migrations-embedded.ts",
+      "apps/server/drizzle/meta"
     ]
   }
 }
