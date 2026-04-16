@@ -1,6 +1,7 @@
 import { type AuthContext, type Client, Room } from "@colyseus/core";
 import { DEFAULT_ZONE, GameRoomState, Player, type Vec3, type Zone, getZone } from "@game/shared";
 import { auth } from "../auth";
+import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
 import { log } from "../logger";
 import {
@@ -16,6 +17,7 @@ type JoinOptions = { token?: string; zoneId?: string };
 export type SessionUser = { id: string; name: string; role: string };
 
 type PlayerSecurityState = { lastPos: Vec3; lastMoveAt: number };
+type PlayerCombatState = { invulnerableUntil: number };
 
 const SAVE_INTERVAL_MS = 10_000;
 
@@ -24,9 +26,11 @@ export class GameRoom extends Room<GameRoomState> {
   override state = new GameRoomState();
   private zone!: Zone;
   private security: SecurityConfig = DEFAULT_SECURITY;
+  private combat: CombatConfig = DEFAULT_COMBAT;
   private rateLimiter = new RateLimiter(this.security.rateLimits);
   private violations = new ViolationTracker(this.security.violations);
   private playerSec = new Map<string, PlayerSecurityState>();
+  private playerCombat = new Map<string, PlayerCombatState>();
   private saveInterval?: ReturnType<typeof setInterval>;
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
@@ -57,6 +61,10 @@ export class GameRoom extends Room<GameRoomState> {
       this.handleMove(client, msg);
     });
 
+    this.onMessage("attack", (client) => {
+      this.handleAttack(client);
+    });
+
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
     this.saveInterval = setInterval(() => this.flushAllPositions(), SAVE_INTERVAL_MS);
   }
@@ -81,10 +89,16 @@ export class GameRoom extends Room<GameRoomState> {
     p.x = spawn.x;
     p.y = spawn.y;
     p.z = spawn.z;
+    p.hp = this.combat.maxHp;
+    p.maxHp = this.combat.maxHp;
+    p.alive = true;
     this.state.players.set(client.sessionId, p);
     this.playerSec.set(client.sessionId, {
       lastPos: { x: p.x, y: p.y, z: p.z },
       lastMoveAt: Date.now(),
+    });
+    this.playerCombat.set(client.sessionId, {
+      invulnerableUntil: Date.now() + this.combat.invulnerableAfterRespawnMs,
     });
   }
 
@@ -100,6 +114,7 @@ export class GameRoom extends Room<GameRoomState> {
     }
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
+    this.playerCombat.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
   }
@@ -139,6 +154,69 @@ export class GameRoom extends Room<GameRoomState> {
     if (!result.ok) {
       this.recordViolation(client, p, `movement:${result.reason}`);
     }
+  }
+
+  private handleAttack(client: Client<unknown, SessionUser>) {
+    const attacker = this.state.players.get(client.sessionId);
+    if (!attacker || !attacker.alive) return;
+
+    if (!this.rateLimiter.consume(client.sessionId, "attack")) {
+      this.recordViolation(client, attacker, "rate_limit:attack");
+      return;
+    }
+
+    const candidates: Combatant[] = [];
+    this.state.players.forEach((p, id) => {
+      candidates.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive, hp: p.hp });
+    });
+    const attackerC: Combatant = {
+      id: client.sessionId,
+      pos: { x: attacker.x, y: attacker.y, z: attacker.z },
+      alive: attacker.alive,
+      hp: attacker.hp,
+    };
+    const result = resolveAttack(attackerC, candidates, this.combat);
+    if (!result.ok) return;
+
+    const target = this.state.players.get(result.targetId);
+    const targetCombat = this.playerCombat.get(result.targetId);
+    if (!target || !targetCombat) return;
+    if (Date.now() < targetCombat.invulnerableUntil) return;
+
+    target.hp = result.newHp;
+    if (result.killed) {
+      target.alive = false;
+      const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
+      this.scheduleRespawn(result.targetId, targetClient);
+    }
+
+    this.broadcast(
+      "attack",
+      { attackerId: client.sessionId, targetId: result.targetId, killed: result.killed },
+      { except: [] },
+    );
+  }
+
+  private scheduleRespawn(targetId: string, client: Client | undefined) {
+    this.clock.setTimeout(() => {
+      const p = this.state.players.get(targetId);
+      const combatState = this.playerCombat.get(targetId);
+      if (!p || !combatState) return;
+      p.x = this.zone.spawn.x;
+      p.y = this.zone.spawn.y;
+      p.z = this.zone.spawn.z;
+      p.hp = this.combat.maxHp;
+      p.alive = true;
+      combatState.invulnerableUntil = Date.now() + this.combat.invulnerableAfterRespawnMs;
+      const sec = this.playerSec.get(targetId);
+      if (sec) {
+        sec.lastPos = { x: p.x, y: p.y, z: p.z };
+        sec.lastMoveAt = Date.now();
+      }
+      if (client) {
+        client.send("respawned", { x: p.x, y: p.y, z: p.z });
+      }
+    }, this.combat.respawnDelayMs);
   }
 
   private recordViolation(client: Client, p: Player, reason: string) {

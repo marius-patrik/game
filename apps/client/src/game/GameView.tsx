@@ -6,12 +6,16 @@ import { useRoom } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { AttackButton } from "./AttackButton";
+import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
 import { Scene } from "./Scene";
+import { useAttack } from "./useAttack";
 import { useMovement } from "./useMovement";
 
 const CINEMATIC_STORAGE_KEY = "cinematic.intro.played";
+const CLIENT_RESPAWN_DELAY_MS = 2500;
 
 export function GameView() {
   return (
@@ -44,13 +48,26 @@ function GameViewInner() {
     (pos: { x: number; y: number; z: number }) => room.send("move", pos),
     [room.send],
   );
+  const onAttack = useCallback(() => room.send("attack"), [room.send]);
 
   const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
+  const alive = self?.alive ?? true;
+  const canAct = Boolean(room.sessionId) && !cinematicActive && alive;
+
+  const deathAtRef = useRef<number | undefined>(undefined);
+  const lastAliveRef = useRef(true);
+  useEffect(() => {
+    if (lastAliveRef.current && !alive) deathAtRef.current = Date.now();
+    if (!lastAliveRef.current && alive) deathAtRef.current = undefined;
+    lastAliveRef.current = alive;
+  }, [alive]);
+
   useMovement({
-    enabled: Boolean(room.sessionId) && !cinematicActive,
+    enabled: canAct,
     initial: { x: self?.x ?? 0, y: 0, z: self?.z ?? 0 },
     onSend: onMove,
   });
+  useAttack({ enabled: canAct, onAttack });
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -82,7 +99,17 @@ function GameViewInner() {
         onTravel={room.travel}
       />
       <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
-      {touch && room.sessionId && !cinematicActive ? <VirtualJoystick /> : null}
+      {touch && room.sessionId && !cinematicActive ? (
+        <>
+          <VirtualJoystick />
+          <AttackButton disabled={!alive} />
+        </>
+      ) : null}
+      <DeathOverlay
+        dead={!alive && !cinematicActive}
+        respawnDelayMs={CLIENT_RESPAWN_DELAY_MS}
+        deathAt={deathAtRef.current}
+      />
     </div>
   );
 }

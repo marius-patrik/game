@@ -1,4 +1,5 @@
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { Billboard } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { Color, type Group, MathUtils } from "three";
@@ -7,6 +8,29 @@ function hashHue(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return (h % 360) / 360;
+}
+
+function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
+  const frac = maxHp > 0 ? Math.max(0, Math.min(1, hp / maxHp)) : 0;
+  const WIDTH = 1.1;
+  const HEIGHT = 0.12;
+  const fillWidth = WIDTH * frac;
+  const fillOffset = -(WIDTH - fillWidth) / 2;
+  return (
+    <Billboard position={[0, 1.15, 0]}>
+      <mesh>
+        <planeGeometry args={[WIDTH + 0.04, HEIGHT + 0.04]} />
+        <meshBasicMaterial color="#111827" transparent opacity={0.75} />
+      </mesh>
+      <mesh position={[fillOffset, 0, 0.001]}>
+        <planeGeometry args={[fillWidth, HEIGHT]} />
+        <meshBasicMaterial
+          color={frac > 0.5 ? "#22c55e" : frac > 0.25 ? "#eab308" : "#ef4444"}
+          toneMapped={false}
+        />
+      </mesh>
+    </Billboard>
+  );
 }
 
 function PlayerCube({ player, isSelf }: { player: PlayerSnapshot; isSelf: boolean }) {
@@ -33,9 +57,11 @@ function PlayerCube({ player, isSelf }: { player: PlayerSnapshot; isSelf: boolea
     };
   }, [player.id, isSelf]);
 
+  const dead = !player.alive;
+
   return (
     <group ref={ref} position={[player.x, player.y + 0.5, player.z]}>
-      <mesh castShadow>
+      <mesh castShadow visible={!dead}>
         <boxGeometry args={[0.8, 0.8, 0.8]} />
         <meshStandardMaterial
           color={color}
@@ -43,14 +69,17 @@ function PlayerCube({ player, isSelf }: { player: PlayerSnapshot; isSelf: boolea
           emissiveIntensity={isSelf ? 0.55 : 0.25}
           metalness={0.3}
           roughness={0.3}
+          transparent={dead}
+          opacity={dead ? 0.25 : 1}
         />
       </mesh>
-      {isSelf ? (
+      {isSelf && !dead ? (
         <mesh position={[0, 0.85, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.35, 0.45, 24]} />
           <meshBasicMaterial color="#fde68a" />
         </mesh>
       ) : null}
+      {!dead ? <HPBar hp={player.hp} maxHp={player.maxHp} /> : null}
     </group>
   );
 }

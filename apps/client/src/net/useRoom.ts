@@ -4,7 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { joinZone } from "./room";
 
-export type PlayerSnapshot = { id: string; name: string; x: number; y: number; z: number };
+export type PlayerSnapshot = {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+};
+
+export type AttackEvent = { attackerId: string; targetId: string; killed: boolean };
+export type RespawnEvent = { x: number; y: number; z: number; at: number };
 
 export type RoomState = {
   status: "idle" | "connecting" | "connected" | "error";
@@ -12,7 +24,12 @@ export type RoomState = {
   sessionId?: string;
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
-  send: (type: "move", payload: { x: number; y: number; z: number }) => void;
+  lastAttack?: AttackEvent;
+  lastRespawn?: RespawnEvent;
+  send: {
+    (type: "move", payload: { x: number; y: number; z: number }): void;
+    (type: "attack"): void;
+  };
   travel: (zoneId: ZoneId) => void;
 };
 
@@ -48,7 +65,26 @@ export function useRoom(): RoomState {
         }
 
         const players = new Map<string, PlayerSnapshot>();
-        const send: RoomState["send"] = (type, payload) => room?.send(type, payload);
+        let lastAttack: AttackEvent | undefined;
+        let lastRespawn: RespawnEvent | undefined;
+        const send = ((type: "move" | "attack", payload?: unknown) => {
+          if (type === "attack") {
+            room?.send("attack");
+            return;
+          }
+          room?.send(type, payload);
+        }) as RoomState["send"];
+
+        const snap = (p: Player, key: string): PlayerSnapshot => ({
+          id: key,
+          name: p.name,
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          hp: p.hp,
+          maxHp: p.maxHp,
+          alive: p.alive,
+        });
 
         const commit = () => {
           setState({
@@ -56,6 +92,8 @@ export function useRoom(): RoomState {
             sessionId: room?.sessionId,
             zoneId,
             players: new Map(players),
+            lastAttack,
+            lastRespawn,
             send,
             travel,
           });
@@ -63,15 +101,24 @@ export function useRoom(): RoomState {
 
         const $ = getStateCallbacks(room);
         $(room.state).players.onAdd((p: Player, key: string) => {
-          players.set(key, { id: key, name: p.name, x: p.x, y: p.y, z: p.z });
+          players.set(key, snap(p, key));
           commit();
           $(p).onChange(() => {
-            players.set(key, { id: key, name: p.name, x: p.x, y: p.y, z: p.z });
+            players.set(key, snap(p, key));
             commit();
           });
         });
         $(room.state).players.onRemove((_p: Player, key: string) => {
           players.delete(key);
+          commit();
+        });
+
+        room.onMessage("attack", (msg: AttackEvent) => {
+          lastAttack = msg;
+          commit();
+        });
+        room.onMessage("respawned", (pos: { x: number; y: number; z: number }) => {
+          lastRespawn = { x: pos.x, y: pos.y, z: pos.z, at: Date.now() };
           commit();
         });
 
