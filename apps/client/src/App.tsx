@@ -3,6 +3,7 @@ import { AdminLayout } from "./admin/AdminLayout";
 import { AdminOverview } from "./admin/routes/Overview";
 import { AdminPlayers } from "./admin/routes/Players";
 import { AdminRooms } from "./admin/routes/Rooms";
+import { AudioProvider } from "./audio";
 import { AuthForm } from "./auth/AuthForm";
 import { RequireRole } from "./auth/RequireRole";
 import { useSession } from "./auth/client";
@@ -20,7 +21,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <>
+    <AudioProvider>
       <Toaster position="top-right" richColors closeButton />
       <Switch>
         <Route path="/login">
@@ -59,6 +60,6 @@ export function App() {
           <div className="flex h-full items-center justify-center text-muted-foreground">404</div>
         </Route>
       </Switch>
-    </>
+    </AudioProvider>
   );
 }
