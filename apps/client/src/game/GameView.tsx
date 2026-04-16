@@ -1,4 +1,5 @@
 import { QualityProvider, useQuality } from "@/assets";
+import { CinematicGate } from "@/cinematic";
 import { VirtualJoystick } from "@/input/VirtualJoystick";
 import { isTouchDevice } from "@/input/isTouchDevice";
 import { useRoom } from "@/net/useRoom";
@@ -9,6 +10,8 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { HUD } from "./HUD";
 import { Scene } from "./Scene";
 import { useMovement } from "./useMovement";
+
+const CINEMATIC_STORAGE_KEY = "cinematic.intro.played";
 
 export function GameView() {
   return (
@@ -26,6 +29,17 @@ function GameViewInner() {
   const [touch, setTouch] = useState(false);
   useEffect(() => setTouch(isTouchDevice()), []);
 
+  const [cinematicActive, setCinematicActive] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(CINEMATIC_STORAGE_KEY) !== "1";
+  });
+  const finishCinematic = useCallback(() => {
+    setCinematicActive(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CINEMATIC_STORAGE_KEY, "1");
+    }
+  }, []);
+
   const onMove = useCallback(
     (pos: { x: number; y: number; z: number }) => room.send("move", pos),
     [room.send],
@@ -33,7 +47,7 @@ function GameViewInner() {
 
   const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
   useMovement({
-    enabled: Boolean(room.sessionId),
+    enabled: Boolean(room.sessionId) && !cinematicActive,
     initial: { x: self?.x ?? 0, y: 0, z: self?.z ?? 0 },
     onSend: onMove,
   });
@@ -47,7 +61,12 @@ function GameViewInner() {
         gl={{ antialias: true, powerPreference: "high-performance" }}
       >
         <Suspense fallback={null}>
-          <Scene players={room.players} sessionId={room.sessionId} />
+          <Scene
+            players={room.players}
+            sessionId={room.sessionId}
+            cinematicActive={cinematicActive}
+            onCinematicComplete={finishCinematic}
+          />
           {budget.postFX ? (
             <EffectComposer multisampling={0}>
               <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
@@ -62,7 +81,8 @@ function GameViewInner() {
         zoneId={room.zoneId}
         onTravel={room.travel}
       />
-      {touch && room.sessionId ? <VirtualJoystick /> : null}
+      <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
+      {touch && room.sessionId && !cinematicActive ? <VirtualJoystick /> : null}
     </div>
   );
 }
