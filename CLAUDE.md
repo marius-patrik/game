@@ -151,6 +151,7 @@ Keep subject ≤ 72 chars, imperative mood. Body optional but preferred for non-
 - **One binary deploy.** `bun build --compile` should always produce a working executable. Assets go through the bundler, not the filesystem.
 - **Admin is part of the client.** `/admin/*` routes are role-gated, not a separate app.
 - **Zones over rooms.** We're instanced-zone, not session-based. Zone persistence and zone transitions are first-class concerns — not grafted on later.
+- **Mobile + desktop are equal citizens.** See [ADR-0002](docs/decisions/0002-mobile-and-desktop.md). Every gameplay UI change must be verified in both 1440×900 (desktop) and 390×844 (mobile) viewports. Input abstraction covers keyboard/mouse + touch. Performance budgets: desktop 60 FPS / <500 draw calls, mobile 30 FPS / <150 draw calls. Assets ship with Draco + KTX2 + mobile LOD. Admin UI is desktop-first — not gameplay.
 
 ## Testing (TBD)
 

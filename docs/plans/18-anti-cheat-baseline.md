@@ -25,7 +25,7 @@ Option 1. New module `apps/server/src/security/`:
 - `apps/server/src/security/RateLimiter.ts` — **new**.
 - `apps/server/src/security/MovementValidator.ts` — **new**.
 - `apps/server/src/security/ViolationTracker.ts` — **new**.
-- `apps/server/src/security/config.ts` — **new**. Exports defaults: `move: 30/s`, `attack: 5/s`, `chat: 2/s`. Movement: `maxSpeed = 8 units/s`.
+- `apps/server/src/security/config.ts` — **new**. Exports defaults: `move: 30/s`, `attack: 5/s`, `chat: 2/s`. Movement: `maxSpeed = 8 units/s`. Move rate limit sized for touch input (which produces lower input-frequency than keyboard/mouse) — see [ADR-0002](../decisions/0002-mobile-and-desktop.md). Do **not** threshold so tight that a touch client trips violations on legitimate play.
 - `apps/server/src/security/index.ts` — **new**. Re-exports.
 - `apps/server/src/rooms/GameRoom.ts` — wire limiter, validator, tracker.
 - `packages/shared/src/schema.ts` — add `Player.violations` (number) for admin visibility.
@@ -46,6 +46,7 @@ Option 1. New module `apps/server/src/security/`:
 - ✅ 10+ violations in 30s → kick — `ViolationTracker` config.
 - ✅ Unit tests for the validator covering normal movement, boundary clamp, teleport rejection, rate-limit window.
 - ✅ Admin page surfaces violation count per session.
+- ✅ Rate limit does not false-positive on touch input (lower input frequency). Validate with a synthetic test that submits touch-like input cadence (5–15 moves/s) for 10 seconds and asserts zero violations.
 
 ## Out of scope
 - Server-side anti-speed-hack physics simulation (rapier on the server) — too heavy for baseline.

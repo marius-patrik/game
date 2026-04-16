@@ -24,6 +24,7 @@ type: project
 - Embedded client + migrations ship via `import x from "..." with { type: "file" }` attribute imports
 - SPA catch-all in [apps/server/src/static/serve.ts](../../apps/server/src/static/serve.ts) — only extensionless paths fall back to index.html
 - All networked state goes in `@game/shared` Colyseus Schema classes
+- **Mobile + desktop are equal targets** — every gameplay UI change must work in 1440×900 (desktop) and 390×844 (mobile). Input system must support keyboard/mouse + touch. Perf budgets: desktop 60 FPS / <500 draw calls, mobile 30 FPS / <150 draw calls. See [ADR-0002](../../docs/decisions/0002-mobile-and-desktop.md). Admin UI is the exception (desktop-only).
 
 **Workflow:**
 1. Read [docs/work.md](../../docs/work.md) → pick from Next/Backlog

@@ -16,7 +16,6 @@ _Nothing in flight._ Pick the top of **Next**.
 
 Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 
-- [ ] #16 — Server-side logging rotation (pino file transport, daily rotation).
 - [ ] #17 — Shadcn component set (card, dialog, dropdown-menu, input, label, table, toast).
 - [ ] #18 — Anti-cheat baseline — input rate limits, movement validation.
 - [ ] #19 — Zone persistence — snapshot/restore per zone in SQLite.
@@ -41,3 +40,5 @@ Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 - [x] First named zone with spawn + bounds. [#6](../../issues/6)
 - [x] Single-binary deploy pipeline — `bun run build:release` → `dist/game-server`. [#8](../../issues/8)
 - [x] Biome + typecheck in CI — `.github/workflows/ci.yml` runs on every PR. [#7](../../issues/7)
+- [x] Server-side logging rotation — `pino-roll` daily + 20 MB, 7-day retention. [#16](../../issues/16)
+- [x] Overseer/execution agent infra — spawn commands, dispatch skill, role-scoped bootstraps. [#30](../../pull/30)

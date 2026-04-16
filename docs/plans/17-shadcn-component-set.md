@@ -39,14 +39,17 @@ Option 1. Install the shadcn CLI dependencies, scaffold `components.json`, confi
 - ✅ Components added under `apps/client/src/components/ui/`: card, dialog, dropdown-menu, input, label, table, toast (sonner).
 - ✅ Tailwind config + `tailwind-animate` plugin wired.
 - ✅ Existing auth forms migrate to `<Card>`, `<Input>`, `<Label>`.
-- ✅ Admin players/rooms pages use `<Table>`.
+- ✅ Admin players/rooms pages use `<Table>` (admin tables may stay desktop-first — see ADR-0002).
 - ✅ `<Toaster>` mounts at root; connection state changes (disconnected/reconnected) emit toasts.
 - ✅ Theme toggle uses `<DropdownMenu>` for light/dark/system.
 - ✅ All components typecheck, no biome errors.
+- ✅ Every migrated gameplay-visible surface (auth forms, toaster, theme toggle) verified in **both** 1440×900 and 390×844 viewports. Per [ADR-0002](../decisions/0002-mobile-and-desktop.md).
+- ✅ Dialog and dropdown-menu work with touch (tap to open, backdrop tap to dismiss, no hover-only affordances).
 
 ## Out of scope
 - HUD redesign — only the existing pieces are migrated; new HUD elements come with combat/inventory PRs.
 - New animations beyond `tailwindcss-animate` defaults.
+- Admin `/admin/*` tables are desktop-only (ADR-0002). Don't spend effort making them touch-optimized.
 
 ## Retro
 _(filled after merge)_
