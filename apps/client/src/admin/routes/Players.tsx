@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useEffect, useState } from "react";
 import { type AdminPlayer, adminFetch } from "../api";
 
@@ -19,21 +27,21 @@ export function AdminPlayers() {
       </p>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div className="overflow-hidden rounded-xl border border-border/50">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium">name</th>
-              <th className="px-4 py-2 text-left font-medium">email</th>
-              <th className="px-4 py-2 text-left font-medium">role</th>
-              <th className="px-4 py-2 text-left font-medium">joined</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>name</TableHead>
+              <TableHead>email</TableHead>
+              <TableHead>role</TableHead>
+              <TableHead>joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {players?.map((p) => (
-              <tr key={p.id} className="border-t border-border/50">
-                <td className="px-4 py-2">{p.name}</td>
-                <td className="px-4 py-2 text-muted-foreground">{p.email}</td>
-                <td className="px-4 py-2">
+              <TableRow key={p.id}>
+                <TableCell>{p.name}</TableCell>
+                <TableCell className="text-muted-foreground">{p.email}</TableCell>
+                <TableCell>
                   <span
                     className={
                       p.role === "admin"
@@ -43,14 +51,14 @@ export function AdminPlayers() {
                   >
                     {p.role}
                   </span>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">
+                </TableCell>
+                <TableCell className="text-muted-foreground">
                   {new Date(p.createdAt).toLocaleString()}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

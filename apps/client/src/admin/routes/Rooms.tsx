@@ -1,3 +1,11 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useEffect, useState } from "react";
 import { type AdminRoom, adminFetch } from "../api";
 
@@ -32,32 +40,34 @@ export function AdminRooms() {
       </p>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div className="overflow-hidden rounded-xl border border-border/50">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/30 text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium">room</th>
-              <th className="px-4 py-2 text-left font-medium">id</th>
-              <th className="px-4 py-2 text-left font-medium">clients</th>
-              <th className="px-4 py-2 text-left font-medium">locked</th>
-              <th className="px-4 py-2 text-left font-medium">created</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>room</TableHead>
+              <TableHead>id</TableHead>
+              <TableHead>clients</TableHead>
+              <TableHead>locked</TableHead>
+              <TableHead>created</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rooms?.map((r) => (
-              <tr key={r.roomId} className="border-t border-border/50">
-                <td className="px-4 py-2">{r.name}</td>
-                <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{r.roomId}</td>
-                <td className="px-4 py-2">
+              <TableRow key={r.roomId}>
+                <TableCell>{r.name}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {r.roomId}
+                </TableCell>
+                <TableCell>
                   {r.clients}/{r.maxClients}
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{r.locked ? "yes" : "no"}</td>
-                <td className="px-4 py-2 text-muted-foreground">
+                </TableCell>
+                <TableCell className="text-muted-foreground">{r.locked ? "yes" : "no"}</TableCell>
+                <TableCell className="text-muted-foreground">
                   {new Date(r.createdAt).toLocaleTimeString()}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
