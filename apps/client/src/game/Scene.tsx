@@ -1,4 +1,5 @@
 import { TierAwareLOD, useQuality } from "@/assets";
+import { SparkBurst } from "@/fx";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
@@ -90,6 +91,10 @@ export function Scene({
           />
         </group>
       </Float>
+
+      <group position={[0, 3, 0]}>
+        <SparkBurst baseCount={160} color="#f472b6" lifetime={1.2} speed={2.4} />
+      </group>
 
       <Players players={players} sessionId={sessionId} />
 
