@@ -1,6 +1,7 @@
 import { DEFAULT_ZONE, type GameRoomState, type Player, type ZoneId } from "@game/shared";
 import { type Room, getStateCallbacks } from "colyseus.js";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { joinZone } from "./room";
 
 export type PlayerSnapshot = { id: string; name: string; x: number; y: number; z: number };
@@ -101,6 +102,22 @@ export function useRoom(): RoomState {
       roomRef.current = undefined;
     };
   }, [zoneId]);
+
+  const prevStatus = useRef<RoomState["status"]>("idle");
+  useEffect(() => {
+    const prev = prevStatus.current;
+    if (prev === state.status) return;
+    prevStatus.current = state.status;
+    if (prev === "connected" && (state.status === "idle" || state.status === "error")) {
+      toast.error("Disconnected", {
+        description: state.error ?? "Lost connection to the zone.",
+      });
+    } else if (prev === "error" && state.status === "connected") {
+      toast.success("Reconnected");
+    } else if (prev === "idle" && state.status === "connected") {
+      toast.success(`Joined ${state.zoneId}`);
+    }
+  }, [state.status, state.error, state.zoneId]);
 
   return state;
 }

@@ -1,9 +1,19 @@
 import { signOut, tokenStore, useSession } from "@/auth/client";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ThemeToggle } from "@/theme/theme-toggle";
 import { ZONES, type ZoneId } from "@game/shared";
 import { motion } from "framer-motion";
 import { Gamepad2, LogOut, MapPin, Shield, Wifi, WifiOff } from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
 export function HUD({
@@ -20,11 +30,18 @@ export function HUD({
   const { data: session } = useSession();
   const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
   const [, setLocation] = useLocation();
-  async function onSignOut() {
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function onConfirmSignOut() {
+    setSigningOut(true);
     await signOut();
     tokenStore.clear();
+    setSigningOut(false);
+    setSignOutOpen(false);
     setLocation("/login");
   }
+
   const connected = status === "connected";
   const label =
     status === "connected"
@@ -41,9 +58,9 @@ export function HUD({
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-4"
+        className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-center justify-between gap-2 p-2 sm:p-4"
       >
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
           <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Gamepad2 className="size-3.5" />
@@ -86,7 +103,7 @@ export function HUD({
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
           {session?.user?.name ? (
-            <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md">
+            <div className="hidden rounded-lg border border-border/50 bg-background/40 px-3 py-2 text-xs backdrop-blur-md sm:block">
               {session.user.name}
             </div>
           ) : null}
@@ -95,19 +112,43 @@ export function HUD({
             <Link href="/admin">
               <Button variant="outline" size="sm" className="backdrop-blur-md bg-background/40">
                 <Shield />
-                admin
+                <span className="hidden sm:inline">admin</span>
               </Button>
             </Link>
           ) : null}
-          <Button
-            variant="outline"
-            size="sm"
-            className="backdrop-blur-md bg-background/40"
-            onClick={onSignOut}
-          >
-            <LogOut />
-            sign out
-          </Button>
+          <Dialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="backdrop-blur-md bg-background/40"
+                aria-label="sign out"
+              >
+                <LogOut />
+                <span className="hidden sm:inline">sign out</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Sign out?</DialogTitle>
+                <DialogDescription>
+                  You'll be disconnected from the zone and returned to the sign-in screen.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSignOutOpen(false)}
+                  disabled={signingOut}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={onConfirmSignOut} disabled={signingOut}>
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </motion.div>
 
@@ -115,10 +156,11 @@ export function HUD({
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, duration: 0.4 }}
-        className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-4"
+        className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-2 sm:p-4"
       >
-        <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md">
-          WASD to move · drag to orbit · scroll to zoom
+        <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:text-xs">
+          <span className="hidden sm:inline">WASD to move · drag to orbit · scroll to zoom</span>
+          <span className="sm:hidden">drag to orbit · pinch to zoom</span>
         </div>
       </motion.div>
     </>
