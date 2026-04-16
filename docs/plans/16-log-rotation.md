@@ -1,6 +1,6 @@
 # Plan: #16 — Server-side log rotation
 
-**Status:** draft
+**Status:** in-progress
 **Owner agent:** backend
 **Branch:** `feat/log-rotation`
 
@@ -15,13 +15,13 @@ Production logs currently go to stdout only — they vanish on restart. We need 
 4. **`pino.transport({ target: "pino/file" })`.** Worker-thread transport — fails in compiled binary. Rejected.
 
 ## Chosen approach
-Option 1 — `pino-roll`. Already installed (`pino-roll@4.0.0`).
+Option 1 — `pino-roll`. Installed (`pino-roll@4.0.0`).
 
 Production:
 ```ts
-import { roll } from "pino-roll";
-const stream = await roll({
-  file: join(LOG_DIR, "server.log"),
+import pinoRoll from "pino-roll";
+const stream = await pinoRoll({
+  file: resolve(LOG_DIR, "server.log"),
   frequency: "daily",
   size: "20m",
   mkdir: true,
@@ -32,6 +32,8 @@ const log = pino({ level: process.env.LOG_LEVEL ?? "info" }, pino.multistream([
   { stream: process.stderr, level: "error" },
 ]));
 ```
+
+Divergence from draft: `pino-roll@4` exports a **default** async function, not a named `{ roll }` export. Implementation uses the default import. No `@types/pino-roll` package exists; a local `apps/server/src/types/pino-roll.d.ts` ambient declaration was added covering the options we use.
 
 Dev (unchanged behavior): `pino({ transport: { target: "pino-pretty" } })`.
 

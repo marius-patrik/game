@@ -15,6 +15,7 @@ out/
 *.log
 npm-debug.log*
 bun-debug.log*
+logs/
 
 # OS
 .DS_Store

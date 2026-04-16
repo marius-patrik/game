@@ -3,19 +3,16 @@ import { Server, matchMaker } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
 import { desc } from "drizzle-orm";
 import express from "express";
-import pino from "pino";
 import { auth } from "./auth";
 import { db } from "./db/client";
 import { runMigrations } from "./db/migrate";
 import { user as userTable } from "./db/schema";
+import { log } from "./logger";
 import { requireAdmin } from "./middleware/auth";
 import { GameRoom } from "./rooms/GameRoom";
 import { hasEmbeddedClient, mountStatic } from "./static/serve";
 
 await runMigrations();
-
-const log =
-  process.env.NODE_ENV === "production" ? pino() : pino({ transport: { target: "pino-pretty" } });
 
 const PORT = Number(process.env.PORT ?? 2567);
 
