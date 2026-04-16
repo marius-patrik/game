@@ -14,18 +14,20 @@ _Nothing in flight._ Pick the top of **Next**.
 
 ## Next
 
+_Next is empty — the #17→#25 block is all landed. Run the `maintenance` skill or file new issues before picking up more work._
+
 Pick top-down. Each line is a filed issue with explicit Scope + Acceptance.
 
 - [ ] ~~#17 — Shadcn component set~~ ✅ merged (#33).
 - [ ] ~~#32 — Input abstraction~~ ✅ merged (#34).
 - [ ] ~~#18 — Anti-cheat baseline~~ ✅ merged (#35).
 - [ ] ~~#19 — Zone persistence~~ ✅ merged (#36).
-- [ ] #20 — Asset pipeline — Draco + KTX2 + meshopt glTF loader, quality tier detection, tier-aware LOD, tier-scaled DPR/postFX/shadows per ADR-0002.
-- [ ] #21 — Audio engine — Howler with positional audio bridged to R3F.
-- [ ] #22 — Particle FX library — three-nebula with one reference spell effect.
-- [ ] #23 — theatre.js cinematic — zone transition sequence.
-- [ ] #24 — Combat loop — damage, one spell, death + respawn.
-- [ ] #25 — Inventory + progression persistence.
+- [ ] ~~#20 — Asset pipeline~~ ✅ merged (#37).
+- [ ] ~~#21 — Audio engine~~ ✅ merged (#38).
+- [ ] ~~#22 — Particle FX library~~ ✅ merged (#39).
+- [ ] ~~#23 — theatre.js cinematic~~ ✅ merged (#40).
+- [ ] ~~#24 — Combat loop~~ ✅ merged (#41).
+- [ ] ~~#25 — Inventory + progression persistence~~ ✅ merged (#42).
 
 ## Backlog
 
