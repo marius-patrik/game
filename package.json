@@ -6,8 +6,8 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "bun run --filter '*' dev",
-    "dev:client": "bun --cwd apps/client run dev",
-    "dev:server": "bun --cwd apps/server run dev",
+    "dev:client": "bun run --filter @game/client dev",
+    "dev:server": "bun run --filter @game/server dev",
     "build": "bun run --filter '*' build",
     "build:release": "bun run --filter @game/client build && bun apps/server/scripts/generate-static.ts && bun apps/server/scripts/generate-migrations.ts && NODE_ENV=production bun build --compile --minify --sourcemap --define process.env.NODE_ENV='\"production\"' apps/server/src/index.ts --outfile dist/game-server",
     "check": "biome check .",
