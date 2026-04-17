@@ -10,7 +10,10 @@ import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ActionBar } from "./ActionBar";
 import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
+import { HitVignette } from "./HitVignette";
+import { LevelUpBanner } from "./LevelUpBanner";
 import { ProgressBar } from "./ProgressBar";
+import { QuestToast } from "./QuestToast";
 import { QuestTracker } from "./QuestTracker";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
@@ -330,6 +333,9 @@ function GameViewInner({
         respawnDelayMs={CLIENT_RESPAWN_DELAY_MS}
         deathAt={deathAtRef.current}
       />
+      <HitVignette self={self} />
+      <LevelUpBanner self={self} />
+      <QuestToast room={room} />
       <ZoneTransition status={room.status} />
     </div>
   );
