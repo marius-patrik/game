@@ -67,10 +67,26 @@ When a dispatched agent hits the shared Anthropic account rate limit mid-run (`r
 1. `git -C .claude/worktrees/agent-<id> status --short` — the agent's committed baseline is fine, but there's likely a pile of modified/untracked files.
 2. `git -C .claude/worktrees/agent-<id> diff --stat` to see scope.
 3. **Don't re-dispatch** unless you're sure the quota reset — you'll just waste another attempt. The faster path is to finish from the overseer seat: continue editing in the agent's worktree (same branch), run the full preflight there, commit, push, open the PR yourself. Document the hand-off in the plan's Status.
-4. When the PR opens, note in the body which % the agent got to and which the overseer finished — useful for retrospectives and for estimating next time. Happened on #73 at ~40% agent / 60% overseer.
+4. When the PR opens, note in the body which % the agent got to and which the overseer finished — useful for retrospectives and for estimating next time. Happened on #73 at ~40% agent / 60% overseer; on #81 at ~80% agent / 20% overseer.
 
-## Drizzle migrations 0003 + 0004 are not in `_journal.json`
-`apps/server/drizzle/0003_stats_extras.sql` and `0004_cooldowns_chat.sql` exist on disk but neither is listed in `apps/server/drizzle/meta/_journal.json`. Drizzle's `readMigrationFiles` only iterates the journal, so unlisted migrations are silently skipped. Fresh SQLite DBs therefore don't get the `gold`/`mana`/stats/equipment/quests/skill-cooldowns columns on `player_progress`, nor the `chat_message` table — existing dev DBs happen to have them because they were migrated via an older path. This is the root cause of the 3 pre-existing `playerProgress.test.ts` failures since #55. **Do NOT retroactively register 0003/0004** — drizzle would then try to re-`CREATE TABLE chat_message` on already-populated DBs and crash. Fix wants a separate idempotent migration (e.g. `0006_reconcile.sql` with `ALTER TABLE … ADD COLUMN IF NOT EXISTS` + `CREATE TABLE IF NOT EXISTS`). Tracked in #81.
+### Signals the agent was cut off (not actually "done")
+The `<result>` tag in the completion notification is the agent's last spoken sentence, not a summary. Watch for:
+- **Truncated mid-sentence** — e.g. `"Let me write a file-based smoke test:"` with no follow-up (#81).
+- **No rate-limit phrase** — earlier truncations said "You've hit your limit"; some interrupts now arrive silently with only a truncated result. Don't rely on the phrase.
+- **No `gh pr list` match** — if the agent claimed "PR open" but `gh pr list` shows nothing on your branch name, assume interrupted and look at the worktree's git status.
+- **Uncommitted files in the worktree** — if `git status --short` is non-empty and `git log` shows only main commits (no new `fix/` or `feat/` commit), the agent never got to commit, let alone push/PR.
+
+## Drizzle 0003 + 0004 drift — SQLite-idempotent reconciliation
+`apps/server/drizzle/0003_stats_extras.sql` and `0004_cooldowns_chat.sql` existed on disk but were never registered in `_journal.json`, so fresh SQLite DBs silently skipped them (fixed in #81 / PR #87).
+
+Key constraint that shaped the fix: **SQLite has no `ALTER TABLE ADD COLUMN IF NOT EXISTS`.** That rules out a pure-SQL idempotent "reconcile" migration. The approach that works is procedural:
+1. Let drizzle's migrator run normally (so the `__drizzle_migrations` table stays consistent).
+2. After `migrate()`, run a small TS helper that reads `PRAGMA table_info(player_progress)` and conditionally `ALTER`s in any missing columns, then `CREATE TABLE IF NOT EXISTS` for any missing auxiliary tables.
+3. Do **not** register the skipped migrations in the journal — that would crash any existing DB that was healed by hand.
+
+When generating a future drizzle-kit migration that snapshots from a now-complete live DB, it will diff against the old snapshot and produce a fat migration re-adding all of 0003+0004's content. That would crash existing DBs. Mitigation: the existing reconciler's top-of-file comment flags this; next-time, generate against a DB built only through the journal-registered migrations (0000-0002 + 0005).
+
+See `apps/server/src/db/reconcile.ts` for the implementation pattern — reusable any time we have drifted-schema drift to heal on SQLite.
 
 ## Dispatched agents write to the primary checkout when they use absolute paths
 `isolation: "worktree"` allocates an isolated worktree under `.claude/worktrees/agent-*` and bootstraps the agent with that cwd, but the Write/Edit tools themselves are path-agnostic. The moment an agent passes an absolute path like `/Users/user/Documents/projects/game/apps/...` (natural when it pastes paths from a plan or an earlier tool output), the edit lands in the **primary** checkout — which is usually on `main` or an overseer branch. Symptom: `git status` inside the agent's worktree shows working tree clean, but the primary is dirty on a branch it doesn't own. Overseer recovery: `git stash -u` in the primary, `git stash pop` in the correct worktree — OR, if the agent is still running, wait for it to finish (it'll often self-correct on its next edit sequence and commit from its worktree, leaving the earlier stray absolute-path edits harmlessly in the primary's working tree). Either way: if you see mysterious untracked/modified files in the primary after dispatching, don't panic, it's the agent not a bug in your overseer flow. #70 mobile-touch-polish hit this twice before converging.
