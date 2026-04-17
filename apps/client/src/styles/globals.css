@@ -54,6 +54,14 @@
   html,
   body,
   #root {
-    @apply h-full w-full;
+    @apply h-full w-full min-w-0;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+
+  [data-theme="game"] {
+    color-scheme: light;
   }
 }

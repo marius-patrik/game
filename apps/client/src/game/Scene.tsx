@@ -11,7 +11,6 @@ import type {
   NpcSnapshot,
   PlayerSnapshot,
 } from "@/net/useRoom";
-import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
@@ -34,7 +33,6 @@ import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
-type PickupIntentMap = Map<string, number>;
 
 /** Cam arm defaults. User can still rotate/zoom via OrbitControls. */
 const CAMERA_MIN_DIST = 6;
@@ -42,6 +40,8 @@ const CAMERA_MAX_DIST = 18;
 const CAMERA_INITIAL_DIST = 10;
 const CAMERA_INITIAL_POLAR = Math.PI * 0.32;
 const CAMERA_INITIAL_YAW = Math.PI * 0.75;
+// Keep the 3D scene on a stable palette so app chrome can theme independently.
+const SCENE_THEME = "light" as const;
 
 export function Scene({
   players,
@@ -56,7 +56,6 @@ export function Scene({
   lastAttack,
   lastTelegraph,
   selfPosRef,
-  pickupIntentRef,
   cinematicActive = false,
   portalCinematicActive = false,
   onCinematicComplete,
@@ -77,7 +76,6 @@ export function Scene({
   lastAttack?: AttackEvent;
   lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
-  pickupIntentRef?: MutableRefObject<PickupIntentMap>;
   cinematicActive?: boolean;
   portalCinematicActive?: boolean;
   onCinematicComplete?: () => void;
@@ -88,7 +86,6 @@ export function Scene({
 }) {
   const cubeGroup = useRef<Group>(null);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
-  const { resolved } = useTheme();
   const { tier, budget } = useQuality();
 
   useCameraIntro({
@@ -99,7 +96,7 @@ export function Scene({
   usePortalCameraPush({ active: portalCinematicActive });
 
   const zone = ZONES[zoneId];
-  const palette = resolveZonePalette(zone, resolved);
+  const palette = resolveZonePalette(zone, SCENE_THEME);
   const self = sessionId ? players.get(sessionId) : undefined;
   const width = zone.bounds.max.x - zone.bounds.min.x;
   const depth = zone.bounds.max.z - zone.bounds.min.z;
@@ -173,12 +170,7 @@ export function Scene({
         lastAttack={lastAttack}
         selfPosRef={selfPosRef}
       />
-      <Drops
-        drops={drops}
-        selfPosRef={selfPosRef}
-        pickupIntentRef={pickupIntentRef}
-        onPickup={onPickup}
-      />
+      <Drops drops={drops} selfPosRef={selfPosRef} onPickup={onPickup} />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <HazardZones hazards={hazards} />

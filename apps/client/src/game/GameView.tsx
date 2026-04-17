@@ -1,6 +1,6 @@
 import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
-import type { NpcSnapshot } from "@/net/useRoom";
+import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import { useTheme } from "@/theme/theme-provider";
@@ -29,10 +29,14 @@ import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
-import { useNearestNpc } from "./useNearestNpc";
 
 type Vec3 = { x: number; y: number; z: number };
 type TierPref = QualityTier | "auto";
+type InteractionTarget =
+  | { kind: "npc"; npc: NpcSnapshot; dist: number }
+  | { kind: "drop"; drop: DropSnapshot; dist: number };
+
+const INTERACT_RADIUS = 2.2;
 
 const CINEMATIC_STORAGE_KEY = "cinematic.intro.played";
 const CLIENT_RESPAWN_DELAY_MS = 2500;
@@ -52,6 +56,41 @@ function loadVolume(): number {
   if (raw == null) return 0.5;
   const n = Number.parseFloat(raw);
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.5;
+}
+
+function findNearestInteractTarget(
+  npcs: Map<string, NpcSnapshot>,
+  drops: Map<string, DropSnapshot>,
+  self: Vec3,
+): InteractionTarget | undefined {
+  const r2 = INTERACT_RADIUS * INTERACT_RADIUS;
+  let nearestDrop: InteractionTarget | undefined;
+  let dropDist = r2;
+  for (const d of drops.values()) {
+    const dx = d.x - self.x;
+    const dz = d.z - self.z;
+    const dist = dx * dx + dz * dz;
+    if (dist > r2) continue;
+    if (!nearestDrop || dist < dropDist) {
+      nearestDrop = { kind: "drop", drop: d, dist };
+      dropDist = dist;
+    }
+  }
+  if (nearestDrop) return nearestDrop;
+
+  let nearestNpc: InteractionTarget | undefined;
+  let npcDist = r2;
+  for (const n of npcs.values()) {
+    const dx = n.x - self.x;
+    const dz = n.z - self.z;
+    const dist = dx * dx + dz * dz;
+    if (dist > r2) continue;
+    if (!nearestNpc || dist < npcDist) {
+      nearestNpc = { kind: "npc", npc: n, dist };
+      npcDist = dist;
+    }
+  }
+  return nearestNpc;
 }
 
 export function GameView() {
@@ -117,14 +156,7 @@ function GameViewInner({
   }, []);
 
   const onMove = useCallback((pos: Vec3) => room.send("move", pos), [room.send]);
-  const pickupIntentRef = useRef<Map<string, number>>(new Map());
-  const onPickup = useCallback(
-    (dropId: string) => {
-      pickupIntentRef.current.set(dropId, Date.now());
-      room.send("pickup", { dropId });
-    },
-    [room.send],
-  );
+  const onPickup = useCallback((dropId: string) => room.send("pickup", { dropId }), [room.send]);
   const onUse = useCallback((itemId: string) => room.send("use", { itemId }), [room.send]);
   const onEquip = useCallback((itemId: string) => room.send("equip", { itemId }), [room.send]);
   const onEquipSlot = useCallback(
@@ -197,6 +229,7 @@ function GameViewInner({
   const [statOpen, setStatOpen] = useState(false);
   const [vendorOpen, setVendorOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [interactionTarget, setInteractionTarget] = useState<InteractionTarget | undefined>();
 
   const selfPosRef = useClickControls({
     enabled: canAct,
@@ -210,11 +243,41 @@ function GameViewInner({
   // Auto-pickup drops on proximity.
   useAutoPickup({ enabled: canAct, drops: room.drops, selfPosRef, onPickup });
 
-  // Track nearest NPC + bind interact key.
-  const nearestNpc = useNearestNpc({ enabled: canAct, npcs: room.npcs, selfPosRef });
-  const onNpcInteract = useCallback((npc: NpcSnapshot) => {
-    if (npc.kind === "vendor") setVendorOpen(true);
-  }, []);
+  // Track the nearest interactable so the HUD hint and world prompt agree.
+  useEffect(() => {
+    if (!canAct) {
+      setInteractionTarget(undefined);
+      return;
+    }
+    const id = window.setInterval(() => {
+      const selfPos = selfPosRef?.current;
+      if (!selfPos) return;
+      const next = findNearestInteractTarget(room.npcs, room.drops, selfPos);
+      setInteractionTarget((prev) => {
+        if (!next) return prev === undefined ? prev : undefined;
+        if (prev?.kind === "npc" && next.kind === "npc" && prev.npc.id === next.npc.id) return prev;
+        if (prev?.kind === "drop" && next.kind === "drop" && prev.drop.id === next.drop.id)
+          return prev;
+        return next;
+      });
+    }, 150);
+    return () => window.clearInterval(id);
+  }, [canAct, room.npcs, room.drops, selfPosRef]);
+
+  const nearestNpc = interactionTarget?.kind === "npc" ? interactionTarget.npc : undefined;
+  const onNpcInteract = useCallback(
+    (npc: NpcSnapshot) => {
+      if (npc.kind === "vendor") {
+        setVendorOpen(true);
+        return;
+      }
+      if (npc.kind === "questgiver") {
+        const readyQuest = self?.quests.find((q) => q.status === "complete");
+        if (readyQuest) onTurnInQuest(readyQuest.id);
+      }
+    },
+    [onTurnInQuest, self],
+  );
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -233,49 +296,51 @@ function GameViewInner({
     if (getSfxVolume() !== volume) setSfxVolume(volume);
   }, [volume]);
 
-  const canTurnIn = nearestNpc?.kind === "questgiver";
+  const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
+  const canTurnIn = nearestNpc?.kind === "questgiver" && readyToTurnIn;
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
-      <Canvas
-        shadows
-        dpr={[1, budget.maxDPR]}
-        camera={{ position: [4, 4, 8], fov: 55 }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-      >
-        <Suspense fallback={null}>
-          <Scene
-            players={room.players}
-            drops={room.drops}
-            mobs={room.mobs}
-            npcs={room.npcs}
-            hazards={room.hazards}
-            bolts={room.bolts}
-            sessionId={room.sessionId}
-            zoneId={room.zoneId}
-            moveTarget={moveTarget}
-            lastAttack={room.lastAttack}
-            lastTelegraph={room.lastTelegraph}
-            selfPosRef={selfPosRef}
-            pickupIntentRef={pickupIntentRef}
-            cinematicActive={cinematicActive}
-            portalCinematicActive={
-              !skipCinematics && (room.status === "connecting" || room.status === "idle")
-            }
-            onCinematicComplete={finishCinematic}
-            onGroundClick={onGroundClick}
-            onPickup={onPickup}
-            onNpcInteract={onNpcInteract}
-            interactionTargetId={nearestNpc?.id}
-          />
-          {budget.postFX ? (
-            <EffectComposer multisampling={0}>
-              <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
-              <Vignette eskil={false} offset={0.15} darkness={0.6} />
-            </EffectComposer>
-          ) : null}
-        </Suspense>
-      </Canvas>
+      <div className="absolute inset-0" data-theme="game">
+        <Canvas
+          shadows
+          dpr={[1, budget.maxDPR]}
+          camera={{ position: [4, 4, 8], fov: 55 }}
+          gl={{ antialias: true, powerPreference: "high-performance" }}
+        >
+          <Suspense fallback={null}>
+            <Scene
+              players={room.players}
+              drops={room.drops}
+              mobs={room.mobs}
+              npcs={room.npcs}
+              hazards={room.hazards}
+              bolts={room.bolts}
+              sessionId={room.sessionId}
+              zoneId={room.zoneId}
+              moveTarget={moveTarget}
+              lastAttack={room.lastAttack}
+              lastTelegraph={room.lastTelegraph}
+              selfPosRef={selfPosRef}
+              cinematicActive={cinematicActive}
+              portalCinematicActive={
+                !skipCinematics && (room.status === "connecting" || room.status === "idle")
+              }
+              onCinematicComplete={finishCinematic}
+              onGroundClick={onGroundClick}
+              onPickup={onPickup}
+              onNpcInteract={onNpcInteract}
+              interactionTargetId={nearestNpc?.id}
+            />
+            {budget.postFX ? (
+              <EffectComposer multisampling={0}>
+                <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
+                <Vignette eskil={false} offset={0.15} darkness={0.6} />
+              </EffectComposer>
+            ) : null}
+          </Suspense>
+        </Canvas>
+      </div>
 
       <HUD status={room.status} playerCount={room.players.size} zoneId={room.zoneId} />
 
@@ -318,7 +383,7 @@ function GameViewInner({
           {nearestNpc ? (
             <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md">
               Press <kbd className="rounded border border-border/60 bg-muted px-1">E</kbd> to{" "}
-              {nearestNpc.kind === "vendor" ? "trade" : "talk"} with{" "}
+              {nearestNpc.kind === "vendor" ? "trade" : canTurnIn ? "turn in" : "talk"} with{" "}
               <strong>{nearestNpc.name}</strong>
             </div>
           ) : null}

@@ -27,6 +27,8 @@ export function InteractionPrompt({
   activeTargetId?: string;
 }) {
   const root = useRef<Group>(null);
+  const lastDrawnText = useRef("");
+  const lastDrawnColor = useRef("");
   const labelCanvas = useMemo(() => {
     const cvs = document.createElement("canvas");
     cvs.width = 256;
@@ -54,7 +56,12 @@ export function InteractionPrompt({
     g.position.y = MathUtils.lerp(g.position.y, liftY, 0.35);
     g.position.z = MathUtils.lerp(g.position.z, nearest.z, 0.35);
     const label = nearest.kind === "npc" ? `Talk — ${nearest.name}` : "Pick up";
-    drawLabel(labelCanvas, label, nearest.kind === "npc" ? "#fde68a" : "#a7f3d0");
+    const color = nearest.kind === "npc" ? "#fde68a" : "#a7f3d0";
+    if (lastDrawnText.current !== label || lastDrawnColor.current !== color) {
+      drawLabel(labelCanvas, label, color);
+      lastDrawnText.current = label;
+      lastDrawnColor.current = color;
+    }
   });
 
   return (
@@ -88,6 +95,16 @@ function findNearest(
 ): NearestHit | null {
   let best: NearestHit | null = null;
   const r2 = INTERACT_RADIUS * INTERACT_RADIUS;
+  for (const d of drops.values()) {
+    const dx = d.x - self.x;
+    const dz = d.z - self.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > r2) continue;
+    if (!best || d2 < best.dist || best.kind === "npc") {
+      best = { kind: "drop", id: d.id, name: d.itemId, x: d.x, y: d.y, z: d.z, dist: d2 };
+    }
+  }
+  if (best?.kind === "drop") return best;
   // If the active NPC panel is open, we still show the prompt on that entity
   // so the player knows they can close it by walking away or pressing the key.
   for (const n of npcs.values()) {
@@ -99,24 +116,9 @@ function findNearest(
       best = { kind: "npc", id: n.id, name: n.name, x: n.x, y: n.y, z: n.z, dist: d2 };
     }
   }
-  for (const d of drops.values()) {
-    const dx = d.x - self.x;
-    const dz = d.z - self.z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 > r2) continue;
-    if (!best || d2 < best.dist) {
-      best = { kind: "drop", id: d.id, name: d.itemId, x: d.x, y: d.y, z: d.z, dist: d2 };
-    }
-  }
   return best;
 }
-
-let lastDrawnText = "";
-let lastDrawnColor = "";
 function drawLabel(cvs: HTMLCanvasElement, text: string, color: string) {
-  if (lastDrawnText === text && lastDrawnColor === color) return;
-  lastDrawnText = text;
-  lastDrawnColor = color;
   const ctx = cvs.getContext("2d");
   if (!ctx) return;
   const w = cvs.width;

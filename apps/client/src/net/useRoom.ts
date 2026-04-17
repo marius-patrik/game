@@ -30,6 +30,7 @@ export type QuestSnapshot = { id: string; status: string; progress: number; goal
 export type PlayerSnapshot = {
   id: string;
   name: string;
+  customizationColor: string;
   x: number;
   y: number;
   z: number;
@@ -189,6 +190,7 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
   return {
     id: key,
     name: p.name,
+    customizationColor: p.customizationColor,
     x: p.x,
     y: p.y,
     z: p.z,
@@ -289,11 +291,13 @@ export function useRoom(): RoomState {
     const travel = (next: ZoneId) => {
       if (next === zoneId) return;
       zoneSwitchingRef.current = true;
+      console.info("[game] zone travel requested", { from: zoneId, to: next });
       setZoneId(next);
     };
 
     (async () => {
       try {
+        console.info("[game] joining zone", { zoneId });
         room = await joinZone(zoneId);
         roomRef.current = room;
         if (cancelled) {
@@ -562,6 +566,7 @@ export function useRoom(): RoomState {
 
         room.onLeave(() => {
           if (cancelled) return;
+          console.info("[game] room left", { zoneId, sessionId: room?.sessionId });
           setState((s) => ({
             ...s,
             status: "idle",
@@ -576,6 +581,7 @@ export function useRoom(): RoomState {
         });
         room.onError((_code, message) => {
           if (cancelled) return;
+          console.warn("[game] room error", { zoneId, message });
           setState((s) => ({
             ...s,
             status: "error",
