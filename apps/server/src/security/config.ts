@@ -19,7 +19,7 @@ export const DEFAULT_SECURITY: SecurityConfig = {
   rateLimits: {
     move: { capacity: 30, refillPerSec: 30 },
     attack: { capacity: 5, refillPerSec: 5 },
-    chat: { capacity: 2, refillPerSec: 2 },
+    chat: { capacity: 3, refillPerSec: 5 },
   },
   movement: {
     maxSpeed: 8,

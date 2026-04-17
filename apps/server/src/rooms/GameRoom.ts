@@ -1,6 +1,10 @@
-import { type AuthContext, type Client, Room } from "@colyseus/core";
+import { type AuthContext, type Client, Room, matchMaker } from "@colyseus/core";
 import { ArraySchema } from "@colyseus/schema";
 import {
+  CHAT_MAX_LEN,
+  type ChatEntry,
+  type ChatError,
+  type ChatInbound,
   DEFAULT_ZONE,
   GameRoomState,
   InventorySlot,
@@ -12,6 +16,7 @@ import {
   applyXp,
   getItem,
   getZone,
+  isChatChannel,
   isItemId,
   xpToNextLevel,
 } from "@game/shared";
@@ -52,6 +57,15 @@ type PlayerCombatState = { invulnerableUntil: number };
 const SAVE_INTERVAL_MS = 10_000;
 const LOOT_SPAWN_INTERVAL_MS = 5_000;
 
+function stripControlChars(input: string): string {
+  let out = "";
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
+    if (code >= 32 && code !== 127) out += input.charAt(i);
+  }
+  return out;
+}
+
 export class GameRoom extends Room<GameRoomState> {
   override maxClients = 64;
   override state = new GameRoomState();
@@ -67,6 +81,7 @@ export class GameRoom extends Room<GameRoomState> {
   private saveInterval?: ReturnType<typeof setInterval>;
   private lootInterval?: ReturnType<typeof setInterval>;
   private dropCounter = 0;
+  private chatCounter = 0;
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -109,6 +124,9 @@ export class GameRoom extends Room<GameRoomState> {
     });
     this.onMessage<DropMessage>("drop", (client, msg) => {
       this.handleDrop(client, msg);
+    });
+    this.onMessage<ChatInbound>("chat", (client, msg) => {
+      this.handleChat(client, msg);
     });
 
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
@@ -505,5 +523,77 @@ export class GameRoom extends Room<GameRoomState> {
 
   private tick(_dt: number) {
     // 20Hz server tick
+  }
+
+  private handleChat(client: Client<unknown, SessionUser>, msg: ChatInbound) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p) return;
+
+    if (!msg || typeof msg !== "object") return;
+    if (!isChatChannel(msg.channel)) {
+      this.sendChatError(client, "invalid_channel");
+      return;
+    }
+    if (typeof msg.text !== "string") {
+      this.sendChatError(client, "empty");
+      return;
+    }
+
+    const sanitized = stripControlChars(msg.text).trim();
+    if (sanitized.length === 0) {
+      this.sendChatError(client, "empty");
+      return;
+    }
+    if (sanitized.length > CHAT_MAX_LEN) {
+      this.sendChatError(client, "too_long");
+      return;
+    }
+
+    if (!this.rateLimiter.consume(client.sessionId, "chat")) {
+      this.recordViolation(client, p, "rate_limit:chat");
+      this.sendChatError(client, "rate_limit");
+      return;
+    }
+
+    this.chatCounter += 1;
+    const entry: ChatEntry = {
+      id: `c${this.chatCounter.toString(36)}`,
+      channel: msg.channel,
+      from: p.name && p.name.length > 0 ? p.name : client.sessionId.slice(0, 6),
+      text: sanitized,
+      at: Date.now(),
+    };
+
+    if (msg.channel === "zone") {
+      this.broadcast("chat", entry);
+      return;
+    }
+
+    this.dispatchGlobalChat(entry);
+  }
+
+  private dispatchGlobalChat(entry: ChatEntry) {
+    this.broadcast("chat", entry);
+    matchMaker
+      .query({ name: "zone" })
+      .then((rooms) => {
+        for (const room of rooms) {
+          if (room.roomId === this.roomId) continue;
+          matchMaker.remoteRoomCall(room.roomId, "_relayChat", [entry]).catch((err) => {
+            log.warn({ err, roomId: room.roomId }, "chat global relay failed");
+          });
+        }
+      })
+      .catch((err) => {
+        log.warn({ err }, "chat global query failed");
+      });
+  }
+
+  _relayChat(entry: ChatEntry) {
+    this.broadcast("chat", entry);
+  }
+
+  private sendChatError(client: Client, reason: ChatError["reason"]) {
+    client.send("chat-error", { reason } satisfies ChatError);
   }
 }
