@@ -15,7 +15,7 @@ import { type EquipSlot, type ItemId, VENDOR_STOCK, getItem, isItemId } from "@g
 import { applyXp, xpToNextLevel } from "@game/shared/progression";
 import { FIRST_QUEST_ID, QUEST_CATALOG, getQuest } from "@game/shared/quests";
 import {
-  type GameRoomState,
+  GameRoomState,
   InventorySlot,
   Npc,
   Player,
@@ -148,6 +148,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (!zone) throw new Error(`unknown zoneId ${options.zoneId}`);
     this.zone = zone;
     this.maxClients = zone.maxClients;
+    this.setState(new GameRoomState());
     this.setMetadata({ zoneId: zone.id, name: zone.name });
 
     this.onMessage<MoveMessage>("move", (client, msg) => this.handleMove(client, msg));

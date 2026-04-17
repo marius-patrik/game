@@ -26,23 +26,42 @@ function Protected({ children }: { children: React.ReactNode }) {
 }
 
 function CharacterGuard({ children }: { children: React.ReactNode }) {
-  const { selectedCharacterId } = useCharacterStore();
-  const [hasCharacters, setHasCharacters] = useState<boolean | null>(null);
+  const { selectedCharacterId, setSelectedCharacterId } = useCharacterStore();
+  const [validated, setValidated] = useState<
+    | { status: "loading" }
+    | { status: "none" }
+    | { status: "list"; owned: boolean }
+    | { status: "ready" }
+  >({ status: "loading" });
 
   useEffect(() => {
+    let cancelled = false;
     charactersApi
       .list()
       .then((chars) => {
-        setHasCharacters(chars.length > 0);
+        if (cancelled) return;
+        if (chars.length === 0) {
+          setSelectedCharacterId(null);
+          setValidated({ status: "none" });
+          return;
+        }
+        const ownsSelected = selectedCharacterId
+          ? chars.some((c) => c.id === selectedCharacterId)
+          : false;
+        if (!ownsSelected && selectedCharacterId) setSelectedCharacterId(null);
+        setValidated({ status: ownsSelected ? "ready" : "list", owned: ownsSelected });
       })
-      .catch(() => setHasCharacters(false));
-  }, []);
+      .catch(() => setValidated({ status: "none" }));
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCharacterId, setSelectedCharacterId]);
 
-  if (selectedCharacterId) return <>{children}</>;
-  if (hasCharacters === null)
+  if (validated.status === "loading")
     return <div className="flex h-full items-center justify-center text-muted-foreground">…</div>;
-  if (!hasCharacters) return <Redirect to="/characters/new" />;
-  return <Redirect to="/characters" />;
+  if (validated.status === "none") return <Redirect to="/characters/new" />;
+  if (validated.status === "list") return <Redirect to="/characters" />;
+  return <>{children}</>;
 }
 
 export function App() {
