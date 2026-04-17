@@ -14,11 +14,11 @@ _Nothing in flight._ Pick the top of **Next**.
 
 ## Next
 
-Pick top-down. Each line is a filed issue with explicit Scope + Acceptance. Wave 1 of the "demoable MVP" push — dispatched in parallel by the overseer.
+_Next is empty — Wave 1 (#45/#46/#47) all landed. Demoable MVP achieved. Pick from Backlog or run `maintenance`._
 
-- [ ] [#45](../../issues/45) — Hostile mobs + loot drops. Plan: [docs/plans/45-mobs.md](plans/45-mobs.md).
-- [ ] [#46](../../issues/46) — Chat (global + zone channels). Plan: [docs/plans/46-chat.md](plans/46-chat.md).
-- [ ] [#47](../../issues/47) — Visible portals + zone polish. Plan: [docs/plans/47-portals.md](plans/47-portals.md).
+- [ ] ~~[#46](../../issues/46) — Chat (global + zone channels)~~ ✅ merged (#49).
+- [ ] ~~[#47](../../issues/47) — Visible portals + zone polish~~ ✅ merged (#50).
+- [ ] ~~[#45](../../issues/45) — Hostile mobs + loot drops~~ ✅ merged (#51).
 
 ## Backlog
 
@@ -29,6 +29,7 @@ Pick top-down. Each line is a filed issue with explicit Scope + Acceptance. Wave
 
 ## Done
 
+- [x] Demoable MVP block (Wave 1): chat [#46](../../pull/49), portals [#47](../../pull/50), mobs [#45](../../pull/51). `bun run build:release` → 70 MB Linux/arm64 binary with embedded client + migrations. Two-browser smoke passed.
 - [x] Client legacy decorators for Colyseus schema. [#14](../../issues/14)
 - [x] Wire client ↔ server Colyseus connection. [#3](../../issues/3)
 - [x] Better Auth + SQLite gating the GameRoom. [#4](../../issues/4)
