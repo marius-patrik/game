@@ -10,11 +10,11 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#72** chat moderation — profanity / `/block` / DMs → `feat/chat-moderation` (backend-agent, worktree).
+- **#73** party / group system → `feat/party-system` (backend-agent, worktree).
 
 ## Next
 
-- **#73** party / group system. Dispatches after #72 merges (both touch `handleChat`'s command dispatch).
+- **#81** register missing drizzle migrations 0003/0004 via an idempotent 0006_reconcile.sql (fixes `playerProgress.test.ts` regressions; tracks the chip spawned earlier in-session).
 
 ## Backlog
 
@@ -32,6 +32,7 @@ Post-alpha ship targets. Previous backlog blocks closed in #58/#59/#60/#62/#64-6
 
 ## Done
 
+- [x] **#72** chat moderation (#80) — profanity filter with 14 unit tests, `/block` + `/unblock` per-user list persisted in new `chat_block` table (migration 0005), cross-zone `/w <name>` DMs via `matchMaker.remoteRoomCall`. Also surfaced pitfall: migrations 0003 + 0004 were never registered in `_journal.json` — filed as #81.
 - [x] **Social + ops wave 1** — **#70** mobile touch polish (#77: double-tap equip, long-press ItemTooltipDrawer via vaul, responsive HUD breakpoints), **#71** admin moderation (#76: kick / mute / revoke session endpoints + `/admin/sessions` action buttons + mute state in `GameRoom.handleChat`).
 - [x] **Alpha-polish leftovers all shipped** — combat feel, UX polish, mob behaviour. Five PRs: crit hits + killed-by death cause (#64), SFX polish + minimap POI icons (#65), inventory-full toast (#66), boss enrage charge at <50% HP (#67), caster mob ranged projectile (#68). Covers all 8 items deferred from #62.
 - [x] **Alpha polish pass** (#62) — ZoneDecor in lobby (pillars + market stalls + fountain + perimeter hedge) and arena (crumbled obelisks + firepit + darker perimeter); HitVignette (red radial flash + 180ms shake on HP loss); LevelUpBanner (spring-scaled "+3 stat points" pop); QuestToast (slide-in on quest ready-to-turn-in); InteractionPrompt sprite trimmed so NPC labels don't eat the screen at close range. Floating centerpiece moved to y=6 so it stops competing with gameplay.
