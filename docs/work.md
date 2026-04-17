@@ -10,11 +10,11 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#85** cinematic portal transition (theatre.js camera pan + radial wipe, replaces plain fade from #60). Frontend.
+- **#86** healer mob archetype + arena hazard zone. Backend + shared. Serialize after any other in-flight `mobs.ts` change per pitfalls.md.
 
 ## Next
 
-- **#86** healer mob archetype + arena hazard zone. Backend + shared. Serialize after any other in-flight `mobs.ts` change per pitfalls.md.
+_Empty — pick from backlog after #86 merges._
 
 ## Backlog
 
@@ -26,6 +26,7 @@ Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, 
 
 ## Done
 
+- [x] **#85** cinematic portal transition (#88) — 1.2s DOM-overlay cinematic driven by `@theatre/core` sequence (camera push + radial wipe + white flash + fade-in). New `apps/client/src/game/cinematics/` module, preferences-store persisted `skipCinematics` escape hatch in Settings. Bundle delta +34 KB gzipped (budget 100 KB). Zero `@theatre/studio` in `apps/client/src/**`. First real use of theatre.js in the project.
 - [x] **#81** reconcile missing drizzle migrations 0003/0004 (#87) — new `apps/server/src/db/reconcile.ts` runs after `migrate()`, PRAGMA-checks `player_progress`, conditionally ALTERs in the 11 missing columns, and `CREATE TABLE IF NOT EXISTS`es `chat_message`. Idempotent against fresh + drifted DBs. Chosen over the issue's Option A because SQLite has no `ADD COLUMN IF NOT EXISTS`. Also fixed 3 long-standing `playerProgress.test.ts` failures by extending its inline CREATE TABLE. Agent rate-limited at ~80%; overseer finished the last 20%.
 - [x] **#73** party / group system (#83) — `Player.partyId` on schema, `/party invite|accept|leave|status` chat commands with leader promotion + 60s invite TTL + 4-member cap, shared XP at 60% for members within 10m of the kill, new `PartyPanel` HP/mana pips in the HUD, zone-scoped (traveling drops from party). Backend agent hit rate-limit mid-run; overseer finished remaining 60% from seat.
 - [x] **#72** chat moderation (#80) — profanity filter with 14 unit tests, `/block` + `/unblock` per-user list persisted in new `chat_block` table (migration 0005), cross-zone `/w <name>` DMs via `matchMaker.remoteRoomCall`. Also surfaced pitfall: migrations 0003 + 0004 were never registered in `_journal.json` — filed as #81.
