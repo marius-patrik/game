@@ -18,6 +18,8 @@ export function SettingsPanel({
   onTierChange,
   volume,
   onVolumeChange,
+  skipCinematics,
+  onSkipCinematicsChange,
   externalOpen,
   onExternalOpenChange,
 }: {
@@ -25,6 +27,8 @@ export function SettingsPanel({
   onTierChange: (tier: QualityTier | "auto") => void;
   volume: number; // 0..1
   onVolumeChange: (v: number) => void;
+  skipCinematics: boolean;
+  onSkipCinematicsChange: (v: boolean) => void;
   /** Optional external open control for when the dialog trigger lives elsewhere. */
   externalOpen?: boolean;
   onExternalOpenChange?: (o: boolean) => void;
@@ -90,6 +94,21 @@ export function SettingsPanel({
               step={1}
               onValueChange={([v]) => onVolumeChange((v ?? 0) / 100)}
             />
+          </section>
+          <section className="flex flex-col gap-2">
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium">Skip cinematics</span>
+              <input
+                type="checkbox"
+                checked={skipCinematics}
+                onChange={(e) => onSkipCinematicsChange(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+                aria-label="Skip cinematics"
+              />
+            </label>
+            <p className="text-muted-foreground text-xs">
+              Replaces portal transitions with a plain fade. Saves ~1s per zone swap.
+            </p>
           </section>
         </div>
         <DialogFooter>

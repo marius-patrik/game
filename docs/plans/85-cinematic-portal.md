@@ -1,6 +1,6 @@
 # Plan: #85 — Cinematic portal transition via theatre.js
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** frontend
 **Branch:** `feat/cinematic-portal`
 
@@ -111,4 +111,30 @@ The cinematic is **1.2s total**, split as:
 - Particle wipe — DOM gradient only. Particles are a follow-up.
 
 ## Retro
-_(filled after merge)_
+
+**What shipped**
+- `apps/client/src/game/cinematics/` — new module with `portalSheet.ts` (theatre.js project/sheet wiring + phase-curve sampling), `PortalTransition.tsx` (single-RAF state machine driving the DOM overlays), `usePortalCameraPush.ts` (FOV nudge inside the Canvas), and `index.ts` barrel.
+- `apps/client/src/state/preferencesStore.ts` — zustand store with `persist` middleware keyed `game.preferences.v1`.
+- `ZoneTransition.tsx` now branches on `skipCinematics` — renders `PortalTransition` by default, falls back to a self-contained `PlainFade` subcomponent when opted out.
+- `SettingsPanel.tsx` gets a third section with a plain styled checkbox (chose that over `@radix-ui/react-switch` to avoid another dep). Kept the panel prop-stateless; `GameView.tsx` owns the store wiring.
+- `Scene.tsx` now accepts `portalCinematicActive` and disables OrbitControls while true; `usePortalCameraPush` applies a -6°-FOV ease-in-out push during the visible pre-wipe window.
+
+**Bundle delta**
+549.1 kB → 583.4 kB gzipped (+34.3 kB). Well under the 100 kB budget the plan allowed for `@theatre/core`. Zero `@theatre/studio` references in `apps/client/src/**` confirmed by grep.
+
+**What changed vs the plan**
+- **Camera push implemented as FOV nudge**, not a world-space position lerp. Same intent, one scalar instead of a Vector3, zero interaction with ChaseTarget, and the effect is only visible during the 0.3s pre-wipe window anyway.
+- **Switch component**: used a styled native checkbox rather than adding a `@radix-ui/react-switch` dependency. Keeps the bundle tighter; the interaction is no different.
+- **Cinematic trigger** ended up being `zoneId` change (not `status === "connecting"` as the plan suggested). Status-only triggers mis-fired on disconnects that happened outside intentional travels. The RAF loop still watches `statusRef` every frame so holding→reveal hand-off stays latency-decoupled.
+
+**What I hit that's worth recording (pitfalls.md candidates)**
+1. **theatre.js without studio is structural scaffolding only.** `sheet.object(...)` returns props whose `value` stays at the initial value because there are no authored keyframes. The useful primitive without studio is `sheet.sequence.position` — read it with `val(sequence.pointer.position)` and do your own interpolation. If future work wants authored keyframes, studio will need to pick up the existing sheet via `project.sheet(...)` using the same IDs.
+2. **Dispatched agents writing to the primary checkout.** Exactly the pitfall already documented — `cd` in Bash doesn't persist between calls, so `cd <worktree> && git commit` lands the commit in the primary checkout instead. Recovery is cherry-pick to worktree + `git reset --hard origin/main` in primary. Happened once this PR; unremarkable but worth re-validating the existing entry holds.
+3. **RAF-driven cinematics + status transitions want a single loop, not multiple effects.** First two attempts drove phases via separate useEffect branches keyed on `status`; reveal dropped on the floor whenever `connected` fired before the loop reached HOLD_AT. Fix: one RAF keyed solely on `zoneId`, watching `statusRef` from inside the loop. Commits `3915458` and `baed2ee` are the two iterations.
+4. **Overlay `z-40` + `pointer-events-none` + framer `AnimatePresence`** composes cleanly with the rest of the HUD (`DeathOverlay`, `HitVignette`) since they all sit at the same z-layer and are mutually exclusive in practice.
+
+**Verification**
+- `bun run check` + `bun run typecheck` clean on main + client + server + shared.
+- `bun test apps/client` 36/36 pass. Server tests: 61/62 — one pre-existing `MovementValidator.test.ts` unhandled error from `packages/shared/src/schema.ts` decorator-under-bun-test, same failure on `main`, not introduced here.
+- Preview smoke at 1440×900 + 390×844: travel lobby→arena and back plays cleanly; skip toggle flips to `PlainFade` + persists; rapid back-to-back travels end in the correct final zone with no stuck overlay.
+
