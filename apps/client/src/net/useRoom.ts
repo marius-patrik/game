@@ -6,6 +6,7 @@ import {
   DEFAULT_ZONE,
   type GameRoomState,
   type InventorySlot,
+  type Mob,
   type Player,
   type WorldDrop,
   type ZoneId,
@@ -42,10 +43,26 @@ export type DropSnapshot = {
   z: number;
 };
 
+export type MobSnapshot = {
+  id: string;
+  kind: string;
+  x: number;
+  y: number;
+  z: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+};
+
 export type AttackEvent = { attackerId: string; targetId: string; killed: boolean };
 export type RespawnEvent = { x: number; y: number; z: number; at: number };
 export type PickupEvent = { itemId: string; qty: number; at: number };
 export type UsedEvent = { itemId: string; hp: number; at: number };
+export type MobKilledEvent = {
+  mobId: string;
+  pos: { x: number; y: number; z: number };
+  at: number;
+};
 
 export type RoomState = {
   status: "idle" | "connecting" | "connected" | "error";
@@ -54,11 +71,13 @@ export type RoomState = {
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
+  mobs: Map<string, MobSnapshot>;
   chat: ChatEntry[];
   lastAttack?: AttackEvent;
   lastRespawn?: RespawnEvent;
   lastPickup?: PickupEvent;
   lastUsed?: UsedEvent;
+  lastMobKilled?: MobKilledEvent;
   send: {
     (type: "move", payload: { x: number; y: number; z: number }): void;
     (type: "attack"): void;
@@ -110,12 +129,26 @@ function chatErrorMessage(reason: ChatError["reason"]): string {
   }
 }
 
+function snapMob(m: Mob, key: string): MobSnapshot {
+  return {
+    id: key,
+    kind: m.kind,
+    x: m.x,
+    y: m.y,
+    z: m.z,
+    hp: m.hp,
+    maxHp: m.maxHp,
+    alive: m.alive,
+  };
+}
+
 export function useRoom(): RoomState {
   const [zoneId, setZoneId] = useState<ZoneId>(DEFAULT_ZONE);
   const [state, setState] = useState<RoomState>(() => ({
     status: "idle",
     players: new Map(),
     drops: new Map(),
+    mobs: new Map(),
     chat: [],
     zoneId: DEFAULT_ZONE,
     send: (() => {}) as RoomState["send"],
@@ -145,11 +178,13 @@ export function useRoom(): RoomState {
 
         const players = new Map<string, PlayerSnapshot>();
         const drops = new Map<string, DropSnapshot>();
+        const mobs = new Map<string, MobSnapshot>();
         const chat: ChatEntry[] = [];
         let lastAttack: AttackEvent | undefined;
         let lastRespawn: RespawnEvent | undefined;
         let lastPickup: PickupEvent | undefined;
         let lastUsed: UsedEvent | undefined;
+        let lastMobKilled: MobKilledEvent | undefined;
 
         const send = ((type: string, payload?: unknown) => {
           if (!room) return;
@@ -164,11 +199,13 @@ export function useRoom(): RoomState {
             zoneId,
             players: new Map(players),
             drops: new Map(drops),
+            mobs: new Map(mobs),
             chat: [...chat],
             lastAttack,
             lastRespawn,
             lastPickup,
             lastUsed,
+            lastMobKilled,
             send,
             travel,
           });
@@ -199,11 +236,30 @@ export function useRoom(): RoomState {
           drops.delete(key);
           commit();
         });
+        $(room.state).mobs.onAdd((m: Mob, key: string) => {
+          mobs.set(key, snapMob(m, key));
+          commit();
+          $(m).onChange(() => {
+            mobs.set(key, snapMob(m, key));
+            commit();
+          });
+        });
+        $(room.state).mobs.onRemove((_m: Mob, key: string) => {
+          mobs.delete(key);
+          commit();
+        });
 
         room.onMessage("attack", (msg: AttackEvent) => {
           lastAttack = msg;
           commit();
         });
+        room.onMessage(
+          "mob-killed",
+          (msg: { mobId: string; pos: { x: number; y: number; z: number } }) => {
+            lastMobKilled = { mobId: msg.mobId, pos: msg.pos, at: Date.now() };
+            commit();
+          },
+        );
         room.onMessage("respawned", (pos: { x: number; y: number; z: number }) => {
           lastRespawn = { x: pos.x, y: pos.y, z: pos.z, at: Date.now() };
           commit();
@@ -235,6 +291,7 @@ export function useRoom(): RoomState {
             status: "idle",
             players: new Map(),
             drops: new Map(),
+            mobs: new Map(),
             chat: [],
           }));
         });
@@ -246,6 +303,7 @@ export function useRoom(): RoomState {
             error: message,
             players: new Map(),
             drops: new Map(),
+            mobs: new Map(),
             chat: [],
           }));
         });
@@ -259,6 +317,7 @@ export function useRoom(): RoomState {
           error: (err as Error).message,
           players: new Map(),
           drops: new Map(),
+          mobs: new Map(),
         }));
       }
     })();
