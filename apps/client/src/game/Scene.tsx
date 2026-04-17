@@ -10,12 +10,14 @@ import type {
 } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
-import { Environment, Float } from "@react-three/drei";
+import { Environment, Float, OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useRef } from "react";
-import { type Group, Vector3 } from "three";
+import { type Group, MathUtils, Vector3 } from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
+import { InteractionPrompt } from "./InteractionPrompt";
 import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
 import { Players } from "./Players";
@@ -24,12 +26,12 @@ import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
-// Fixed 3rd-person arm — feels like a camera on a boom attached to the player.
-// Yaw is locked; no orbit controls at all, so portal travel + zone swap carry
-// a predictable viewpoint into the new room.
-const CAMERA_HEIGHT = 7;
-const CAMERA_DISTANCE = 9.5;
-const CAMERA_YAW = -Math.PI / 4;
+/** Cam arm defaults. User can still rotate/zoom via OrbitControls. */
+const CAMERA_MIN_DIST = 6;
+const CAMERA_MAX_DIST = 18;
+const CAMERA_INITIAL_DIST = 10;
+const CAMERA_INITIAL_POLAR = Math.PI * 0.32;
+const CAMERA_INITIAL_YAW = Math.PI * 0.75;
 
 export function Scene({
   players,
@@ -44,9 +46,9 @@ export function Scene({
   cinematicActive = false,
   onCinematicComplete,
   onGroundClick,
-  onAttack,
   onPickup,
-  onNpcClick,
+  onNpcInteract,
+  interactionTargetId,
 }: {
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
@@ -60,11 +62,12 @@ export function Scene({
   cinematicActive?: boolean;
   onCinematicComplete?: () => void;
   onGroundClick: (pos: Vec3) => void;
-  onAttack: () => void;
   onPickup: (dropId: string) => void;
-  onNpcClick: (npc: NpcSnapshot) => void;
+  onNpcInteract: (npc: NpcSnapshot) => void;
+  interactionTargetId?: string;
 }) {
   const cubeGroup = useRef<Group>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const { resolved } = useTheme();
   const { tier, budget } = useQuality();
 
@@ -146,10 +149,17 @@ export function Scene({
         selfPosRef={selfPosRef}
       />
       <Drops drops={drops} onPickup={onPickup} />
-      <Mobs mobs={mobs} onAttack={onAttack} lastAttack={lastAttack} />
-      <Npcs npcs={npcs} onInteract={onNpcClick} />
+      <Mobs mobs={mobs} lastAttack={lastAttack} />
+      <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <Portals portals={zone.portals} />
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
+
+      <InteractionPrompt
+        npcs={npcs}
+        drops={drops}
+        selfPosRef={selfPosRef}
+        activeTargetId={interactionTargetId}
+      />
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -167,49 +177,91 @@ export function Scene({
 
       <gridHelper args={[gridSize, gridSize, palette.gridMajor, palette.gridMinor]} />
 
-      <ChaseArm self={self} selfPosRef={selfPosRef} cinematicActive={cinematicActive} />
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        enableDamping
+        dampingFactor={0.12}
+        enablePan={false}
+        minDistance={CAMERA_MIN_DIST}
+        maxDistance={CAMERA_MAX_DIST}
+        minPolarAngle={Math.PI * 0.1}
+        maxPolarAngle={Math.PI * 0.46}
+        rotateSpeed={0.8}
+        zoomSpeed={0.7}
+        enabled={!cinematicActive}
+      />
+      <ChaseTarget
+        self={self}
+        selfPosRef={selfPosRef}
+        controlsRef={controlsRef}
+        cinematicActive={cinematicActive}
+      />
     </>
   );
 }
 
-function ChaseArm({
+/** Drives the OrbitControls target to follow the player. The user keeps
+ * free rotation + zoom around the character — the camera orbits *with* the
+ * player, not around a fixed world point. */
+function ChaseTarget({
   self,
   selfPosRef,
+  controlsRef,
   cinematicActive,
 }: {
   self: PlayerSnapshot | undefined;
   selfPosRef?: MutableRefObject<Vec3>;
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
   cinematicActive: boolean;
 }) {
   const camera = useThree((s) => s.camera);
-  const snapped = useRef(false);
-  const lookAtTarget = useRef(new Vector3());
-  const desiredPos = useRef(new Vector3());
+  const initialized = useRef(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers only
   useEffect(() => {
-    snapped.current = false;
+    initialized.current = false;
   }, [self?.id]);
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (cinematicActive || !self) return;
-    // Prefer the client-authoritative position for the local player so the
-    // camera tracks at 60Hz instead of the 20Hz server echo. Y is fixed to
-    // the player's nominal stand height so animations on sub-meshes don't
-    // jostle the look target.
-    const src = selfPosRef?.current ?? self;
-    const fixedY = 0.5;
-    desiredPos.current.set(
-      src.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
-      fixedY + CAMERA_HEIGHT,
-      src.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
-    );
-    lookAtTarget.current.set(src.x, fixedY + 0.6, src.z);
+    const controls = controlsRef.current;
+    if (!controls) return;
 
-    // Rigid arm: snap every frame. No lerp lag.
-    camera.position.copy(desiredPos.current);
-    camera.lookAt(lookAtTarget.current);
-    if (!snapped.current) snapped.current = true;
+    const src = selfPosRef?.current ?? self;
+    const targetX = src.x;
+    const targetY = 0.5 + 0.6;
+    const targetZ = src.z;
+
+    if (!initialized.current) {
+      // Place camera on a predictable arm angle on first frame so the
+      // initial view is consistent across zone swaps / respawns.
+      const offX =
+        Math.sin(CAMERA_INITIAL_YAW) * CAMERA_INITIAL_DIST * Math.sin(CAMERA_INITIAL_POLAR);
+      const offY = CAMERA_INITIAL_DIST * Math.cos(CAMERA_INITIAL_POLAR);
+      const offZ =
+        Math.cos(CAMERA_INITIAL_YAW) * CAMERA_INITIAL_DIST * Math.sin(CAMERA_INITIAL_POLAR);
+      controls.target.set(targetX, targetY, targetZ);
+      camera.position.set(targetX + offX, targetY + offY, targetZ + offZ);
+      initialized.current = true;
+    } else {
+      // Preserve the camera offset from the current target. Moving the
+      // target without touching camera.position makes the camera follow
+      // the character smoothly while the user retains their rotation/zoom.
+      const prevX = controls.target.x;
+      const prevY = controls.target.y;
+      const prevZ = controls.target.z;
+      const k = 1 - Math.exp(-dt * 18);
+      const nx = MathUtils.lerp(prevX, targetX, k);
+      const ny = MathUtils.lerp(prevY, targetY, k);
+      const nz = MathUtils.lerp(prevZ, targetZ, k);
+      const dx = nx - prevX;
+      const dy = ny - prevY;
+      const dz = nz - prevZ;
+      controls.target.set(nx, ny, nz);
+      camera.position.add(new Vector3(dx, dy, dz));
+    }
+    controls.update();
   });
   return null;
 }

@@ -482,6 +482,65 @@ export class GameRoom extends Room<GameRoomState> {
     cds.set(skill.id, now + skill.cooldownMs);
 
     switch (skill.id) {
+      case "basic": {
+        // Same flow as the legacy "attack" message — picks nearest candidate
+        // (player or mob), applies damage, broadcasts. Lives in the skill
+        // system now so the HUD shows one unified action bar.
+        const candidates: Combatant[] = [];
+        this.state.players.forEach((pp, id) => {
+          if (id === client.sessionId) return;
+          candidates.push({ id, pos: { x: pp.x, y: pp.y, z: pp.z }, alive: pp.alive, hp: pp.hp });
+        });
+        this.state.mobs.forEach((m, id) => {
+          candidates.push({
+            id: `mob:${id}`,
+            pos: { x: m.x, y: m.y, z: m.z },
+            alive: m.alive,
+            hp: m.hp,
+          });
+        });
+        const attackerC: Combatant = {
+          id: client.sessionId,
+          pos: { x: p.x, y: p.y, z: p.z },
+          alive: p.alive,
+          hp: p.hp,
+        };
+        const dmg = this.computeDamage(p);
+        const cfg: CombatConfig = { ...this.combat, attackDamage: dmg, attackRange: skill.range };
+        const result = resolveAttack(attackerC, candidates, cfg);
+        if (!result.ok) return;
+        if (result.targetId.startsWith("mob:")) {
+          const mobId = result.targetId.slice(4);
+          const hit = this.mobSystem.applyDamage(mobId, dmg);
+          if (!hit.ok) return;
+          this.broadcast("attack", {
+            attackerId: client.sessionId,
+            targetId: result.targetId,
+            killed: hit.killed,
+            dmg,
+          });
+          if (hit.killed) this.onMobKilledByPlayer(p, hit.kind, hit.xpBonus, hit.gold);
+        } else {
+          const target = this.state.players.get(result.targetId);
+          const targetCombat = this.playerCombat.get(result.targetId);
+          if (!target || !targetCombat) return;
+          if (Date.now() < targetCombat.invulnerableUntil) return;
+          target.hp = result.newHp;
+          if (result.killed) {
+            target.alive = false;
+            this.spawnKillDrop(target);
+            const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
+            this.scheduleRespawn(result.targetId, targetClient);
+          }
+          this.broadcast("attack", {
+            attackerId: client.sessionId,
+            targetId: result.targetId,
+            killed: result.killed,
+            dmg,
+          });
+        }
+        break;
+      }
       case "cleave": {
         const origin = { x: p.x, y: p.y, z: p.z };
         const hits = this.mobSystem.applyRadialDamage(origin, skill.range, this.computeDamage(p));

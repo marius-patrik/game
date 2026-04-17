@@ -7,30 +7,29 @@ import { type ChatChannel, type EquipSlot, type SkillId, type StatKey, ZONES } f
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ChatPanel } from "./ChatPanel";
+import { ActionBar } from "./ActionBar";
 import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
-import { InventoryBar } from "./InventoryBar";
-import { InventoryPanel } from "./InventoryPanel";
-import { Minimap } from "./Minimap";
 import { ProgressBar } from "./ProgressBar";
-import { QuestPanel } from "./QuestPanel";
+import { QuestTracker } from "./QuestTracker";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
-import { SkillBar } from "./SkillBar";
+import { SidePanel } from "./SidePanel";
 import { StatPanel } from "./StatPanel";
+import { TopMenu } from "./TopMenu";
 import { Tutorial } from "./Tutorial";
 import { VendorPanel } from "./VendorPanel";
 import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
+import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
+import { useNearestNpc } from "./useNearestNpc";
 
 type Vec3 = { x: number; y: number; z: number };
 type TierPref = QualityTier | "auto";
 
 const CINEMATIC_STORAGE_KEY = "cinematic.intro.played";
 const CLIENT_RESPAWN_DELAY_MS = 2500;
-const ATTACK_COOLDOWN_MS = 400;
 const SETTINGS_TIER_KEY = "settings.qualityTier";
 const SETTINGS_VOLUME_KEY = "settings.volume";
 
@@ -117,10 +116,6 @@ function GameViewInner({
     (slot: EquipSlot, itemId: string) => room.send("equipSlot", { slot, itemId }),
     [room.send],
   );
-  const onUnequipSlot = useCallback(
-    (slot: EquipSlot) => room.send("unequipSlot", { slot }),
-    [room.send],
-  );
   const onAllocateStat = useCallback(
     (stat: StatKey) => room.send("allocateStat", { stat }),
     [room.send],
@@ -148,7 +143,7 @@ function GameViewInner({
     (itemId: string, qty: number) => room.send("drop", { itemId, qty }),
     [room.send],
   );
-  const onChat = useCallback(
+  const onSendChat = useCallback(
     (channel: ChatChannel, text: string) => room.send("chat", { channel, text }),
     [room.send],
   );
@@ -184,23 +179,9 @@ function GameViewInner({
     [canAct],
   );
 
-  const lastAttackClickRef = useRef(0);
-  const onAttack = useCallback(() => {
-    if (!canAct) return;
-    const now = performance.now();
-    if (now - lastAttackClickRef.current < ATTACK_COOLDOWN_MS) return;
-    lastAttackClickRef.current = now;
-    room.send("attack");
-    playSfx("attack");
-  }, [canAct, room.send]);
-
-  // NPC click → open the right panel
+  const [statOpen, setStatOpen] = useState(false);
   const [vendorOpen, setVendorOpen] = useState(false);
-  const [questOpen, setQuestOpen] = useState(false);
-  const onNpcClick = useCallback((npc: NpcSnapshot) => {
-    if (npc.kind === "vendor") setVendorOpen(true);
-    else if (npc.kind === "questgiver") setQuestOpen(true);
-  }, []);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const selfPosRef = useClickControls({
     enabled: canAct,
@@ -211,9 +192,33 @@ function GameViewInner({
     onSend: onMove,
   });
 
+  // Auto-pickup drops on proximity.
+  useAutoPickup({ enabled: canAct, drops: room.drops, selfPosRef, onPickup });
+
+  // Track nearest NPC + bind interact key.
+  const nearestNpc = useNearestNpc({ enabled: canAct, npcs: room.npcs, selfPosRef });
+  const onNpcInteract = useCallback((npc: NpcSnapshot) => {
+    if (npc.kind === "vendor") setVendorOpen(true);
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      if (e.key !== "e" && e.key !== "E") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (!nearestNpc) return;
+      e.preventDefault();
+      onNpcInteract(nearestNpc);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nearestNpc, onNpcInteract]);
+
   useEffect(() => {
     if (getSfxVolume() !== volume) setSfxVolume(volume);
   }, [volume]);
+
+  const canTurnIn = nearestNpc?.kind === "questgiver";
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -237,9 +242,9 @@ function GameViewInner({
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
             onGroundClick={onGroundClick}
-            onAttack={onAttack}
             onPickup={onPickup}
-            onNpcClick={onNpcClick}
+            onNpcInteract={onNpcInteract}
+            interactionTargetId={nearestNpc?.id}
           />
           {budget.postFX ? (
             <EffectComposer multisampling={0}>
@@ -249,44 +254,49 @@ function GameViewInner({
           ) : null}
         </Suspense>
       </Canvas>
-      <HUD
-        status={room.status}
-        playerCount={room.players.size}
-        zoneId={room.zoneId}
-        onTravel={room.travel}
-        settingsSlot={
-          <div className="flex items-center gap-2">
-            <StatPanel player={self} onAllocate={onAllocateStat} />
-            <InventoryPanel
-              player={self}
-              onEquipSlot={onEquipSlot}
-              onUnequipSlot={onUnequipSlot}
-              onUse={onUse}
-              onDrop={onDropItem}
-            />
-            <QuestPanel player={self} onTurnIn={onTurnInQuest} />
-            <SettingsPanel
-              tier={tier}
-              onTierChange={onTierChange}
-              volume={volume}
-              onVolumeChange={onVolumeChange}
-            />
-          </div>
-        }
-      />
-      <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
+
+      <HUD status={room.status} playerCount={room.players.size} zoneId={room.zoneId} />
+
       {!cinematicActive && room.sessionId ? (
         <>
-          <ProgressBar player={self} />
-          <Minimap
+          <ProgressBar player={self} onClick={() => setStatOpen(true)} />
+          <div className="pointer-events-auto absolute top-2 right-[220px] sm:top-4 sm:right-[260px]">
+            <TopMenu
+              status={room.status}
+              playerCount={room.players.size}
+              zoneId={room.zoneId}
+              onTravel={room.travel}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          </div>
+          <QuestTracker player={self} />
+          <SidePanel
             zoneId={room.zoneId}
             players={room.players}
             mobs={room.mobs}
             sessionId={room.sessionId}
+            chat={room.chat}
+            onSendChat={onSendChat}
+            quests={self?.quests ?? []}
+            onTurnInQuest={onTurnInQuest}
+            canTurnIn={canTurnIn}
           />
-          <InventoryBar player={self} onUse={onUse} onEquip={onEquip} />
-          <SkillBar enabled={canAct} mana={Math.floor(self?.mana ?? 0)} onCast={onCast} />
-          <ChatPanel entries={room.chat} onSend={onChat} enabled={Boolean(room.sessionId)} />
+          <ActionBar
+            player={self}
+            enabled={canAct}
+            onCast={onCast}
+            onUse={onUse}
+            onEquip={onEquip}
+            onEquipSlot={onEquipSlot}
+            onDrop={onDropItem}
+          />
+          {nearestNpc ? (
+            <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md">
+              Press <kbd className="rounded border border-border/60 bg-muted px-1">E</kbd> to{" "}
+              {nearestNpc.kind === "vendor" ? "trade" : "talk"} with{" "}
+              <strong>{nearestNpc.name}</strong>
+            </div>
+          ) : null}
           <VendorPanel
             open={vendorOpen}
             onOpenChange={setVendorOpen}
@@ -294,25 +304,61 @@ function GameViewInner({
             onBuy={onBuy}
             onSell={onSell}
           />
+          <StatPanel
+            player={self}
+            open={statOpen}
+            onOpenChange={setStatOpen}
+            onAllocate={onAllocateStat}
+          />
+          <SettingsPanelController
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            tier={tier}
+            onTierChange={onTierChange}
+            volume={volume}
+            onVolumeChange={onVolumeChange}
+          />
           <Tutorial />
         </>
       ) : null}
-      {/* QuestPanel dialog is rendered as the trigger in HUD; the external open
-          state is controlled by NPC click. We mount a dedicated wrapper below
-          so NPC-opened dialog works even if the user never hit the HUD button. */}
-      {!cinematicActive && room.sessionId ? (
-        <QuestPanel
-          player={self}
-          onTurnIn={onTurnInQuest}
-          externalOpen={questOpen}
-          onExternalOpenChange={setQuestOpen}
-        />
-      ) : null}
+
+      <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
+
       <DeathOverlay
         dead={!alive && !cinematicActive}
         respawnDelayMs={CLIENT_RESPAWN_DELAY_MS}
         deathAt={deathAtRef.current}
       />
     </div>
+  );
+}
+
+/** SettingsPanel was originally built as its own button + dialog. Here we strip
+ * the trigger so it can be opened from the TopMenu dropdown instead. */
+function SettingsPanelController({
+  open,
+  onOpenChange,
+  tier,
+  onTierChange,
+  volume,
+  onVolumeChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  tier: TierPref;
+  onTierChange: (t: TierPref) => void;
+  volume: number;
+  onVolumeChange: (v: number) => void;
+}) {
+  if (!open) return null;
+  return (
+    <SettingsPanel
+      tier={tier}
+      onTierChange={onTierChange}
+      volume={volume}
+      onVolumeChange={onVolumeChange}
+      externalOpen={open}
+      onExternalOpenChange={onOpenChange}
+    />
   );
 }

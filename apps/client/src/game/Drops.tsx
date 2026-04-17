@@ -7,7 +7,12 @@ import { Color, type Mesh } from "three";
 
 const ITEM_COLOR: Record<string, string> = {
   heal_potion: "#ef4444",
+  mana_potion: "#38bdf8",
   sword: "#94a3b8",
+  greataxe: "#a1a1aa",
+  helm: "#f59e0b",
+  cuirass: "#fb923c",
+  ring_spark: "#a78bfa",
   soul: "#a78bfa",
 };
 
@@ -22,6 +27,7 @@ function DropMarker({
   const color = useMemo(() => new Color(ITEM_COLOR[drop.itemId] ?? "#f59e0b"), [drop.itemId]);
   const def = getItem(drop.itemId);
   const isWeapon = def?.kind === "weapon";
+  const isArmor = def?.kind === "armor";
 
   useFrame((_, dt) => {
     if (meshRef.current) meshRef.current.rotation.y += dt * 1.8;
@@ -40,6 +46,8 @@ function DropMarker({
         >
           {isWeapon ? (
             <boxGeometry args={[0.18, 0.6, 0.18]} />
+          ) : isArmor ? (
+            <boxGeometry args={[0.38, 0.3, 0.22]} />
           ) : (
             <icosahedronGeometry args={[0.25, 0]} />
           )}
