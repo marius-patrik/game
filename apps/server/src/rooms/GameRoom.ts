@@ -124,6 +124,7 @@ export class GameRoom extends Room<GameRoomState> {
   private dropCounter = 0;
   private chatCounter = 0;
   private mobSystem!: MobSystem;
+  private muteUntil = new Map<string, number>();
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -343,6 +344,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
     this.mobSystem?.onPlayerLeave(client.sessionId);
+    this.muteUntil.delete(client.sessionId);
   }
 
   override async onDispose() {
@@ -1269,6 +1271,11 @@ export class GameRoom extends Room<GameRoomState> {
       this.sendChatError(client, "too_long");
       return;
     }
+    const mutedUntil = this.muteUntil.get(client.sessionId) ?? 0;
+    if (Date.now() < mutedUntil) {
+      this.sendChatError(client, "muted");
+      return;
+    }
     if (!this.rateLimiter.consume(client.sessionId, "chat")) {
       this.recordViolation(client, p, "rate_limit:chat");
       this.sendChatError(client, "rate_limit");
@@ -1320,6 +1327,20 @@ export class GameRoom extends Room<GameRoomState> {
 
   _relayChat(entry: ChatEntry) {
     this.broadcast("chat", entry);
+  }
+
+  _adminKick(sessionId: string) {
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    client?.leave(4003);
+  }
+
+  _adminMute(sessionId: string, durationMs = 900_000) {
+    const safeDuration = Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 900_000;
+    this.muteUntil.set(sessionId, Date.now() + safeDuration);
+  }
+
+  _adminGetUserId(sessionId: string): string | undefined {
+    return this.playerUserId.get(sessionId);
   }
 
   private sendChatError(client: Client, reason: ChatError["reason"]) {

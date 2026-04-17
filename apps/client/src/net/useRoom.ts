@@ -233,6 +233,8 @@ function chatErrorMessage(reason: ChatError["reason"]): string {
       return "Chat: message empty";
     case "invalid_channel":
       return "Chat: invalid channel";
+    case "muted":
+      return "Chat: you are muted";
   }
 }
 

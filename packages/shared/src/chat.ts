@@ -14,7 +14,7 @@ export type ChatInbound = {
 };
 
 export type ChatError = {
-  reason: "rate_limit" | "too_long" | "empty" | "invalid_channel";
+  reason: "rate_limit" | "too_long" | "empty" | "invalid_channel" | "muted";
 };
 
 export const CHAT_MAX_LEN = 200;

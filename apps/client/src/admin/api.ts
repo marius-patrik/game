@@ -13,6 +13,23 @@ export async function adminFetch<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function adminPost<T = unknown>(path: string, body?: unknown): Promise<T> {
+  const token = tokenStore.get();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: body === undefined ? "{}" : JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText}${text ? ` — ${text}` : ""}`);
+  }
+  return (await res.json()) as T;
+}
+
 export type AdminPlayer = {
   id: string;
   name: string;
