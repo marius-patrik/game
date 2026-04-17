@@ -42,6 +42,7 @@ import {
   ViolationTracker,
   validateMovement,
 } from "../security";
+import { MobSystem, type PlayerRef } from "./systems/mobs";
 
 type MoveMessage = { x: number; y: number; z: number };
 type UseMessage = { itemId: string };
@@ -85,6 +86,7 @@ export class GameRoom extends Room<GameRoomState> {
   private lootInterval?: ReturnType<typeof setInterval>;
   private dropCounter = 0;
   private chatCounter = 0;
+  private mobSystem!: MobSystem;
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -135,6 +137,16 @@ export class GameRoom extends Room<GameRoomState> {
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
     this.saveInterval = setInterval(() => this.flushAllProgress(), SAVE_INTERVAL_MS);
     this.lootInterval = setInterval(() => this.tickLootSpawns(), LOOT_SPAWN_INTERVAL_MS);
+
+    this.mobSystem = new MobSystem({
+      mobs: this.state.mobs,
+      zone: this.zone,
+      getPlayers: () => this.collectPlayerRefs(),
+      damagePlayer: (id, dmg) => this.applyMobContactDamage(id, dmg),
+      onMobKilled: (mobId, pos) => this.broadcast("mob-killed", { mobId, pos }),
+      spawnDrop: (itemId, qty, pos) => this.spawnDrop(itemId, qty, pos),
+    });
+    this.mobSystem.start();
   }
 
   override async onJoin(client: Client<unknown, SessionUser>) {
@@ -215,11 +227,13 @@ export class GameRoom extends Room<GameRoomState> {
     this.playerUserId.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
+    this.mobSystem?.onPlayerLeave(client.sessionId);
   }
 
   override async onDispose() {
     if (this.saveInterval) clearInterval(this.saveInterval);
     if (this.lootInterval) clearInterval(this.lootInterval);
+    this.mobSystem?.stop();
     await this.flushAllPositions();
     await this.flushAllProgress();
   }
@@ -269,6 +283,14 @@ export class GameRoom extends Room<GameRoomState> {
     this.state.players.forEach((p, id) => {
       candidates.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive, hp: p.hp });
     });
+    this.state.mobs.forEach((m, id) => {
+      candidates.push({
+        id: `mob:${id}`,
+        pos: { x: m.x, y: m.y, z: m.z },
+        alive: m.alive,
+        hp: m.hp,
+      });
+    });
     const attackerC: Combatant = {
       id: client.sessionId,
       pos: { x: attacker.x, y: attacker.y, z: attacker.z },
@@ -279,6 +301,18 @@ export class GameRoom extends Room<GameRoomState> {
     const cfg: CombatConfig = { ...this.combat, attackDamage: this.combat.attackDamage + bonus };
     const result = resolveAttack(attackerC, candidates, cfg);
     if (!result.ok) return;
+
+    if (result.targetId.startsWith("mob:")) {
+      const mobId = result.targetId.slice(4);
+      const hit = this.mobSystem.applyDamage(mobId, cfg.attackDamage);
+      if (!hit.ok) return;
+      this.broadcast("attack", {
+        attackerId: client.sessionId,
+        targetId: result.targetId,
+        killed: hit.killed,
+      });
+      return;
+    }
 
     const target = this.state.players.get(result.targetId);
     const targetCombat = this.playerCombat.get(result.targetId);
@@ -526,8 +560,9 @@ export class GameRoom extends Room<GameRoomState> {
     this.spawnDrop("heal_potion", 1, { x, y: 0, z });
   }
 
-  private tick(_dt: number) {
+  private tick(dt: number) {
     this.handleZoneTick();
+    this.mobSystem?.tick(dt);
   }
 
   private handleZoneTick() {
@@ -559,6 +594,29 @@ export class GameRoom extends Room<GameRoomState> {
         return;
       }
     });
+  }
+
+  private collectPlayerRefs(): PlayerRef[] {
+    const out: PlayerRef[] = [];
+    this.state.players.forEach((p, id) => {
+      out.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive });
+    });
+    return out;
+  }
+
+  private applyMobContactDamage(playerId: string, dmg: number): void {
+    const target = this.state.players.get(playerId);
+    const combat = this.playerCombat.get(playerId);
+    if (!target || !combat || !target.alive) return;
+    if (Date.now() < combat.invulnerableUntil) return;
+    const newHp = Math.max(0, target.hp - dmg);
+    target.hp = newHp;
+    if (newHp === 0) {
+      target.alive = false;
+      this.spawnKillDrop(target);
+      const targetClient = this.clients.find((c) => c.sessionId === playerId);
+      this.scheduleRespawn(playerId, targetClient);
+    }
   }
 
   private handleChat(client: Client<unknown, SessionUser>, msg: ChatInbound) {

@@ -1,7 +1,7 @@
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
-import type { DropSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { DropSnapshot, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float, OrbitControls } from "@react-three/drei";
@@ -9,6 +9,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import type { Group } from "three";
 import { Drops } from "./Drops";
+import { Mobs } from "./Mobs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { resolveZonePalette } from "./zonePalette";
@@ -16,6 +17,7 @@ import { resolveZonePalette } from "./zonePalette";
 export function Scene({
   players,
   drops,
+  mobs,
   sessionId,
   zoneId = DEFAULT_ZONE,
   cinematicActive = false,
@@ -23,6 +25,7 @@ export function Scene({
 }: {
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
+  mobs: Map<string, MobSnapshot>;
   sessionId?: string;
   zoneId?: ZoneId;
   cinematicActive?: boolean;
@@ -101,6 +104,7 @@ export function Scene({
 
       <Players players={players} sessionId={sessionId} />
       <Drops drops={drops} />
+      <Mobs mobs={mobs} />
       <Portals portals={zone.portals} />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

@@ -93,6 +93,7 @@ function GameViewInner() {
           <Scene
             players={room.players}
             drops={room.drops}
+            mobs={room.mobs}
             sessionId={room.sessionId}
             zoneId={room.zoneId}
             cinematicActive={cinematicActive}
