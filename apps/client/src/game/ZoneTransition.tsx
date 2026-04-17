@@ -1,17 +1,26 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { PortalTransition } from "./cinematics";
+
+type Status = "idle" | "connecting" | "connected" | "error";
 
 /**
- * Full-screen fade-to-black on zone swap. Takes the current connection status
- * and shows a ~350ms fade while the room teardown + rejoin happens. The
- * actual zone swap is orchestrated server-side via the zone-exit message +
- * the useRoom reconnect; this component is pure visual polish.
+ * Full-screen zone-swap overlay. Renders the cinematic portal transition by
+ * default and falls back to the original 350ms fade when the user has opted
+ * out via Settings → Skip cinematics.
  */
 export function ZoneTransition({
   status,
+  skipCinematics,
 }: {
-  status: "idle" | "connecting" | "connected" | "error";
+  status: Status;
+  skipCinematics: boolean;
 }) {
+  if (skipCinematics) return <PlainFade status={status} />;
+  return <PortalTransition status={status} />;
+}
+
+function PlainFade({ status }: { status: Status }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

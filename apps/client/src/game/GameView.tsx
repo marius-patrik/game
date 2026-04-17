@@ -2,6 +2,7 @@ import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
 import type { NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
+import { usePreferencesStore } from "@/state/preferencesStore";
 import { useTheme } from "@/theme/theme-provider";
 import { type ChatChannel, type EquipSlot, type SkillId, type StatKey, ZONES } from "@game/shared";
 import { Canvas } from "@react-three/fiber";
@@ -98,6 +99,8 @@ function GameViewInner({
   const { resolved } = useTheme();
   const { budget } = useQuality();
   const room = useRoom();
+  const skipCinematics = usePreferencesStore((s) => s.skipCinematics);
+  const setSkipCinematics = usePreferencesStore((s) => s.setSkipCinematics);
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
 
   useGameSfx(room);
@@ -247,6 +250,9 @@ function GameViewInner({
             lastTelegraph={room.lastTelegraph}
             selfPosRef={selfPosRef}
             cinematicActive={cinematicActive}
+            portalCinematicActive={
+              !skipCinematics && (room.status === "connecting" || room.status === "idle")
+            }
             onCinematicComplete={finishCinematic}
             onGroundClick={onGroundClick}
             onPickup={onPickup}
@@ -326,6 +332,8 @@ function GameViewInner({
             onTierChange={onTierChange}
             volume={volume}
             onVolumeChange={onVolumeChange}
+            skipCinematics={skipCinematics}
+            onSkipCinematicsChange={setSkipCinematics}
           />
           <Tutorial />
         </>
@@ -342,7 +350,7 @@ function GameViewInner({
       <HitVignette self={self} />
       <LevelUpBanner self={self} />
       <QuestToast room={room} />
-      <ZoneTransition status={room.status} />
+      <ZoneTransition status={room.status} skipCinematics={skipCinematics} />
     </div>
   );
 }
@@ -356,6 +364,8 @@ function SettingsPanelController({
   onTierChange,
   volume,
   onVolumeChange,
+  skipCinematics,
+  onSkipCinematicsChange,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -363,6 +373,8 @@ function SettingsPanelController({
   onTierChange: (t: TierPref) => void;
   volume: number;
   onVolumeChange: (v: number) => void;
+  skipCinematics: boolean;
+  onSkipCinematicsChange: (v: boolean) => void;
 }) {
   if (!open) return null;
   return (
@@ -371,6 +383,8 @@ function SettingsPanelController({
       onTierChange={onTierChange}
       volume={volume}
       onVolumeChange={onVolumeChange}
+      skipCinematics={skipCinematics}
+      onSkipCinematicsChange={onSkipCinematicsChange}
       externalOpen={open}
       onExternalOpenChange={onOpenChange}
     />

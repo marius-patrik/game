@@ -27,6 +27,7 @@ import { Npcs } from "./Npcs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { ZoneDecor } from "./ZoneDecor";
+import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -51,6 +52,7 @@ export function Scene({
   lastTelegraph,
   selfPosRef,
   cinematicActive = false,
+  portalCinematicActive = false,
   onCinematicComplete,
   onGroundClick,
   onPickup,
@@ -69,6 +71,7 @@ export function Scene({
   lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
   cinematicActive?: boolean;
+  portalCinematicActive?: boolean;
   onCinematicComplete?: () => void;
   onGroundClick: (pos: Vec3) => void;
   onPickup: (dropId: string) => void;
@@ -84,6 +87,8 @@ export function Scene({
     active: cinematicActive,
     onComplete: onCinematicComplete ?? (() => {}),
   });
+
+  usePortalCameraPush({ active: portalCinematicActive });
 
   const zone = ZONES[zoneId];
   const palette = resolveZonePalette(zone, resolved);
@@ -203,7 +208,7 @@ export function Scene({
         maxPolarAngle={Math.PI * 0.46}
         rotateSpeed={0.8}
         zoomSpeed={0.7}
-        enabled={!cinematicActive}
+        enabled={!cinematicActive && !portalCinematicActive}
       />
       <ChaseTarget
         self={self}
