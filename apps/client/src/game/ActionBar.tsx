@@ -12,6 +12,9 @@ import {
 } from "@game/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
+import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./targeting";
+
+type Vec3 = { x: number; y: number; z: number };
 
 type Cd = Partial<Record<SkillId, number>>;
 
@@ -20,6 +23,7 @@ export function ActionBar({
   player,
   enabled,
   onCast,
+  onCastAt,
   onUse,
   onEquip,
   onEquipSlot,
@@ -28,6 +32,7 @@ export function ActionBar({
   player: PlayerSnapshot | undefined;
   enabled: boolean;
   onCast: (id: SkillId) => void;
+  onCastAt?: (id: SkillId, target: Vec3) => void;
   onUse: (itemId: string) => void;
   onEquip: (itemId: string) => void;
   onEquipSlot: (slot: EquipSlot, itemId: string) => void;
@@ -39,10 +44,47 @@ export function ActionBar({
   manaRef.current = Math.floor(player?.mana ?? 0);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+  const activeTargetingSource = useActiveTargetingSource();
+
+  const beginTargetedDash = useCallback(() => {
+    if (!enabledRef.current) return;
+    const skill = SKILL_CATALOG.dash;
+    const now = Date.now();
+    const ready = cdRef.current.dash ?? 0;
+    if (now < ready) return;
+    if (manaRef.current < skill.manaCost) return;
+    startTargeting({
+      source: "skill:dash",
+      shape: "circle",
+      rangeMax: skill.range,
+      color: skill.color,
+      outOfRangeColor: "#ef4444",
+      onConfirm: (pos) => {
+        cdRef.current = { ...cdRef.current, dash: Date.now() + skill.cooldownMs };
+        force((v) => v + 1);
+        if (onCastAt) onCastAt("dash", pos);
+        else onCast("dash");
+      },
+      onCancel: () => {
+        force((v) => v + 1);
+      },
+    });
+    force((v) => v + 1);
+  }, [onCast, onCastAt]);
 
   const cast = useCallback(
     (id: SkillId) => {
       if (!enabledRef.current) return;
+      if (id === "dash") {
+        // Toggle: second press while aiming cancels. Avoids a "can't escape"
+        // feeling if the player triggered the targeter by mistake.
+        if (activeTargetingSource === "skill:dash") {
+          cancelTargeting();
+          return;
+        }
+        beginTargetedDash();
+        return;
+      }
       const skill = SKILL_CATALOG[id];
       const now = Date.now();
       const ready = cdRef.current[id] ?? 0;
@@ -52,7 +94,7 @@ export function ActionBar({
       force((v) => v + 1);
       onCast(id);
     },
-    [onCast],
+    [activeTargetingSource, beginTargetedDash, onCast],
   );
 
   useEffect(() => {
@@ -97,22 +139,29 @@ export function ActionBar({
           const cd = Math.max(0, ready - now);
           const cdFrac = cd > 0 ? cd / skill.cooldownMs : 0;
           const canAfford = skill.manaCost === 0 || mana >= skill.manaCost;
+          const aimingThis = activeTargetingSource === `skill:${id}`;
           const disabled = !enabled || cd > 0 || !canAfford;
           return (
             <button
               key={id}
               type="button"
               onClick={() => cast(id)}
-              disabled={disabled}
+              // While aiming, allow a second click on the ability to cancel
+              // without the browser's disabled-blocking consuming the event.
+              disabled={disabled && !aimingThis}
               aria-label={`${skill.name} (key ${idx + 1})`}
               title={`${skill.name} — ${skill.description}${
                 skill.manaCost > 0 ? ` (${skill.manaCost} mana)` : ""
-              }`}
+              }${aimingThis ? " — click again to cancel" : ""}`}
               className={cn(
                 "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
-                disabled ? "opacity-70" : "hover:scale-105",
+                disabled && !aimingThis ? "opacity-70" : "hover:scale-105",
+                aimingThis && "ring-2 ring-offset-1 ring-offset-background",
               )}
-              style={{ borderColor: skill.color }}
+              style={{
+                borderColor: skill.color,
+                ...(aimingThis ? { boxShadow: `0 0 0 2px ${skill.color}` } : {}),
+              }}
             >
               <span
                 className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"

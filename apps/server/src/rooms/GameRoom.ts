@@ -80,7 +80,7 @@ type EquipMessage = { itemId: string };
 type PickupMessage = { dropId: string };
 type DropMessage = { itemId: string; qty: number };
 type AllocateStatMessage = { stat: StatKey };
-type CastMessage = { skillId: SkillId };
+type CastMessage = { skillId: SkillId; target?: { x: number; z: number } };
 type EquipSlotMessage = { slot: EquipSlot; itemId: string };
 type UnequipSlotMessage = { slot: EquipSlot };
 type BuyMessage = { itemId: string; qty?: number };
@@ -661,15 +661,42 @@ export class GameRoom extends Room<GameRoomState> {
       }
       case "dash": {
         const sec = this.playerSec.get(client.sessionId);
-        const dx = sec ? p.x - sec.lastPos.x : 0;
-        const dz = sec ? p.z - sec.lastPos.z : 0;
-        const len = Math.hypot(dx, dz);
-        const nx = len > 0 ? dx / len : 0;
-        const nz = len > 0 ? dz / len : -1; // default forward
-        const dash = clampToBounds(
-          { x: p.x + nx * skill.range, y: p.y, z: p.z + nz * skill.range },
-          this.zone,
-        );
+        const rawTarget = msg?.target;
+        // Targeted dash: client passes explicit ground target. Clamp range
+        // to the skill's max (+ tiny epsilon) so a rubber-banded client
+        // cannot reach further than intended, then clamp to zone bounds.
+        let targetX: number;
+        let targetZ: number;
+        if (
+          rawTarget &&
+          typeof rawTarget.x === "number" &&
+          typeof rawTarget.z === "number" &&
+          Number.isFinite(rawTarget.x) &&
+          Number.isFinite(rawTarget.z)
+        ) {
+          const dx = rawTarget.x - p.x;
+          const dz = rawTarget.z - p.z;
+          const dist = Math.hypot(dx, dz);
+          const maxDist = skill.range;
+          if (dist <= maxDist || dist === 0) {
+            targetX = rawTarget.x;
+            targetZ = rawTarget.z;
+          } else {
+            const scale = maxDist / dist;
+            targetX = p.x + dx * scale;
+            targetZ = p.z + dz * scale;
+          }
+        } else {
+          // Fallback: facing-direction blink (hotkey path, no targeter).
+          const dx = sec ? p.x - sec.lastPos.x : 0;
+          const dz = sec ? p.z - sec.lastPos.z : 0;
+          const len = Math.hypot(dx, dz);
+          const nx = len > 0 ? dx / len : 0;
+          const nz = len > 0 ? dz / len : -1;
+          targetX = p.x + nx * skill.range;
+          targetZ = p.z + nz * skill.range;
+        }
+        const dash = clampToBounds({ x: targetX, y: p.y, z: targetZ }, this.zone);
         p.x = dash.x;
         p.z = dash.z;
         if (sec) {

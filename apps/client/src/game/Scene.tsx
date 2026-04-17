@@ -30,6 +30,10 @@ import { SafeZoneRing } from "./SafeZoneRing";
 import { ZoneDecor } from "./ZoneDecor";
 import { ChaseCamera } from "./camera/ChaseCamera";
 import { usePortalCameraPush } from "./cinematics";
+import { ClickBurst } from "./cursor/ClickBurst";
+import { Cursor3D } from "./cursor/Cursor3D";
+import { peekGround, peekLocked } from "./cursor/cursorStore";
+import { MoveCircle, Targeter, useActiveTargetingSource } from "./targeting";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -80,6 +84,7 @@ export function Scene({
 }) {
   const cubeGroup = useRef<Group>(null);
   const { tier, budget } = useQuality();
+  const targetingSource = useActiveTargetingSource();
 
   useCameraIntro({
     active: cinematicActive,
@@ -188,7 +193,24 @@ export function Scene({
         rotation={[-Math.PI / 2, 0, 0]}
         receiveShadow
         onPointerDown={(e) => {
+          // Swallow left-clicks on the ground while a targeter is active —
+          // the targeter's global handler confirms the cast, and we do NOT
+          // want a simultaneous move-to-here to queue behind it.
+          if (e.button === 0 && targetingSource !== null) {
+            e.stopPropagation();
+            return;
+          }
+          if (e.button !== 0) return;
           e.stopPropagation();
+          // In cursor-lock mode the native pointer is frozen at the lock
+          // entry point, so `e.point` does NOT reflect where the player is
+          // looking. Fall back to the shared ground-cursor ray (which is
+          // camera-centred in that mode).
+          if (peekLocked()) {
+            const g = peekGround();
+            if (g) onGroundClick({ x: g.x, y: 0, z: g.z });
+            return;
+          }
           onGroundClick({ x: e.point.x, y: 0, z: e.point.z });
         }}
       >
@@ -199,6 +221,11 @@ export function Scene({
       {moveTarget ? <MoveTargetMarker pos={moveTarget} /> : null}
 
       <gridHelper args={[gridSize, gridSize, palette.gridMajor, palette.gridMinor]} />
+
+      <Cursor3D />
+      <ClickBurst />
+      <MoveCircle />
+      <Targeter selfPosRef={selfPosRef} />
 
       {selfPosRef ? (
         <ChaseCamera
