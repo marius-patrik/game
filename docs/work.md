@@ -18,8 +18,19 @@ _Next is empty — pick from Backlog or run `maintenance`._
 
 ## Backlog
 
-Post-alpha ship targets. The previous backlog block closed in #58/#59/#60.
+Post-alpha ship targets. Previous backlog blocks closed in #58/#59/#60/#62.
 
+**Alpha-polish leftovers (these were listed in #62 as deferred):**
+- [ ] **Crit hits** — server rolls crit on damage (10% base + DEX/200), broadcast includes `crit: boolean`; client renders crit damage numbers in larger yellow text with a distinct sound.
+- [ ] **Inventory-full toast** — currently `handlePickup` silently fails when the bag is full; server should send a `pickup-error` and client should surface it.
+- [ ] **Killed-by-X death cause** — track last-damage-source on the server and include it in the respawn / death payload; show in `DeathOverlay`.
+- [ ] **Quest-complete fanfare SFX** — today `QuestToast` reuses the levelup SFX; design a dedicated chime.
+- [ ] **Caster mob projectile attack** — actual traveling bolt entity, not just contact damage.
+- [ ] **Boss charge at low HP** — dash-attack when boss HP < 50%.
+- [ ] **Minimap POI icons** — render vendor / quest-giver glyphs in the minimap canvas, not just mob/player dots.
+- [ ] **UI click SFX** — hook `playSfx("click")` (new synth preset) to shadcn Button presses.
+
+**Larger post-alpha systems:**
 - [ ] **Party / group system** — partyId on Player schema, `/party invite` + `/party accept` chat commands, shared XP when members are within 10m of a kill, party-member HP pips in the HUD.
 - [ ] **Per-class skill trees** — warrior/mage/rogue pick at first level-up; each class gets their own Cleave / Heal / Dash variants. Requires a design pass on stat curves.
 - [ ] **Cinematic portal transition** — theatre.js-scripted zone swap (camera pan + particle wipe) to replace the plain fade added in #60.
@@ -31,6 +42,7 @@ Post-alpha ship targets. The previous backlog block closed in #58/#59/#60.
 
 ## Done
 
+- [x] **Alpha polish pass** (#62) — ZoneDecor in lobby (pillars + market stalls + fountain + perimeter hedge) and arena (crumbled obelisks + firepit + darker perimeter); HitVignette (red radial flash + 180ms shake on HP loss); LevelUpBanner (spring-scaled "+3 stat points" pop); QuestToast (slide-in on quest ready-to-turn-in); InteractionPrompt sprite trimmed so NPC labels don't eat the screen at close range. Floating centerpiece moved to y=6 so it stops competing with gameplay.
 - [x] **HUD consolidation + free camera + proximity prompts + backlog sweep** — ActionBar (skills + inventory), SidePanel tabs (Map / Quests / Chat), TopMenu 3-dots (travel / theme / settings / admin / sign-out), clickable stat card, QuestTracker. OrbitControls re-added with constrained zoom + rotate + chase target. E-key NPC interact + auto-pickup. Basic attack moved into the ability list as "Strike". Closed four backlog items: gated portals (level-req), persisted skill cooldowns (migration 0004), chat persistence (new `chat_message` table), and admin live-sessions page. Boss AOE telegraph + zone-transition fade followed in #60.
 - [x] **Alpha-playable milestone** — click-only controls [#53](../../pull/53), camera + compositional models + minimap + settings + SFX + tutorial [#54](../../pull/54), stats/mana/skills/equipment/gold/vendor/quests/mob variety [#55](../../pull/55). 70 MB single-binary (arm64) built from `bun run build:release`; preview smoke confirmed HP/Mana/XP/Gold HUD, chase-arm camera, skill hotbar, NPCs in lobby, portal to arena with caster + boss mobs.
 - [x] Demoable MVP block (Wave 1): chat [#46](../../pull/49), portals [#47](../../pull/50), mobs [#45](../../pull/51).
