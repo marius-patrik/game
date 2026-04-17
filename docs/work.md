@@ -14,16 +14,15 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Next
 
-_Empty — pick from backlog after #81 merges._
+- **#85** cinematic portal transition (theatre.js camera pan + radial wipe, replaces plain fade from #60). Frontend. Depends on #81 merging so the test harness is clean.
+- **#86** healer mob archetype + arena hazard zone. Backend + shared. Serialize after any other in-flight `mobs.ts` change per pitfalls.md.
 
 ## Backlog
 
 Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83.
 
 **Larger post-alpha systems:**
-- [ ] **Per-class skill trees** — warrior/mage/rogue pick at first level-up; each class gets their own Cleave / Heal / Dash variants. Requires a design pass on stat curves.
-- [ ] **Cinematic portal transition** — theatre.js-scripted zone swap (camera pan + particle wipe) to replace the plain fade added in #60.
-- [ ] **Mob variety beyond the three archetypes** — "healer" mob that buffs nearby allies, an environment hazard zone (caster + boss charge already shipped in #67/#68).
+- [ ] **Per-class skill trees** — warrior/mage/rogue pick at first level-up; each class gets their own Cleave / Heal / Dash variants. Requires a design pass on stat curves — needs an ADR before implementation.
 - [ ] **Seasonal / daily quests** — rotating reset via a cron-style generator.
 
 ## Done
