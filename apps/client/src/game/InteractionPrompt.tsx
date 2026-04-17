@@ -95,16 +95,6 @@ function findNearest(
 ): NearestHit | null {
   let best: NearestHit | null = null;
   const r2 = INTERACT_RADIUS * INTERACT_RADIUS;
-  for (const d of drops.values()) {
-    const dx = d.x - self.x;
-    const dz = d.z - self.z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 > r2) continue;
-    if (!best || d2 < best.dist || best.kind === "npc") {
-      best = { kind: "drop", id: d.id, name: d.itemId, x: d.x, y: d.y, z: d.z, dist: d2 };
-    }
-  }
-  if (best?.kind === "drop") return best;
   // If the active NPC panel is open, we still show the prompt on that entity
   // so the player knows they can close it by walking away or pressing the key.
   for (const n of npcs.values()) {
@@ -114,6 +104,15 @@ function findNearest(
     if (d2 > r2 && n.id !== activeTargetId) continue;
     if (!best || d2 < best.dist) {
       best = { kind: "npc", id: n.id, name: n.name, x: n.x, y: n.y, z: n.z, dist: d2 };
+    }
+  }
+  for (const d of drops.values()) {
+    const dx = d.x - self.x;
+    const dz = d.z - self.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > r2) continue;
+    if (!best || d2 < best.dist) {
+      best = { kind: "drop", id: d.id, name: d.itemId, x: d.x, y: d.y, z: d.z, dist: d2 };
     }
   }
   return best;

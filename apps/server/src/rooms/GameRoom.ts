@@ -110,7 +110,7 @@ function stableColorFromSeed(seed: string): string {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
   const hue = hash % 360;
-  return `hsl(${hue} 72% 58%)`;
+  return `hsl(${hue}, 72%, 58%)`;
 }
 
 function stripControlChars(input: string): string {
