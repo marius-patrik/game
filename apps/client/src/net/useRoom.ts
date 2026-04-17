@@ -100,6 +100,13 @@ export type SkillCastEvent = {
   hits: number;
   at: number;
 };
+export type BossTelegraphEvent = {
+  mobId: string;
+  pos: { x: number; y: number; z: number };
+  radius: number;
+  durationMs: number;
+  at: number;
+};
 
 export type RoomState = {
   status: "idle" | "connecting" | "connected" | "error";
@@ -117,6 +124,7 @@ export type RoomState = {
   lastUsed?: UsedEvent;
   lastMobKilled?: MobKilledEvent;
   lastSkill?: SkillCastEvent;
+  lastTelegraph?: BossTelegraphEvent;
   send: {
     (type: "move", payload: { x: number; y: number; z: number }): void;
     (type: "attack"): void;
@@ -258,6 +266,7 @@ export function useRoom(): RoomState {
         let lastUsed: UsedEvent | undefined;
         let lastMobKilled: MobKilledEvent | undefined;
         let lastSkill: SkillCastEvent | undefined;
+        let lastTelegraph: BossTelegraphEvent | undefined;
 
         const send = ((type: string, payload?: unknown) => {
           if (!room) return;
@@ -281,6 +290,7 @@ export function useRoom(): RoomState {
             lastUsed,
             lastMobKilled,
             lastSkill,
+            lastTelegraph,
             send,
             travel,
           });
@@ -373,6 +383,24 @@ export function useRoom(): RoomState {
         room.onMessage("portal-locked", (msg: { to: ZoneId; minLevel: number }) => {
           toast.error(`Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`);
         });
+        room.onMessage(
+          "boss-telegraph",
+          (msg: {
+            mobId: string;
+            pos: { x: number; y: number; z: number };
+            radius: number;
+            durationMs: number;
+          }) => {
+            lastTelegraph = {
+              mobId: msg.mobId,
+              pos: msg.pos,
+              radius: msg.radius,
+              durationMs: msg.durationMs,
+              at: Date.now(),
+            };
+            commit();
+          },
+        );
         room.onMessage("chat-error", (msg: ChatError) => {
           toast.error(chatErrorMessage(msg.reason));
         });

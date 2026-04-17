@@ -3,6 +3,7 @@ import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
 import type {
   AttackEvent,
+  BossTelegraphEvent,
   DropSnapshot,
   MobSnapshot,
   NpcSnapshot,
@@ -15,6 +16,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useRef } from "react";
 import { type Group, MathUtils, Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { BossTelegraph } from "./BossTelegraph";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { InteractionPrompt } from "./InteractionPrompt";
@@ -42,6 +44,7 @@ export function Scene({
   zoneId = DEFAULT_ZONE,
   moveTarget,
   lastAttack,
+  lastTelegraph,
   selfPosRef,
   cinematicActive = false,
   onCinematicComplete,
@@ -58,6 +61,7 @@ export function Scene({
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
   lastAttack?: AttackEvent;
+  lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
   cinematicActive?: boolean;
   onCinematicComplete?: () => void;
@@ -153,6 +157,7 @@ export function Scene({
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <Portals portals={zone.portals} />
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
+      <BossTelegraph event={lastTelegraph} />
 
       <InteractionPrompt
         npcs={npcs}

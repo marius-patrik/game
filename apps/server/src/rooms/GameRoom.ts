@@ -174,6 +174,8 @@ export class GameRoom extends Room<GameRoomState> {
       getPlayers: () => this.collectPlayerRefs(),
       damagePlayer: (id, dmg) => this.applyMobContactDamage(id, dmg),
       onMobKilled: (mobId, pos, kind) => this.broadcast("mob-killed", { mobId, pos, kind }),
+      onTelegraph: (mobId, pos, radius, durationMs) =>
+        this.broadcast("boss-telegraph", { mobId, pos, radius, durationMs }),
       spawnDrop: (itemId, qty, pos) => this.spawnDrop(itemId, qty, pos),
     });
     this.mobSystem.start();

@@ -121,15 +121,23 @@ export type MobSystemDeps = {
   getPlayers: () => readonly PlayerRef[];
   damagePlayer: (playerId: string, dmg: number) => void;
   onMobKilled?: (mobId: string, pos: Vec3, kind: MobKind) => void;
+  onTelegraph?: (mobId: string, pos: Vec3, radius: number, durationMs: number) => void;
   spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   rng?: () => number;
   now?: () => number;
   mobCount?: number;
 };
 
+const BOSS_TELEGRAPH_MS = 600;
+const BOSS_TELEGRAPH_RADIUS = 2.2;
+
 type MobRuntime = {
   lastAttackAt: number;
   kind: MobKind;
+  /** timestamp at which a pending boss strike should resolve; undefined when not winding */
+  windingStrikeAt?: number;
+  windingTargetId?: string;
+  windingOrigin?: Vec3;
 };
 
 export class MobSystem {
@@ -138,6 +146,12 @@ export class MobSystem {
   private readonly getPlayers: () => readonly PlayerRef[];
   private readonly damagePlayer: (playerId: string, dmg: number) => void;
   private readonly onMobKilled: (mobId: string, pos: Vec3, kind: MobKind) => void;
+  private readonly onTelegraph: (
+    mobId: string,
+    pos: Vec3,
+    radius: number,
+    durationMs: number,
+  ) => void;
   private readonly spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   private readonly rng: () => number;
   private readonly now: () => number;
@@ -157,6 +171,7 @@ export class MobSystem {
     this.getPlayers = deps.getPlayers;
     this.damagePlayer = deps.damagePlayer;
     this.onMobKilled = deps.onMobKilled ?? (() => {});
+    this.onTelegraph = deps.onTelegraph ?? (() => {});
     this.spawnDrop = deps.spawnDrop;
     this.rng = deps.rng ?? Math.random;
     this.now = deps.now ?? (() => Date.now());
@@ -259,8 +274,44 @@ export class MobSystem {
       mob.z = clamped.z;
 
       const nowDist = Math.hypot(nearest.pos.x - mob.x, nearest.pos.z - mob.z);
+      const rt = this.ensureRuntime(mob.id, kind);
+
+      // Boss AOE: broadcast a telegraph before the damage resolves, then
+      // deliver damage to anyone still in the marked radius.
+      if (kind === "boss") {
+        if (rt.windingStrikeAt !== undefined) {
+          if (now >= rt.windingStrikeAt) {
+            const origin = rt.windingOrigin ?? { x: mob.x, y: mob.y, z: mob.z };
+            const r2 = BOSS_TELEGRAPH_RADIUS * BOSS_TELEGRAPH_RADIUS;
+            for (const pl of players) {
+              const pdx = pl.pos.x - origin.x;
+              const pdz = pl.pos.z - origin.z;
+              if (pdx * pdx + pdz * pdz > r2) continue;
+              const already = playerDamageThisTick.get(pl.id) ?? 0;
+              const room = this.maxContactDmgPerTick - already;
+              if (room > 0) {
+                const dmg = Math.min(arche.contactDamage, room);
+                this.damagePlayer(pl.id, dmg);
+                playerDamageThisTick.set(pl.id, already + dmg);
+              }
+            }
+            rt.lastAttackAt = now;
+            rt.windingStrikeAt = undefined;
+            rt.windingTargetId = undefined;
+            rt.windingOrigin = undefined;
+          }
+        } else if (nowDist <= arche.contactRange + 0.8) {
+          if (now - rt.lastAttackAt >= arche.contactCooldownMs) {
+            rt.windingStrikeAt = now + BOSS_TELEGRAPH_MS;
+            rt.windingTargetId = nearest.id;
+            rt.windingOrigin = { x: mob.x, y: mob.y, z: mob.z };
+            this.onTelegraph(mob.id, rt.windingOrigin, BOSS_TELEGRAPH_RADIUS, BOSS_TELEGRAPH_MS);
+          }
+        }
+        continue;
+      }
+
       if (nowDist <= arche.contactRange) {
-        const rt = this.ensureRuntime(mob.id, kind);
         if (now - rt.lastAttackAt >= arche.contactCooldownMs) {
           const already = playerDamageThisTick.get(nearest.id) ?? 0;
           const room = this.maxContactDmgPerTick - already;
