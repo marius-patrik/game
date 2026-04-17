@@ -3,6 +3,13 @@ import { Server, matchMaker } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
 import { desc } from "drizzle-orm";
 import express from "express";
+import {
+  DEFAULT_MUTE_DURATION_MS,
+  kickSession,
+  muteSession,
+  resolveUserIdForSession,
+  revokeUserSessions,
+} from "./adminCommands";
 import { auth } from "./auth";
 import { db } from "./db/client";
 import { runMigrations } from "./db/migrate";
@@ -136,6 +143,77 @@ app.get("/admin/api/sessions", requireAdmin(), async (_req, res) => {
     sessions,
     registeredById: Object.fromEntries(userById),
   });
+});
+
+function pickSessionId(raw: string | string[] | undefined): string | undefined {
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  return undefined;
+}
+
+app.post("/admin/api/sessions/:sessionId/kick", requireAdmin(), async (req, res) => {
+  const sessionId = pickSessionId(req.params.sessionId);
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId required" });
+    return;
+  }
+  try {
+    const result = await kickSession(sessionId);
+    if (!result.ok) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    res.json({ ok: true, roomId: result.roomId });
+  } catch (err) {
+    log.warn({ err, sessionId }, "admin kick failed");
+    res.status(500).json({ error: "kick failed" });
+  }
+});
+
+app.post("/admin/api/sessions/:sessionId/mute", requireAdmin(), async (req, res) => {
+  const sessionId = pickSessionId(req.params.sessionId);
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId required" });
+    return;
+  }
+  const body = (req.body ?? {}) as { durationMs?: number };
+  const duration =
+    typeof body.durationMs === "number" && Number.isFinite(body.durationMs) && body.durationMs > 0
+      ? Math.min(body.durationMs, 24 * 60 * 60 * 1000)
+      : DEFAULT_MUTE_DURATION_MS;
+  try {
+    const result = await muteSession(sessionId, duration);
+    if (!result.ok) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    res.json({ ok: true, roomId: result.roomId, durationMs: duration });
+  } catch (err) {
+    log.warn({ err, sessionId }, "admin mute failed");
+    res.status(500).json({ error: "mute failed" });
+  }
+});
+
+app.post("/admin/api/sessions/:sessionId/revoke", requireAdmin(), async (req, res) => {
+  const sessionId = pickSessionId(req.params.sessionId);
+  if (!sessionId) {
+    res.status(400).json({ error: "sessionId required" });
+    return;
+  }
+  try {
+    const userId = await resolveUserIdForSession(sessionId);
+    if (!userId) {
+      res.status(404).json({ error: "session not found" });
+      return;
+    }
+    const removed = await revokeUserSessions(userId);
+    // Best-effort kick so the player's live Colyseus socket disconnects; DB
+    // revocation alone only blocks *next* reconnect.
+    const kicked = await kickSession(sessionId);
+    res.json({ ok: true, userId, removedSessions: removed, kicked: kicked.ok });
+  } catch (err) {
+    log.warn({ err, sessionId }, "admin revoke failed");
+    res.status(500).json({ error: "revoke failed" });
+  }
 });
 
 app.use("/colyseus", monitor());
