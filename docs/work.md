@@ -10,7 +10,7 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#73** party / group system → `feat/party-system` (backend-agent, worktree).
+_Nothing in flight._ Alpha social + ops wave complete — admin moderation, chat moderation, mobile touch polish, party system all landed.
 
 ## Next
 
@@ -32,6 +32,7 @@ Post-alpha ship targets. Previous backlog blocks closed in #58/#59/#60/#62/#64-6
 
 ## Done
 
+- [x] **#73** party / group system (#83) — `Player.partyId` on schema, `/party invite|accept|leave|status` chat commands with leader promotion + 60s invite TTL + 4-member cap, shared XP at 60% for members within 10m of the kill, new `PartyPanel` HP/mana pips in the HUD, zone-scoped (traveling drops from party). Backend agent hit rate-limit mid-run; overseer finished remaining 60% from seat.
 - [x] **#72** chat moderation (#80) — profanity filter with 14 unit tests, `/block` + `/unblock` per-user list persisted in new `chat_block` table (migration 0005), cross-zone `/w <name>` DMs via `matchMaker.remoteRoomCall`. Also surfaced pitfall: migrations 0003 + 0004 were never registered in `_journal.json` — filed as #81.
 - [x] **Social + ops wave 1** — **#70** mobile touch polish (#77: double-tap equip, long-press ItemTooltipDrawer via vaul, responsive HUD breakpoints), **#71** admin moderation (#76: kick / mute / revoke session endpoints + `/admin/sessions` action buttons + mute state in `GameRoom.handleChat`).
 - [x] **Alpha-polish leftovers all shipped** — combat feel, UX polish, mob behaviour. Five PRs: crit hits + killed-by death cause (#64), SFX polish + minimap POI icons (#65), inventory-full toast (#66), boss enrage charge at <50% HP (#67), caster mob ranged projectile (#68). Covers all 8 items deferred from #62.
