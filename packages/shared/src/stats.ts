@@ -41,6 +41,19 @@ export function manaRegenPerSec(intellect: number): number {
   return 1 + intellect * 0.15;
 }
 
+/** Crit chance curve: 10% base + 0.5% per DEX, capped at 70%. */
+export function critChance(dexterity: number): number {
+  return Math.max(0, Math.min(0.7, 0.1 + dexterity / 200));
+}
+
+/** Returns true if this swing is a crit. `rng` defaults to Math.random. */
+export function rollCrit(dexterity: number, rng: () => number = Math.random): boolean {
+  return rng() < critChance(dexterity);
+}
+
+/** Crits deal 2× damage. */
+export const CRIT_MULTIPLIER = 2;
+
 export type EquippedStats = Stats & { damageBonus: number };
 
 export function equipBonus(

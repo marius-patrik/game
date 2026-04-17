@@ -4,6 +4,8 @@ import {
   type ChatEntry,
   type ChatError,
   DEFAULT_ZONE,
+  type DeathCause,
+  type DiedMessage,
   type EquipSlot,
   type GameRoomState,
   type InventorySlot,
@@ -84,8 +86,10 @@ export type AttackEvent = {
   targetId: string;
   killed: boolean;
   dmg?: number;
+  crit?: boolean;
 };
 export type RespawnEvent = { x: number; y: number; z: number; at: number };
+export type DiedEvent = { cause: DeathCause; at: number };
 export type PickupEvent = { itemId: string; qty: number; at: number };
 export type UsedEvent = { itemId: string; hp: number; mana?: number; at: number };
 export type MobKilledEvent = {
@@ -125,6 +129,7 @@ export type RoomState = {
   lastMobKilled?: MobKilledEvent;
   lastSkill?: SkillCastEvent;
   lastTelegraph?: BossTelegraphEvent;
+  lastDied?: DiedEvent;
   send: {
     (type: "move", payload: { x: number; y: number; z: number }): void;
     (type: "attack"): void;
@@ -267,6 +272,7 @@ export function useRoom(): RoomState {
         let lastMobKilled: MobKilledEvent | undefined;
         let lastSkill: SkillCastEvent | undefined;
         let lastTelegraph: BossTelegraphEvent | undefined;
+        let lastDied: DiedEvent | undefined;
 
         const send = ((type: string, payload?: unknown) => {
           if (!room) return;
@@ -291,6 +297,7 @@ export function useRoom(): RoomState {
             lastMobKilled,
             lastSkill,
             lastTelegraph,
+            lastDied,
             send,
             travel,
           });
@@ -359,6 +366,11 @@ export function useRoom(): RoomState {
         );
         room.onMessage("respawned", (pos: { x: number; y: number; z: number }) => {
           lastRespawn = { x: pos.x, y: pos.y, z: pos.z, at: Date.now() };
+          lastDied = undefined; // clear once we respawn so DeathOverlay cause resets
+          commit();
+        });
+        room.onMessage("died", (msg: DiedMessage) => {
+          lastDied = { cause: msg.cause, at: msg.at };
           commit();
         });
         room.onMessage("pickup", (msg: { itemId: string; qty: number }) => {

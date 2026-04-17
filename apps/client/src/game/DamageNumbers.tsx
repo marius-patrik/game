@@ -15,6 +15,7 @@ type Ticket = {
   z: number;
   amount: number;
   killed: boolean;
+  crit: boolean;
   until: number;
 };
 
@@ -53,13 +54,15 @@ export function DamageNumbers({
     if (!pos) return;
     const now = Date.now();
     ticketCounter += 1;
+    const amount = lastAttack.dmg ?? BASE_DAMAGE;
     const ticket: Ticket = {
       id: ticketCounter,
       x: pos.x,
       y: pos.y + 1.4,
       z: pos.z,
-      amount: BASE_DAMAGE,
+      amount,
       killed: lastAttack.killed,
+      crit: lastAttack.crit ?? false,
       until: now + LIFETIME_MS,
     };
     setTickets((prev) => [...prev, ticket]);
@@ -92,14 +95,16 @@ function DamageNumber({ ticket }: { ticket: Ticket }) {
     const elapsed = (Date.now() - (ticket.until - LIFETIME_MS)) / LIFETIME_MS;
     const e = MathUtils.clamp(elapsed, 0, 1);
     g.position.y = ticket.y + RISE * e;
-    const scale = ticket.killed ? 1.4 - 0.2 * e : 1 + 0.25 * (1 - e);
-    g.scale.setScalar(scale);
+    const baseScale = ticket.killed ? 1.4 - 0.2 * e : 1 + 0.25 * (1 - e);
+    const critBump = ticket.crit ? 1.45 : 1;
+    g.scale.setScalar(baseScale * critBump);
   });
-  const text = ticket.killed ? "KILL!" : `-${ticket.amount}`;
+  const text = ticket.killed ? "KILL!" : ticket.crit ? `-${ticket.amount}!` : `-${ticket.amount}`;
+  const color = ticket.killed ? "#facc15" : ticket.crit ? "#fde047" : "#fca5a5";
   return (
     <group ref={ref} position={[ticket.x, ticket.y, ticket.z]}>
       <Billboard>
-        <DmgSprite text={text} color={ticket.killed ? "#facc15" : "#fca5a5"} />
+        <DmgSprite text={text} color={color} />
       </Billboard>
     </group>
   );

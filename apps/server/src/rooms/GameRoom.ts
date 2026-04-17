@@ -2,10 +2,13 @@ import { type AuthContext, type Client, Room, matchMaker } from "@colyseus/core"
 import { ArraySchema, MapSchema } from "@colyseus/schema";
 import {
   CHAT_MAX_LEN,
+  CRIT_MULTIPLIER,
   type ChatEntry,
   type ChatError,
   type ChatInbound,
   DEFAULT_ZONE,
+  type DeathCause,
+  type DiedMessage,
   EQUIP_SLOTS,
   type EquipSlot,
   FIRST_QUEST_ID,
@@ -37,6 +40,7 @@ import {
   manaRegenPerSec,
   maxHpFromStats,
   maxManaFromStats,
+  rollCrit,
   xpToNextLevel,
 } from "@game/shared";
 import { auth } from "../auth";
@@ -84,6 +88,7 @@ type PlayerSecurityState = { lastPos: Vec3; lastMoveAt: number };
 type PlayerCombatState = { invulnerableUntil: number; lastAttackAt: number };
 type PlayerPortalState = { rearmAt: number };
 type SkillCooldowns = Map<SkillId, number>;
+type LastDamageSource = { cause: DeathCause; at: number };
 
 const SAVE_INTERVAL_MS = 10_000;
 const LOOT_SPAWN_INTERVAL_MS = 5_000;
@@ -113,6 +118,7 @@ export class GameRoom extends Room<GameRoomState> {
   private playerPortal = new Map<string, PlayerPortalState>();
   private playerUserId = new Map<string, string>();
   private skillCds = new Map<string, SkillCooldowns>();
+  private lastDamageSource = new Map<string, LastDamageSource>();
   private saveInterval?: ReturnType<typeof setInterval>;
   private lootInterval?: ReturnType<typeof setInterval>;
   private dropCounter = 0;
@@ -172,7 +178,7 @@ export class GameRoom extends Room<GameRoomState> {
       mobs: this.state.mobs,
       zone: this.zone,
       getPlayers: () => this.collectPlayerRefs(),
-      damagePlayer: (id, dmg) => this.applyMobContactDamage(id, dmg),
+      damagePlayer: (id, dmg, source) => this.applyMobContactDamage(id, dmg, source),
       onMobKilled: (mobId, pos, kind) => this.broadcast("mob-killed", { mobId, pos, kind }),
       onTelegraph: (mobId, pos, radius, durationMs) =>
         this.broadcast("boss-telegraph", { mobId, pos, radius, durationMs }),
@@ -332,6 +338,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.playerPortal.delete(client.sessionId);
     this.playerUserId.delete(client.sessionId);
     this.skillCds.delete(client.sessionId);
+    this.lastDamageSource.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
     this.mobSystem?.onPlayerLeave(client.sessionId);
@@ -426,7 +433,9 @@ export class GameRoom extends Room<GameRoomState> {
       alive: attacker.alive,
       hp: attacker.hp,
     };
-    const dmg = this.computeDamage(attacker);
+    const baseDmg = this.computeDamage(attacker);
+    const crit = rollCrit(attacker.dexterity);
+    const dmg = crit ? baseDmg * CRIT_MULTIPLIER : baseDmg;
     const cfg: CombatConfig = { ...this.combat, attackDamage: dmg };
     const result = resolveAttack(attackerC, candidates, cfg);
     if (!result.ok) return;
@@ -440,6 +449,7 @@ export class GameRoom extends Room<GameRoomState> {
         targetId: result.targetId,
         killed: hit.killed,
         dmg,
+        crit,
       });
       if (hit.killed) this.onMobKilledByPlayer(attacker, hit.kind, hit.xpBonus, hit.gold);
       return;
@@ -450,10 +460,12 @@ export class GameRoom extends Room<GameRoomState> {
     if (!target || !targetCombat) return;
     if (Date.now() < targetCombat.invulnerableUntil) return;
     target.hp = result.newHp;
+    this.recordPlayerDamageSource(result.targetId, attacker);
     if (result.killed) {
       target.alive = false;
       this.spawnKillDrop(target);
       const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
+      this.sendDeath(result.targetId);
       this.scheduleRespawn(result.targetId, targetClient);
     }
     this.broadcast("attack", {
@@ -461,6 +473,7 @@ export class GameRoom extends Room<GameRoomState> {
       targetId: result.targetId,
       killed: result.killed,
       dmg,
+      crit,
     });
   }
 
@@ -527,7 +540,9 @@ export class GameRoom extends Room<GameRoomState> {
           alive: p.alive,
           hp: p.hp,
         };
-        const dmg = this.computeDamage(p);
+        const baseDmg = this.computeDamage(p);
+        const crit = rollCrit(p.dexterity);
+        const dmg = crit ? baseDmg * CRIT_MULTIPLIER : baseDmg;
         const cfg: CombatConfig = { ...this.combat, attackDamage: dmg, attackRange: skill.range };
         const result = resolveAttack(attackerC, candidates, cfg);
         if (!result.ok) return;
@@ -540,6 +555,7 @@ export class GameRoom extends Room<GameRoomState> {
             targetId: result.targetId,
             killed: hit.killed,
             dmg,
+            crit,
           });
           if (hit.killed) this.onMobKilledByPlayer(p, hit.kind, hit.xpBonus, hit.gold);
         } else {
@@ -548,10 +564,12 @@ export class GameRoom extends Room<GameRoomState> {
           if (!target || !targetCombat) return;
           if (Date.now() < targetCombat.invulnerableUntil) return;
           target.hp = result.newHp;
+          this.recordPlayerDamageSource(result.targetId, p);
           if (result.killed) {
             target.alive = false;
             this.spawnKillDrop(target);
             const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
+            this.sendDeath(result.targetId);
             this.scheduleRespawn(result.targetId, targetClient);
           }
           this.broadcast("attack", {
@@ -559,13 +577,17 @@ export class GameRoom extends Room<GameRoomState> {
             targetId: result.targetId,
             killed: result.killed,
             dmg,
+            crit,
           });
         }
         break;
       }
       case "cleave": {
         const origin = { x: p.x, y: p.y, z: p.z };
-        const hits = this.mobSystem.applyRadialDamage(origin, skill.range, this.computeDamage(p));
+        const baseDmg = this.computeDamage(p);
+        const crit = rollCrit(p.dexterity);
+        const dmg = crit ? baseDmg * CRIT_MULTIPLIER : baseDmg;
+        const hits = this.mobSystem.applyRadialDamage(origin, skill.range, dmg);
         const killed = hits.filter((h) => h.ok && h.killed);
         for (const h of killed) {
           if (!h.ok) continue;
@@ -576,6 +598,7 @@ export class GameRoom extends Room<GameRoomState> {
           skillId: skill.id,
           pos: origin,
           hits: hits.filter((h) => h.ok).length,
+          crit,
         });
         break;
       }
@@ -1142,19 +1165,47 @@ export class GameRoom extends Room<GameRoomState> {
     return out;
   }
 
-  private applyMobContactDamage(playerId: string, dmg: number): void {
+  private applyMobContactDamage(
+    playerId: string,
+    dmg: number,
+    source: { mobId: string; kind: MobKind },
+  ): void {
     const target = this.state.players.get(playerId);
     const combat = this.playerCombat.get(playerId);
     if (!target || !combat || !target.alive) return;
     if (Date.now() < combat.invulnerableUntil) return;
     const newHp = Math.max(0, target.hp - dmg);
     target.hp = newHp;
+    this.lastDamageSource.set(playerId, {
+      cause: { kind: "mob", mobKind: source.kind },
+      at: Date.now(),
+    });
     if (newHp === 0) {
       target.alive = false;
       this.spawnKillDrop(target);
       const targetClient = this.clients.find((c) => c.sessionId === playerId);
+      this.sendDeath(playerId);
       this.scheduleRespawn(playerId, targetClient);
     }
+  }
+
+  private recordPlayerDamageSource(targetId: string, attacker: Player) {
+    this.lastDamageSource.set(targetId, {
+      cause: {
+        kind: "player",
+        name: attacker.name && attacker.name.length > 0 ? attacker.name : "another player",
+      },
+      at: Date.now(),
+    });
+  }
+
+  private sendDeath(sessionId: string) {
+    const client = this.clients.find((c) => c.sessionId === sessionId);
+    if (!client) return;
+    const rec = this.lastDamageSource.get(sessionId);
+    const cause: DeathCause = rec?.cause ?? { kind: "world" };
+    const msg: DiedMessage = { cause, at: Date.now() };
+    client.send("died", msg);
   }
 
   // ---------- Chat (unchanged) ----------

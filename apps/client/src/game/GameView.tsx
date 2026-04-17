@@ -332,6 +332,7 @@ function GameViewInner({
         dead={!alive && !cinematicActive}
         respawnDelayMs={CLIENT_RESPAWN_DELAY_MS}
         deathAt={deathAtRef.current}
+        cause={room.lastDied?.cause}
       />
       <HitVignette self={self} />
       <LevelUpBanner self={self} />

@@ -115,11 +115,13 @@ export type MobHitResult =
       gold: number;
     };
 
+export type MobDamageSource = { mobId: string; kind: MobKind };
+
 export type MobSystemDeps = {
   mobs: MapSchema<Mob>;
   zone: Zone;
   getPlayers: () => readonly PlayerRef[];
-  damagePlayer: (playerId: string, dmg: number) => void;
+  damagePlayer: (playerId: string, dmg: number, source: MobDamageSource) => void;
   onMobKilled?: (mobId: string, pos: Vec3, kind: MobKind) => void;
   onTelegraph?: (mobId: string, pos: Vec3, radius: number, durationMs: number) => void;
   spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
@@ -144,7 +146,7 @@ export class MobSystem {
   private readonly mobs: MapSchema<Mob>;
   private readonly zone: Zone;
   private readonly getPlayers: () => readonly PlayerRef[];
-  private readonly damagePlayer: (playerId: string, dmg: number) => void;
+  private readonly damagePlayer: (playerId: string, dmg: number, source: MobDamageSource) => void;
   private readonly onMobKilled: (mobId: string, pos: Vec3, kind: MobKind) => void;
   private readonly onTelegraph: (
     mobId: string,
@@ -291,7 +293,7 @@ export class MobSystem {
               const room = this.maxContactDmgPerTick - already;
               if (room > 0) {
                 const dmg = Math.min(arche.contactDamage, room);
-                this.damagePlayer(pl.id, dmg);
+                this.damagePlayer(pl.id, dmg, { mobId: mob.id, kind });
                 playerDamageThisTick.set(pl.id, already + dmg);
               }
             }
@@ -317,7 +319,7 @@ export class MobSystem {
           const room = this.maxContactDmgPerTick - already;
           if (room > 0) {
             const dmg = Math.min(arche.contactDamage, room);
-            this.damagePlayer(nearest.id, dmg);
+            this.damagePlayer(nearest.id, dmg, { mobId: mob.id, kind });
             playerDamageThisTick.set(nearest.id, already + dmg);
             rt.lastAttackAt = now;
           }
