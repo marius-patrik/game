@@ -49,3 +49,9 @@ When the new sql file is added under `apps/server/drizzle/` **and** registered i
 
 ## Claude Preview serves from one worktree; edits happen in another
 `preview_start` caches its cwd at first launch. If the overseer later edits files from a different worktree (e.g. you committed on `feat/foo` in the primary but the preview is running from `.claude/worktrees/laughing-*`), rsbuild HMR will serve stale bundles — you'll see the old class names + old components and think the edit didn't land. Fix: push the branch, then in the preview worktree `git fetch && git reset --hard origin/<branch>` and reload the page. Symptom to look for: DOM has old class strings that the repo no longer contains.
+
+## Shipping multiple mob/combat PRs in one session = mobs.ts rebases
+`apps/server/src/rooms/systems/mobs.ts` is the single hotspot for mob AI. When two PRs both change the step-computation (e.g. boss enrage → speed+cooldown override, caster bolts → negative step for backpedal), the second one rebases onto a mutated baseline and git can't auto-merge the `step = Math.min(arche.speed * dtSec, dist)` line. Resolution: use the downstream branch's `speed` variable (which already folds in enrage) as input to the kiting logic. Symptom: `<<<<<<<` in mobs.ts around the per-mob step calc. Next time, either serialize mob PRs or pre-extract the step computation into a helper.
+
+## PR CI sometimes never triggers on first push
+On rare occasions `gh pr create` followed by the initial workflow run just… doesn't fire (empty `statusCheckRollup`, no run visible in the Actions API). Unrelated to workflow config — CI triggers on PR events normally. Unblock: `git commit --allow-empty -m "chore: retrigger CI"` + push, or force-push after a rebase. Both re-trigger the `pull_request` event reliably. Don't panic if the PR sits for 5+ min with no checks — just re-trigger.
