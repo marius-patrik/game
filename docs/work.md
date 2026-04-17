@@ -10,22 +10,20 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#92** bug sweep (persistence, level-up toast, dark mode, viewport, NPC placement, Elder Cubius, disconnects, cube color, lobby safe zone). Wave 1A — standalone.
-- **#100** portal polish + pickup fly-to-player + lobby safe-zone visual. Wave 1B — runs parallel with #92 (different files).
+- **#96** character system — customizer + persistence + multi-character select. Schema foundation for everything downstream.
 
 ## Next
 
 Full user-requested rebuild, serialized by schema/file dependencies:
 
-1. **#96** character system — customizer + persistence + multi-character select. Schema foundation for everything downstream.
-2. **#97** equipment slots + weapon-driven primary/secondary attacks (depends on #96).
-3. **#98** skill system + skills tab + ultimate slot (depends on #97).
-4. **#93** HUD teardown + rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts) — depends on #96/#97/#98 for real tab content.
-5. **#94** hotbar redesign (2W+2S+U+2I+2P layout) — depends on #93/#97/#98.
-6. **#95** unified InteractionPrompt + full keybinds system + auto-pickup toggle — depends on #93/#94.
-7. **#99** draggable window/tab system (ADR + impl) — depends on #93.
-8. **#101** seasonal / daily quests rotator — depends on #96.
-9. **#102** final audit / pitfalls / cleanup / polish pass — last.
+1. **#97** equipment slots + weapon-driven primary/secondary attacks (depends on #96).
+2. **#98** skill system + skills tab + ultimate slot (depends on #97).
+3. **#93** HUD teardown + rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts) — depends on #96/#97/#98 for real tab content.
+4. **#94** hotbar redesign (2W+2S+U+2I+2P layout) — depends on #93/#97/#98.
+5. **#95** unified InteractionPrompt + full keybinds system + auto-pickup toggle — depends on #93/#94.
+6. **#99** draggable window/tab system (ADR + impl) — depends on #93.
+7. **#101** seasonal / daily quests rotator — depends on #96.
+8. **#102** final audit / pitfalls / cleanup / polish pass — last.
 
 ## Backlog
 
@@ -39,6 +37,8 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 ## Done
 
+- [x] **#92** bug sweep (#104) — fixed the interaction prompt/drop leak, hardened the level-up banner dismissal, isolated the 3D scene palette from app dark mode, tightened viewport overflow, moved Mercer + Elder Cubius out of their stalls, stabilized player color, and added travel/leave diagnostics.
+- [x] **#100** portal polish + pickup fly-to-player + lobby safe-zone visual (#103) — rebuilt portals as vertical rotating gates with a proximity pulse, added local-intent pickup fly animation, and mounted a lobby safe-zone ground ring.
 - [x] **#86** healer mob + arena hazard zone (#89) — 4th `MobKind` ("healer", 20 HP, 4 HP/s heal to mobs within 3m, skips self + caps at maxHp). New `HazardZone` schema + `HazardSystem` (arena seeds one 5m-radius 3-dps circle). Scripted-spawn via new `spawnSpecificKind()` + `respawnKind` preserves archetype across respawn. Six new tests (72 pass total). Zero balance changes from plan; mobile draw-call budget preserved.
 - [x] **#85** cinematic portal transition (#88) — 1.2s DOM-overlay cinematic driven by `@theatre/core` sequence (camera push + radial wipe + white flash + fade-in). New `apps/client/src/game/cinematics/` module, preferences-store persisted `skipCinematics` escape hatch in Settings. Bundle delta +34 KB gzipped (budget 100 KB). Zero `@theatre/studio` in `apps/client/src/**`. First real use of theatre.js in the project.
 - [x] **#81** reconcile missing drizzle migrations 0003/0004 (#87) — new `apps/server/src/db/reconcile.ts` runs after `migrate()`, PRAGMA-checks `player_progress`, conditionally ALTERs in the 11 missing columns, and `CREATE TABLE IF NOT EXISTS`es `chat_message`. Idempotent against fresh + drifted DBs. Chosen over the issue's Option A because SQLite has no `ADD COLUMN IF NOT EXISTS`. Also fixed 3 long-standing `playerProgress.test.ts` failures by extending its inline CREATE TABLE. Agent rate-limited at ~80%; overseer finished the last 20%.
