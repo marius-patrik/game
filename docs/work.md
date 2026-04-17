@@ -10,20 +10,30 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#96** character system — customizer + persistence + multi-character select. Schema foundation for everything downstream.
+- **#106** sell dialog grid UI — small UX fix, can ship in parallel with the big queue. Standalone, no dependencies.
+- **#107** game-feel — floating sphere players + dynamic camera arm + FOV slider + cursor-lock toggle. **Prerequisite for #96 customizer + #108 cursor.**
 
 ## Next
 
-Full user-requested rebuild, serialized by schema/file dependencies:
+Full user-requested rebuild + polish, dependency-ordered:
 
-1. **#97** equipment slots + weapon-driven primary/secondary attacks (depends on #96).
-2. **#98** skill system + skills tab + ultimate slot (depends on #97).
-3. **#93** HUD teardown + rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts) — depends on #96/#97/#98 for real tab content.
-4. **#94** hotbar redesign (2W+2S+U+2I+2P layout) — depends on #93/#97/#98.
-5. **#95** unified InteractionPrompt + full keybinds system + auto-pickup toggle — depends on #93/#94.
-6. **#99** draggable window/tab system (ADR + impl) — depends on #93.
-7. **#101** seasonal / daily quests rotator — depends on #96.
-8. **#102** final audit / pitfalls / cleanup / polish pass — last.
+1. **#108** 3D cursor + ground targeting system (reusable for cast-in-space abilities) — depends on #107.
+2. **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Schema foundation for downstream.
+3. **#97** equipment slots + weapon-driven primary/secondary attacks — depends on #96.
+4. **#98** skill system + skills tab + ultimate slot — depends on #97.
+5. **#93** HUD rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts, **current-equipment tab**) — depends on #96/#97/#98.
+6. **#110** compass/radar at top — depends on #93.
+7. **#94** hotbar redesign (2W+2S+U+2I+2P) — depends on #93/#97/#98.
+8. **#95** unified InteractionPrompt + full keybinds + auto-pickup — depends on #93/#94/#107.
+9. **#109** Skyrim-style dialog system — depends on #95/#107.
+10. **#99** draggable window/tab system (ADR + impl) — depends on #93.
+11. **#101** seasonal / daily quests rotator — depends on #96.
+12. **#111** game-feel polish pass (particles, shaders, screen shake, frosted-glass UI, glow, unified visual style) — depends on everything prior.
+13. **#102** final audit / pitfalls / cleanup — absolute last.
+
+## Infrastructure
+
+- **Multi-CLI dispatch** (`scripts/dispatch-cli.sh`) — overseer can dispatch work to Claude Code, Codex, or Gemini in detached tmux sessions. See [.claude/memory/multi-cli.md](../.claude/memory/multi-cli.md). User can `tmux attach -t agent-<issue>-<cli>` to watch.
 
 ## Backlog
 
