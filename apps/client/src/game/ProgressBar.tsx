@@ -33,7 +33,7 @@ export function ProgressBar({
       type="button"
       onClick={onClick}
       aria-label={`Character sheet: Level ${level}, ${hp}/${maxHp} HP, ${mana}/${maxMana} mana, ${gold} gold${points > 0 ? `, ${points} unspent points` : ""}`}
-      className="pointer-events-auto absolute top-2 right-2 flex max-w-[200px] flex-col gap-1.5 rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-left backdrop-blur-md transition-transform hover:scale-[1.02] sm:top-4 sm:right-4 sm:max-w-none sm:min-w-[240px]"
+      className="pointer-events-auto absolute top-2 right-2 flex min-w-0 max-w-[min(200px,60vw)] flex-col gap-1.5 rounded-lg border border-border/50 bg-background/70 px-3 py-2 text-left backdrop-blur-md transition-transform hover:scale-[1.02] sm:top-4 sm:right-4 sm:min-w-[240px] sm:max-w-none"
     >
       <div className="flex items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-1.5 text-amber-400">
@@ -54,7 +54,7 @@ export function ProgressBar({
         <Heart className="size-3.5 text-destructive" />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Progress value={hpFrac} indicatorClassName={hpTone} className="h-2" />
-          <span className="w-[4.2rem] shrink-0 text-right text-muted-foreground tabular-nums">
+          <span className="w-14 shrink-0 truncate text-right text-[10px] text-muted-foreground tabular-nums sm:w-[4.2rem] sm:text-xs">
             {hp}/{maxHp}
           </span>
         </div>
@@ -63,7 +63,7 @@ export function ProgressBar({
         <Sparkles className="size-3.5 text-sky-400" />
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Progress value={manaFrac} indicatorClassName="bg-sky-500" className="h-1.5" />
-          <span className="w-[4.2rem] shrink-0 text-right text-muted-foreground tabular-nums">
+          <span className="w-14 shrink-0 truncate text-right text-[10px] text-muted-foreground tabular-nums sm:w-[4.2rem] sm:text-xs">
             {mana}/{maxMana}
           </span>
         </div>

@@ -1,3 +1,4 @@
+import { useLongPress } from "@/lib/useLongPress";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import {
@@ -10,6 +11,7 @@ import {
   isItemId,
 } from "@game/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
 
 type Cd = Partial<Record<SkillId, number>>;
 
@@ -76,8 +78,17 @@ export function ActionBar({
 
   const mana = Math.floor(player?.mana ?? 0);
 
+  const [drawerSlot, setDrawerSlot] = useState<number | null>(null);
+  const drawerEntry =
+    drawerSlot !== null && player?.inventory[drawerSlot] ? player.inventory[drawerSlot] : undefined;
+  const drawerItemId =
+    drawerEntry && isItemId(drawerEntry.itemId) ? (drawerEntry.itemId as ItemId) : undefined;
+
+  const openDrawer = useCallback((slotIdx: number) => setDrawerSlot(slotIdx), []);
+  const closeDrawer = useCallback(() => setDrawerSlot(null), []);
+
   return (
-    <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 items-end gap-2 sm:bottom-4 sm:gap-3">
+    <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex max-w-[96vw] -translate-x-1/2 flex-wrap items-end justify-center gap-2 sm:bottom-4 sm:flex-nowrap sm:gap-3">
       <div className="flex gap-1.5 rounded-xl border border-border/40 bg-background/70 px-2 py-2 shadow-md backdrop-blur-md">
         {SKILL_BAR.map((id, idx) => {
           const skill = SKILL_CATALOG[id];
@@ -98,13 +109,13 @@ export function ActionBar({
                 skill.manaCost > 0 ? ` (${skill.manaCost} mana)` : ""
               }`}
               className={cn(
-                "group relative h-14 w-14 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform",
+                "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
                 disabled ? "opacity-70" : "hover:scale-105",
               )}
               style={{ borderColor: skill.color }}
             >
               <span
-                className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[11px] tabular-nums"
+                className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
                 style={{ color: skill.color }}
               >
                 {skill.name}
@@ -142,7 +153,7 @@ export function ActionBar({
             return (
               <div
                 key={`slot-empty-${i}`}
-                className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-border/30 bg-muted/10"
+                className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-border/30 bg-muted/10 sm:h-14 sm:w-14"
                 aria-label="Empty slot"
               />
             );
@@ -150,6 +161,7 @@ export function ActionBar({
           return (
             <ItemSlot
               key={`slot-${i}-${slot.itemId}`}
+              slotIdx={i}
               itemId={slot.itemId as ItemId}
               qty={slot.qty}
               equipped={player?.equippedItemId === slot.itemId}
@@ -160,10 +172,28 @@ export function ActionBar({
                 if (def?.slot) onEquipSlot(def.slot, slot.itemId);
               }}
               onDrop={() => onDrop(slot.itemId, 1)}
+              onLongPress={() => openDrawer(i)}
             />
           );
         })}
       </div>
+      <ItemTooltipDrawer
+        itemId={drawerItemId}
+        qty={drawerEntry?.qty ?? 0}
+        equipped={drawerEntry ? player?.equippedItemId === drawerEntry.itemId : false}
+        open={drawerSlot !== null && drawerItemId !== undefined}
+        onOpenChange={(o) => {
+          if (!o) closeDrawer();
+        }}
+        onUse={() => drawerEntry && onUse(drawerEntry.itemId)}
+        onEquip={() => {
+          if (!drawerEntry) return;
+          onEquip(drawerEntry.itemId);
+          const def = getItem(drawerEntry.itemId);
+          if (def?.slot) onEquipSlot(def.slot, drawerEntry.itemId);
+        }}
+        onDrop={() => drawerEntry && onDrop(drawerEntry.itemId, 1)}
+      />
     </div>
   );
 }
@@ -175,24 +205,31 @@ function itemColor(item: ReturnType<typeof getItem>): string {
   return "#a1a1aa";
 }
 
+const DOUBLE_TAP_WINDOW_MS = 300;
+
 function ItemSlot({
+  slotIdx,
   itemId,
   qty,
   equipped,
   onUse,
   onEquip,
   onDrop,
+  onLongPress,
 }: {
+  slotIdx: number;
   itemId: ItemId;
   qty: number;
   equipped: boolean;
   onUse: () => void;
   onEquip: () => void;
   onDrop: () => void;
+  onLongPress: () => void;
 }) {
   const def = getItem(itemId);
   const canUse = def?.kind === "consumable";
   const canEquip = Boolean(def?.slot);
+  const primary = canUse ? onUse : canEquip ? onEquip : undefined;
   const color = itemColor(def);
   const bonuses: string[] = [];
   if (def?.damageBonus) bonuses.push(`+${def.damageBonus} dmg`);
@@ -202,24 +239,64 @@ function ItemSlot({
   if (def?.intBonus) bonuses.push(`+${def.intBonus} INT`);
   if (def?.healAmount) bonuses.push(`+${def.healAmount} HP`);
   if (def?.manaAmount) bonuses.push(`+${def.manaAmount} mana`);
-  const tooltip = `${def?.name ?? itemId}${bonuses.length ? ` · ${bonuses.join(", ")}` : ""}`;
-  const onClick = canUse ? onUse : canEquip ? onEquip : undefined;
+  const actionLabel = canUse
+    ? "Double-tap to use · long-press for details"
+    : canEquip
+      ? "Double-tap to equip · long-press for details"
+      : "Long-press for details";
+  const tooltip = `${def?.name ?? itemId}${bonuses.length ? ` · ${bonuses.join(", ")}` : ""} — ${actionLabel}`;
+
+  const lastTapRef = useRef(0);
+  const longPressFiredRef = useRef(false);
+
+  const long = useLongPress({
+    onLongPress: () => {
+      longPressFiredRef.current = true;
+      onLongPress();
+    },
+    durationMs: 500,
+  });
+
+  const handleTap = useCallback(() => {
+    if (longPressFiredRef.current) {
+      longPressFiredRef.current = false;
+      return;
+    }
+    if (!primary) return;
+    const now = Date.now();
+    if (now - lastTapRef.current <= DOUBLE_TAP_WINDOW_MS) {
+      lastTapRef.current = 0;
+      primary();
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [primary]);
+
   return (
-    <div className="group relative h-14 w-14" title={tooltip}>
+    <div className="group relative h-12 w-12 sm:h-14 sm:w-14" title={tooltip} data-slot={slotIdx}>
       <button
         type="button"
-        onClick={onClick}
-        disabled={!onClick}
+        onClick={handleTap}
+        onPointerDown={long.onPointerDown}
+        onPointerMove={long.onPointerMove}
+        onPointerUp={long.onPointerUp}
+        onPointerLeave={long.onPointerLeave}
+        onPointerCancel={long.onPointerCancel}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          long.cancel();
+          onLongPress();
+        }}
+        aria-label={`${def?.name ?? itemId}: ${actionLabel}`}
         className={cn(
-          "flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-lg border-2 bg-muted/20 px-0.5 py-1 transition-transform",
+          "flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-lg border-2 bg-muted/20 px-0.5 py-1 transition-transform sm:h-14 sm:w-14",
           equipped && "ring-2 ring-amber-400",
-          !onClick && "cursor-default",
-          onClick && "hover:scale-105",
+          primary ? "hover:scale-105" : "cursor-default",
         )}
         style={{ borderColor: color }}
       >
-        <div className="size-6 rounded" style={{ background: color }} />
-        <div className="text-[9px] font-medium leading-tight" style={{ maxWidth: 48 }}>
+        <div className="size-5 rounded sm:size-6" style={{ background: color }} />
+        <div className="font-medium text-[9px] leading-tight" style={{ maxWidth: 48 }}>
           {def?.name?.slice(0, 8) ?? itemId.slice(0, 8)}
         </div>
       </button>
@@ -228,7 +305,10 @@ function ItemSlot({
       </span>
       <button
         type="button"
-        onClick={onDrop}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDrop();
+        }}
         aria-label="Drop item"
         className="absolute top-0.5 right-0.5 size-3.5 rounded-full bg-background/70 text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
       >

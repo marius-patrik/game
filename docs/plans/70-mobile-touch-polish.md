@@ -1,6 +1,6 @@
 # Plan: #70 — Mobile touch polish (ADR-0002)
 
-**Status:** draft
+**Status:** in review (PR #77)
 **Owner agent:** frontend
 **Branch:** `feat/mobile-touch-polish`
 
