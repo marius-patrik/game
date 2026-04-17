@@ -1,6 +1,6 @@
 # Plan: #97 — Equipment slots + weapon-driven primary/secondary attacks
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** execution (generalist — cuts shared + server + client)
 **Branch:** `feat/equipment-weapon-abilities`
 
@@ -56,4 +56,11 @@ Ships a proper equipment system + a weapon-driven ability replacement for the ho
 - Durability / repair.
 
 ## Retro
-_(filled after merge)_
+
+- **Effective vs. base stats**: to make `Player.strength/dex/vit/int` reflect "what combat and the HUD use" while the stat-point allocator still raises only the underlying roll, I added new `baseStrength/baseDexterity/baseVitality/baseIntellect` schema fields. `strength = baseStrength + equipment bonus` is recomputed in `recomputeDerivedStats()`; persistence stores the base. No DB migration needed — the `character_progress.strength` column keeps its meaning (raw base points).
+- **Abilities are a second cooldown map** alongside `skillCds`. `handleCast` still owns S1-S2-U (heal/dash today), `handleUseAbility` owns W1/W2. They share damage tracking, rate-limiter bucket, and the `resolveAttack` helper, but keep separate cooldown state + separate broadcast events (`ability-cast` / `skill-cast`). Didn't collapse them — skills have fixed id/color/range while weapon abilities depend on equipment, so a unified cooldown map would have to key by string both ways anyway.
+- **Ability kinds dispatched to existing helpers**: melee/ranged reuse `resolveAttack` (single target); aoe reuses `mobSystem.applyRadialDamage`; movement does dash-plus-aoe-on-landing. `self` is plumbed through but currently unused (kept for future armor/ring procs).
+- **Legacy `equip` handler preserved** so `apps/server/src/admin*` and any saved-game `equippedItemId` path still work — it now writes to `equipment.weapon` too and calls `recomputeDerivedStats`. The dual field (`equippedItemId` + `equipment.weapon`) is a legacy shim; future work can collapse it once the admin panel's equip UI migrates.
+- **Ring counted for set-of-equipped-ids** for the hotbar "amber ring" indicator. Previously the UI only highlighted the item matching `equippedItemId`; now it highlights anything in any equipment slot.
+- **Preview verification**: the running preview serves from a different worktree. Smoke test needs to happen after the PR's branch is pulled into the preview worktree (`git fetch && git reset --hard origin/feat/equipment-weapon-abilities`). Flagged in the PR body.
+

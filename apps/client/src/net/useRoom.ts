@@ -1,5 +1,6 @@
 import { useCharacterStore } from "@/state/characterStore";
 import {
+  type AbilityId,
   CHAT_MAX_HISTORY,
   type ChatChannel,
   type ChatEntry,
@@ -17,6 +18,7 @@ import {
   type QuestProgress,
   type SkillId,
   type StatKey,
+  type WeaponSlotKey,
   type WorldDrop,
   type ZoneId,
 } from "@game/shared";
@@ -48,6 +50,10 @@ export type PlayerSnapshot = {
   dexterity: number;
   vitality: number;
   intellect: number;
+  baseStrength: number;
+  baseDexterity: number;
+  baseVitality: number;
+  baseIntellect: number;
   statPoints: number;
   equippedItemId: string;
   partyId: string;
@@ -116,6 +122,17 @@ export type SkillCastEvent = {
   hits: number;
   at: number;
 };
+export type AbilityCastEvent = {
+  casterId: string;
+  abilityId: AbilityId;
+  targetId?: string;
+  pos: { x: number; y: number; z: number };
+  hits: number;
+  killed?: boolean;
+  dmg?: number;
+  crit?: boolean;
+  at: number;
+};
 export type BossTelegraphEvent = {
   mobId: string;
   pos: { x: number; y: number; z: number };
@@ -153,6 +170,7 @@ export type RoomState = {
   lastUsed?: UsedEvent;
   lastMobKilled?: MobKilledEvent;
   lastSkill?: SkillCastEvent;
+  lastAbility?: AbilityCastEvent;
   lastTelegraph?: BossTelegraphEvent;
   lastDied?: DiedEvent;
   bolts: Map<string, CasterBoltSnapshot>;
@@ -166,6 +184,10 @@ export type RoomState = {
     (type: "chat", payload: { channel: ChatChannel; text: string }): void;
     (type: "allocateStat", payload: { stat: StatKey }): void;
     (type: "cast", payload: { skillId: SkillId; target?: { x: number; z: number } }): void;
+    (
+      type: "use-ability",
+      payload: { slot: WeaponSlotKey; target?: { x: number; z: number } },
+    ): void;
     (type: "equipSlot", payload: { slot: EquipSlot; itemId: string }): void;
     (type: "unequipSlot", payload: { slot: EquipSlot }): void;
     (type: "buy", payload: { itemId: string; qty?: number }): void;
@@ -208,6 +230,10 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
     dexterity: p.dexterity,
     vitality: p.vitality,
     intellect: p.intellect,
+    baseStrength: p.baseStrength,
+    baseDexterity: p.baseDexterity,
+    baseVitality: p.baseVitality,
+    baseIntellect: p.baseIntellect,
     statPoints: p.statPoints,
     equippedItemId: p.equippedItemId,
     partyId: p.partyId,
@@ -320,6 +346,7 @@ export function useRoom(): RoomState {
         let lastUsed: UsedEvent | undefined;
         let lastMobKilled: MobKilledEvent | undefined;
         let lastSkill: SkillCastEvent | undefined;
+        let lastAbility: AbilityCastEvent | undefined;
         let lastTelegraph: BossTelegraphEvent | undefined;
         let lastDied: DiedEvent | undefined;
 
@@ -347,6 +374,7 @@ export function useRoom(): RoomState {
             lastUsed,
             lastMobKilled,
             lastSkill,
+            lastAbility,
             lastTelegraph,
             lastDied,
             send,
@@ -555,6 +583,56 @@ export function useRoom(): RoomState {
         );
         room.onMessage("cast-error", (msg: { skillId: SkillId; reason: "cooldown" | "mana" }) => {
           toast.error(`Cast failed: ${msg.reason}`);
+        });
+        room.onMessage(
+          "ability-cast",
+          (msg: {
+            casterId: string;
+            abilityId: AbilityId;
+            targetId?: string;
+            pos: { x: number; y: number; z: number };
+            hits: number;
+            killed?: boolean;
+            dmg?: number;
+            crit?: boolean;
+          }) => {
+            lastAbility = {
+              casterId: msg.casterId,
+              abilityId: msg.abilityId,
+              targetId: msg.targetId,
+              pos: msg.pos,
+              hits: msg.hits,
+              killed: msg.killed,
+              dmg: msg.dmg,
+              crit: msg.crit,
+              at: Date.now(),
+            };
+            commit();
+          },
+        );
+        room.onMessage(
+          "ability-error",
+          (msg: {
+            slot?: string;
+            abilityId?: AbilityId;
+            reason: "cooldown" | "mana" | "dead" | "invalid_slot" | "unknown_ability";
+          }) => {
+            if (msg.reason === "cooldown") return; // silent — cooldown visualized on button
+            toast.error(`Ability failed: ${msg.reason}`);
+          },
+        );
+        room.onMessage(
+          "equip-error",
+          (msg: {
+            slot: string;
+            itemId?: string;
+            reason: "invalid_slot" | "slot_mismatch" | "unknown_item" | "not_in_inventory";
+          }) => {
+            toast.error(`Equip failed: ${msg.reason.replace(/_/g, " ")}`);
+          },
+        );
+        room.onMessage("equip-ok", (_msg: { slot: string; itemId: string }) => {
+          // Schema update drives the UI; no toast needed on success.
         });
         room.onMessage("vendor-ok", (_msg: unknown) => {
           toast.success("Deal done");

@@ -2,6 +2,7 @@ import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
 import type {
+  AbilityCastEvent,
   AttackEvent,
   BossTelegraphEvent,
   CasterBoltSnapshot,
@@ -52,6 +53,7 @@ export function Scene({
   zoneId = DEFAULT_ZONE,
   moveTarget,
   lastAttack,
+  lastAbility,
   lastTelegraph,
   selfPosRef,
   cinematicActive = false,
@@ -72,6 +74,7 @@ export function Scene({
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
   lastAttack?: AttackEvent;
+  lastAbility?: AbilityCastEvent;
   lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
   cinematicActive?: boolean;
@@ -178,7 +181,12 @@ export function Scene({
         selfPosRef={selfPosRef}
       />
       {zoneId === "lobby" ? <SafeZoneRing center={zone.spawn} /> : null}
-      <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
+      <DamageNumbers
+        lastAttack={lastAttack}
+        lastAbility={lastAbility}
+        players={players}
+        mobs={mobs}
+      />
       <BossTelegraph event={lastTelegraph} />
       <CasterBolts bolts={bolts} />
 

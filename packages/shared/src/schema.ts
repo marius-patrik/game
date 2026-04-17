@@ -33,6 +33,10 @@ export class Player extends Schema {
   @type("number") dexterity = 5;
   @type("number") vitality = 5;
   @type("number") intellect = 5;
+  @type("number") baseStrength = 5;
+  @type("number") baseDexterity = 5;
+  @type("number") baseVitality = 5;
+  @type("number") baseIntellect = 5;
   @type("number") statPoints = 0;
   @type("string") equippedItemId = "";
   @type("string") partyId = "";
