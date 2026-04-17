@@ -25,6 +25,7 @@ import { TopMenu } from "./TopMenu";
 import { Tutorial } from "./Tutorial";
 import { VendorPanel } from "./VendorPanel";
 import { ZoneTransition } from "./ZoneTransition";
+import { useCursorLockToggleKey } from "./camera/useCursorLock";
 import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
@@ -137,6 +138,8 @@ function GameViewInner({
   const room = useRoom();
   const skipCinematics = usePreferencesStore((s) => s.skipCinematics);
   const setSkipCinematics = usePreferencesStore((s) => s.setSkipCinematics);
+  const fov = usePreferencesStore((s) => s.fov);
+  const setFov = usePreferencesStore((s) => s.setFov);
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
 
   useGameSfx(room);
@@ -196,6 +199,10 @@ function GameViewInner({
   const alive = self?.alive ?? true;
   const canAct = Boolean(room.sessionId) && !cinematicActive && alive;
   const zone = ZONES[room.zoneId];
+
+  // Ctrl toggles pointer-lock once we're in the world. Disabled during
+  // the intro cinematic so the camera flyaround isn't interrupted.
+  useCursorLockToggleKey(canAct);
 
   const deathAtRef = useRef<number | undefined>(undefined);
   const lastAliveRef = useRef(true);
@@ -303,7 +310,7 @@ function GameViewInner({
         <Canvas
           shadows
           dpr={[1, budget.maxDPR]}
-          camera={{ position: [4, 4, 8], fov: 55 }}
+          camera={{ position: [4, 4, 8], fov }}
           gl={{ antialias: true, powerPreference: "high-performance" }}
         >
           <Suspense fallback={null}>
@@ -407,6 +414,8 @@ function GameViewInner({
             onVolumeChange={onVolumeChange}
             skipCinematics={skipCinematics}
             onSkipCinematicsChange={setSkipCinematics}
+            fov={fov}
+            onFovChange={setFov}
           />
           <Tutorial />
         </>
@@ -439,6 +448,8 @@ function SettingsPanelController({
   onVolumeChange,
   skipCinematics,
   onSkipCinematicsChange,
+  fov,
+  onFovChange,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -448,6 +459,8 @@ function SettingsPanelController({
   onVolumeChange: (v: number) => void;
   skipCinematics: boolean;
   onSkipCinematicsChange: (v: boolean) => void;
+  fov: number;
+  onFovChange: (v: number) => void;
 }) {
   if (!open) return null;
   return (
@@ -458,6 +471,8 @@ function SettingsPanelController({
       onVolumeChange={onVolumeChange}
       skipCinematics={skipCinematics}
       onSkipCinematicsChange={onSkipCinematicsChange}
+      fov={fov}
+      onFovChange={onFovChange}
       externalOpen={open}
       onExternalOpenChange={onOpenChange}
     />

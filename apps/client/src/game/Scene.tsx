@@ -12,11 +12,10 @@ import type {
   PlayerSnapshot,
 } from "@/net/useRoom";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
-import { Environment, Float, OrbitControls } from "@react-three/drei";
-import { useFrame, useThree } from "@react-three/fiber";
-import { type MutableRefObject, useEffect, useRef } from "react";
-import { type Group, MathUtils, Vector3 } from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { Environment, Float } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { type MutableRefObject, useRef } from "react";
+import type { Group } from "three";
 import { BossTelegraph } from "./BossTelegraph";
 import { CasterBolts } from "./CasterBolts";
 import { DamageNumbers } from "./DamageNumbers";
@@ -29,17 +28,12 @@ import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { SafeZoneRing } from "./SafeZoneRing";
 import { ZoneDecor } from "./ZoneDecor";
+import { ChaseCamera } from "./camera/ChaseCamera";
 import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
-/** Cam arm defaults. User can still rotate/zoom via OrbitControls. */
-const CAMERA_MIN_DIST = 6;
-const CAMERA_MAX_DIST = 18;
-const CAMERA_INITIAL_DIST = 10;
-const CAMERA_INITIAL_POLAR = Math.PI * 0.32;
-const CAMERA_INITIAL_YAW = Math.PI * 0.75;
 // Keep the 3D scene on a stable palette so app chrome can theme independently.
 const SCENE_THEME = "light" as const;
 
@@ -85,7 +79,6 @@ export function Scene({
   interactionTargetId?: string;
 }) {
   const cubeGroup = useRef<Group>(null);
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const { tier, budget } = useQuality();
 
   useCameraIntro({
@@ -97,7 +90,6 @@ export function Scene({
 
   const zone = ZONES[zoneId];
   const palette = resolveZonePalette(zone, SCENE_THEME);
-  const self = sessionId ? players.get(sessionId) : undefined;
   const width = zone.bounds.max.x - zone.bounds.min.x;
   const depth = zone.bounds.max.z - zone.bounds.min.z;
   const gridSize = Math.max(width, depth);
@@ -208,93 +200,15 @@ export function Scene({
 
       <gridHelper args={[gridSize, gridSize, palette.gridMajor, palette.gridMinor]} />
 
-      <OrbitControls
-        ref={controlsRef}
-        makeDefault
-        enableDamping
-        dampingFactor={0.12}
-        enablePan={false}
-        minDistance={CAMERA_MIN_DIST}
-        maxDistance={CAMERA_MAX_DIST}
-        minPolarAngle={Math.PI * 0.1}
-        maxPolarAngle={Math.PI * 0.46}
-        rotateSpeed={0.8}
-        zoomSpeed={0.7}
-        enabled={!cinematicActive && !portalCinematicActive}
-      />
-      <ChaseTarget
-        self={self}
-        selfPosRef={selfPosRef}
-        controlsRef={controlsRef}
-        cinematicActive={cinematicActive}
-      />
+      {selfPosRef ? (
+        <ChaseCamera
+          selfPosRef={selfPosRef}
+          enabled={!cinematicActive}
+          fovOverrideActive={cinematicActive || portalCinematicActive}
+        />
+      ) : null}
     </>
   );
-}
-
-/** Drives the OrbitControls target to follow the player. The user keeps
- * free rotation + zoom around the character — the camera orbits *with* the
- * player, not around a fixed world point. */
-function ChaseTarget({
-  self,
-  selfPosRef,
-  controlsRef,
-  cinematicActive,
-}: {
-  self: PlayerSnapshot | undefined;
-  selfPosRef?: MutableRefObject<Vec3>;
-  controlsRef: React.RefObject<OrbitControlsImpl | null>;
-  cinematicActive: boolean;
-}) {
-  const camera = useThree((s) => s.camera);
-  const initialized = useRef(false);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers only
-  useEffect(() => {
-    initialized.current = false;
-  }, [self?.id]);
-
-  useFrame((_, dt) => {
-    if (cinematicActive || !self) return;
-    const controls = controlsRef.current;
-    if (!controls) return;
-
-    const src = selfPosRef?.current ?? self;
-    const targetX = src.x;
-    const targetY = 0.5 + 0.6;
-    const targetZ = src.z;
-
-    if (!initialized.current) {
-      // Place camera on a predictable arm angle on first frame so the
-      // initial view is consistent across zone swaps / respawns.
-      const offX =
-        Math.sin(CAMERA_INITIAL_YAW) * CAMERA_INITIAL_DIST * Math.sin(CAMERA_INITIAL_POLAR);
-      const offY = CAMERA_INITIAL_DIST * Math.cos(CAMERA_INITIAL_POLAR);
-      const offZ =
-        Math.cos(CAMERA_INITIAL_YAW) * CAMERA_INITIAL_DIST * Math.sin(CAMERA_INITIAL_POLAR);
-      controls.target.set(targetX, targetY, targetZ);
-      camera.position.set(targetX + offX, targetY + offY, targetZ + offZ);
-      initialized.current = true;
-    } else {
-      // Preserve the camera offset from the current target. Moving the
-      // target without touching camera.position makes the camera follow
-      // the character smoothly while the user retains their rotation/zoom.
-      const prevX = controls.target.x;
-      const prevY = controls.target.y;
-      const prevZ = controls.target.z;
-      const k = 1 - Math.exp(-dt * 18);
-      const nx = MathUtils.lerp(prevX, targetX, k);
-      const ny = MathUtils.lerp(prevY, targetY, k);
-      const nz = MathUtils.lerp(prevZ, targetZ, k);
-      const dx = nx - prevX;
-      const dy = ny - prevY;
-      const dz = nz - prevZ;
-      controls.target.set(nx, ny, nz);
-      camera.position.add(new Vector3(dx, dy, dz));
-    }
-    controls.update();
-  });
-  return null;
 }
 
 function MoveTargetMarker({ pos }: { pos: Vec3 }) {

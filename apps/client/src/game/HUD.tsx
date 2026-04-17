@@ -1,6 +1,7 @@
 import { ZONES, type ZoneId } from "@game/shared";
 import { motion } from "framer-motion";
 import { Gamepad2, MapPin, Wifi, WifiOff } from "lucide-react";
+import { CursorLockIndicator } from "./CursorLockIndicator";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 
@@ -61,6 +62,7 @@ export function HUD({
             <span>{zone?.name ?? zoneId}</span>
           </div>
         </div>
+        <CursorLockIndicator />
       </motion.div>
 
       <motion.div
@@ -70,7 +72,7 @@ export function HUD({
         className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-2 sm:p-3"
       >
         <div className="hidden rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:block sm:text-xs">
-          click ground to move · 1-4 for abilities · walk up to loot + NPCs
+          click ground to move · drag to rotate · ctrl to lock · 1-4 for abilities
         </div>
       </motion.div>
     </>
