@@ -143,13 +143,19 @@ function PlayerModel({
   });
 
   const { bodyColor, headColor, emissive } = useMemo(() => {
-    const hue = hashHue(player.id);
+    const seed = player.customizationColor ? new Color(player.customizationColor) : undefined;
+    const hsl = { h: 0, s: 0, l: 0 };
+    let hue = hashHue(player.id);
+    if (seed) {
+      seed.getHSL(hsl);
+      hue = hsl.h;
+    }
     return {
       bodyColor: new Color().setHSL(hue, 0.72, isSelf ? 0.6 : 0.48),
       headColor: new Color().setHSL(hue, 0.85, isSelf ? 0.72 : 0.62),
       emissive: new Color().setHSL(hue, 0.9, isSelf ? 0.35 : 0.22),
     };
-  }, [player.id, isSelf]);
+  }, [player.customizationColor, player.id, isSelf]);
 
   const dead = !player.alive;
   if (dead) {

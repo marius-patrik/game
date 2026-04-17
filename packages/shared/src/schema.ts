@@ -35,6 +35,7 @@ export class Player extends Schema {
   @type("number") statPoints = 0;
   @type("string") equippedItemId = "";
   @type("string") partyId = "";
+  @type("string") customizationColor = "";
   @type({ map: "string" }) equipment = new MapSchema<string>();
   @type([InventorySlot]) inventory = new ArraySchema<InventorySlot>();
   @type({ map: QuestProgress }) quests = new MapSchema<QuestProgress>();

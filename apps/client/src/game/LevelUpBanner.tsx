@@ -11,6 +11,7 @@ import { playSfx } from "./sfx";
 export function LevelUpBanner({ self }: { self: PlayerSnapshot | undefined }) {
   const [visibleFor, setVisibleFor] = useState<number | undefined>();
   const lastLevel = useRef<number | undefined>(undefined);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!self) return;
@@ -19,14 +20,23 @@ export function LevelUpBanner({ self }: { self: PlayerSnapshot | undefined }) {
       return;
     }
     if (self.level > lastLevel.current) {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
       setVisibleFor(self.level);
       playSfx("levelup");
-      const t = setTimeout(() => setVisibleFor(undefined), 1600);
+      hideTimer.current = setTimeout(() => {
+        setVisibleFor(undefined);
+        hideTimer.current = undefined;
+      }, 1600);
       lastLevel.current = self.level;
-      return () => clearTimeout(t);
     }
     lastLevel.current = self.level;
   }, [self]);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
 
   return (
     <AnimatePresence>

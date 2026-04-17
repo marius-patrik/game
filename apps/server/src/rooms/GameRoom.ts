@@ -104,6 +104,15 @@ const PARTY_SHARE_RADIUS = 10; // metres
 const PARTY_SHARE_RADIUS_SQ = PARTY_SHARE_RADIUS * PARTY_SHARE_RADIUS;
 const PARTY_XP_SHARE_FRACTION = 0.6;
 
+function stableColorFromSeed(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue} 72% 58%)`;
+}
+
 function stripControlChars(input: string): string {
   let out = "";
   for (let i = 0; i < input.length; i++) {
@@ -196,6 +205,7 @@ export class GameRoom extends Room<GameRoomState> {
         this.broadcast("boss-telegraph", { mobId, pos, radius, durationMs }),
       onCasterBolt: (bolt) => this.fireCasterBolt(bolt),
       spawnDrop: (itemId, qty, pos) => this.spawnDrop(itemId, qty, pos),
+      mobCount: this.zone.id === "lobby" ? 0 : undefined,
     });
     this.mobSystem.start();
 
@@ -225,7 +235,7 @@ export class GameRoom extends Room<GameRoomState> {
     vendor.id = "npc:vendor";
     vendor.kind = "vendor";
     vendor.name = "Mercer the Vendor";
-    vendor.x = -6;
+    vendor.x = -8.25;
     vendor.y = 0;
     vendor.z = 4;
     this.state.npcs.set(vendor.id, vendor);
@@ -234,7 +244,7 @@ export class GameRoom extends Room<GameRoomState> {
     questgiver.id = "npc:quest";
     questgiver.kind = "questgiver";
     questgiver.name = "Elder Cubius";
-    questgiver.x = 6;
+    questgiver.x = 8.25;
     questgiver.y = 0;
     questgiver.z = 4;
     this.state.npcs.set(questgiver.id, questgiver);
@@ -244,6 +254,7 @@ export class GameRoom extends Room<GameRoomState> {
     const p = new Player();
     p.id = client.sessionId;
     p.name = client.auth?.name ?? "";
+    p.customizationColor = stableColorFromSeed(client.auth?.id ?? client.sessionId);
 
     const userId = client.auth?.id;
     let spawn: Vec3 = { x: this.zone.spawn.x, y: this.zone.spawn.y, z: this.zone.spawn.z };
@@ -362,6 +373,7 @@ export class GameRoom extends Room<GameRoomState> {
         log.warn({ err, userId }, "failed to save player progress on leave");
       }
     }
+    log.info({ sessionId: client.sessionId, userId, zoneId: this.zone.id }, "player left room");
     this.removeFromParty(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
@@ -1232,6 +1244,16 @@ export class GameRoom extends Room<GameRoomState> {
         portalState.rearmAt = now + PORTAL_REARM_MS;
         if (!client) return;
         const userId = this.playerUserId.get(sessionId);
+        log.info(
+          {
+            sessionId,
+            userId,
+            fromZoneId: this.zone.id,
+            toZoneId: portal.to,
+            pos: { x: p.x, y: p.y, z: p.z },
+          },
+          "portal travel triggered",
+        );
         if (userId) {
           savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
             log.warn({ err, userId, zoneId: this.zone.id }, "portal save failed");
