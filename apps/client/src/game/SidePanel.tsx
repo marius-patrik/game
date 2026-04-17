@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { type ChatChannel, type ChatEntry, QUEST_CATALOG, type ZoneId } from "@game/shared";
 import { ChevronsRight, Coins, Map as MapIcon, MessageSquare, ScrollText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +13,7 @@ export function SidePanel({
   zoneId,
   players,
   mobs,
+  npcs,
   sessionId,
   chat,
   onSendChat,
@@ -23,6 +24,7 @@ export function SidePanel({
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   mobs: Map<string, MobSnapshot>;
+  npcs: Map<string, NpcSnapshot>;
   sessionId?: string;
   chat: ChatEntry[];
   onSendChat: (channel: ChatChannel, text: string) => void;
@@ -87,7 +89,13 @@ export function SidePanel({
           <div className="flex-1 overflow-auto">
             {tab === "map" ? (
               <div className="flex items-center justify-center p-3">
-                <Minimap zoneId={zoneId} players={players} mobs={mobs} sessionId={sessionId} />
+                <Minimap
+                  zoneId={zoneId}
+                  players={players}
+                  mobs={mobs}
+                  npcs={npcs}
+                  sessionId={sessionId}
+                />
               </div>
             ) : null}
             {tab === "quests" ? (

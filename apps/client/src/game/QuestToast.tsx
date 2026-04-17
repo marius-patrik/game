@@ -35,7 +35,7 @@ export function QuestToast({ room }: { room: RoomState }) {
               at: Date.now(),
             },
           ]);
-          playSfx("levelup");
+          playSfx("questFanfare");
         }
       }
       known.set(q.id, q.status);
