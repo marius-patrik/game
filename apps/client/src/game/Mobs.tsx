@@ -35,6 +35,10 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
   const eye2 = useRef<Mesh>(null);
   const bodyMat = useRef<MeshStandardMaterial>(null);
   const trailAnchor = useRef<Mesh>(null);
+  const enrageRing = useRef<Mesh>(null);
+  // Boss enters a faster "charge" state below 50% HP. Surface that visibly so
+  // players know they need to kite; server enforces the speed/cooldown change.
+  const enraged = mob.kind === "boss" && mob.maxHp > 0 && mob.hp <= mob.maxHp * 0.5;
 
   const target = useRef({ x: mob.x, y: mob.y, z: mob.z });
   target.current.x = mob.x;
@@ -94,13 +98,18 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
     const now = performance.now();
     const flashing = now < flashUntil.current;
     if (bodyMat.current) {
+      const baseEmissive = enraged ? 0.95 : 0.45;
       const f = flashing ? (flashUntil.current - now) / 200 : 0;
-      bodyMat.current.emissiveIntensity = MathUtils.lerp(0.45, 2.4, f);
+      bodyMat.current.emissiveIntensity = MathUtils.lerp(baseEmissive, 2.4, f);
     }
     if (flashing && g) {
       const f = (flashUntil.current - now) / 200;
       g.position.x -= Math.sin(facing.current) * 0.15 * f;
       g.position.z -= Math.cos(facing.current) * 0.15 * f;
+    }
+    if (enrageRing.current) {
+      const pulse = 1 + Math.sin(t * 5.5) * 0.15;
+      enrageRing.current.scale.set(pulse, pulse, pulse);
     }
   });
 
@@ -157,6 +166,12 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
           <ringGeometry args={[0.45, 0.55, 24]} />
           <meshBasicMaterial color="#ef4444" transparent opacity={0.35} toneMapped={false} />
         </mesh>
+        {enraged ? (
+          <mesh ref={enrageRing} position={[0, -0.48, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.75, 1.1, 32]} />
+            <meshBasicMaterial color="#f97316" transparent opacity={0.55} toneMapped={false} />
+          </mesh>
+        ) : null}
       </Float>
       <Trail width={0.5} length={1.8} color="#ef4444" attenuation={(t) => t * t}>
         <mesh ref={trailAnchor} visible={false}>
@@ -164,7 +179,13 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
           <meshBasicMaterial color="#ef4444" />
         </mesh>
       </Trail>
-      <Sparkles count={8} scale={[1, 1.2, 1]} size={1.2} speed={0.4} color="#fca5a5" />
+      <Sparkles
+        count={enraged ? 18 : 8}
+        scale={[1, 1.2, 1]}
+        size={enraged ? 1.8 : 1.2}
+        speed={enraged ? 0.9 : 0.4}
+        color={enraged ? "#f97316" : "#fca5a5"}
+      />
       <HPBar hp={mob.hp} maxHp={mob.maxHp} />
     </group>
   );
