@@ -27,6 +27,7 @@ import { VendorPanel } from "./VendorPanel";
 import { ZoneTransition } from "./ZoneTransition";
 import { useCursorLockToggleKey } from "./camera/useCursorLock";
 import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
+import { useTargetingInputHandlers } from "./targeting";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
@@ -174,6 +175,13 @@ function GameViewInner({
     },
     [room.send],
   );
+  const onCastAt = useCallback(
+    (skillId: SkillId, target: Vec3) => {
+      room.send("cast", { skillId, target });
+      playSfx("attack");
+    },
+    [room.send],
+  );
   const onBuy = useCallback(
     (itemId: string, qty: number) => room.send("buy", { itemId, qty }),
     [room.send],
@@ -243,6 +251,12 @@ function GameViewInner({
     onArrive: clearMoveTarget,
     onSend: onMove,
   });
+
+  const getTargetingOrigin = useCallback(
+    () => ({ x: selfPosRef.current.x, y: selfPosRef.current.y, z: selfPosRef.current.z }),
+    [selfPosRef],
+  );
+  useTargetingInputHandlers({ getOrigin: getTargetingOrigin });
 
   // Auto-pickup drops on proximity.
   useAutoPickup({ enabled: canAct, drops: room.drops, selfPosRef, onPickup });
@@ -380,6 +394,7 @@ function GameViewInner({
             player={self}
             enabled={canAct}
             onCast={onCast}
+            onCastAt={onCastAt}
             onUse={onUse}
             onEquip={onEquip}
             onEquipSlot={onEquipSlot}

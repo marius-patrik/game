@@ -164,7 +164,7 @@ export type RoomState = {
     (type: "drop", payload: { itemId: string; qty: number }): void;
     (type: "chat", payload: { channel: ChatChannel; text: string }): void;
     (type: "allocateStat", payload: { stat: StatKey }): void;
-    (type: "cast", payload: { skillId: SkillId }): void;
+    (type: "cast", payload: { skillId: SkillId; target?: { x: number; z: number } }): void;
     (type: "equipSlot", payload: { slot: EquipSlot; itemId: string }): void;
     (type: "unequipSlot", payload: { slot: EquipSlot }): void;
     (type: "buy", payload: { itemId: string; qty?: number }): void;
