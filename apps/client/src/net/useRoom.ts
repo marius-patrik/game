@@ -1,4 +1,8 @@
 import {
+  CHAT_MAX_HISTORY,
+  type ChatChannel,
+  type ChatEntry,
+  type ChatError,
   DEFAULT_ZONE,
   type GameRoomState,
   type InventorySlot,
@@ -50,6 +54,7 @@ export type RoomState = {
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
+  chat: ChatEntry[];
   lastAttack?: AttackEvent;
   lastRespawn?: RespawnEvent;
   lastPickup?: PickupEvent;
@@ -61,6 +66,7 @@ export type RoomState = {
     (type: "use", payload: { itemId: string }): void;
     (type: "equip", payload: { itemId: string }): void;
     (type: "drop", payload: { itemId: string; qty: number }): void;
+    (type: "chat", payload: { channel: ChatChannel; text: string }): void;
   };
   travel: (zoneId: ZoneId) => void;
 };
@@ -91,12 +97,26 @@ function snapDrop(d: WorldDrop, key: string): DropSnapshot {
   return { id: key, itemId: d.itemId, qty: d.qty, x: d.x, y: d.y, z: d.z };
 }
 
+function chatErrorMessage(reason: ChatError["reason"]): string {
+  switch (reason) {
+    case "rate_limit":
+      return "Chat: slow down";
+    case "too_long":
+      return "Chat: message too long";
+    case "empty":
+      return "Chat: message empty";
+    case "invalid_channel":
+      return "Chat: invalid channel";
+  }
+}
+
 export function useRoom(): RoomState {
   const [zoneId, setZoneId] = useState<ZoneId>(DEFAULT_ZONE);
   const [state, setState] = useState<RoomState>(() => ({
     status: "idle",
     players: new Map(),
     drops: new Map(),
+    chat: [],
     zoneId: DEFAULT_ZONE,
     send: (() => {}) as RoomState["send"],
     travel: () => {},
@@ -125,6 +145,7 @@ export function useRoom(): RoomState {
 
         const players = new Map<string, PlayerSnapshot>();
         const drops = new Map<string, DropSnapshot>();
+        const chat: ChatEntry[] = [];
         let lastAttack: AttackEvent | undefined;
         let lastRespawn: RespawnEvent | undefined;
         let lastPickup: PickupEvent | undefined;
@@ -143,6 +164,7 @@ export function useRoom(): RoomState {
             zoneId,
             players: new Map(players),
             drops: new Map(drops),
+            chat: [...chat],
             lastAttack,
             lastRespawn,
             lastPickup,
@@ -194,10 +216,24 @@ export function useRoom(): RoomState {
           lastUsed = { itemId: msg.itemId, hp: msg.hp, at: Date.now() };
           commit();
         });
+        room.onMessage("chat", (entry: ChatEntry) => {
+          chat.push(entry);
+          while (chat.length > CHAT_MAX_HISTORY) chat.shift();
+          commit();
+        });
+        room.onMessage("chat-error", (msg: ChatError) => {
+          toast.error(chatErrorMessage(msg.reason));
+        });
 
         room.onLeave(() => {
           if (cancelled) return;
-          setState((s) => ({ ...s, status: "idle", players: new Map(), drops: new Map() }));
+          setState((s) => ({
+            ...s,
+            status: "idle",
+            players: new Map(),
+            drops: new Map(),
+            chat: [],
+          }));
         });
         room.onError((_code, message) => {
           if (cancelled) return;
@@ -207,6 +243,7 @@ export function useRoom(): RoomState {
             error: message,
             players: new Map(),
             drops: new Map(),
+            chat: [],
           }));
         });
 

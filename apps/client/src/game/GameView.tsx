@@ -4,10 +4,12 @@ import { VirtualJoystick } from "@/input/VirtualJoystick";
 import { isTouchDevice } from "@/input/isTouchDevice";
 import { useRoom } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
+import type { ChatChannel } from "@game/shared";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AttackButton } from "./AttackButton";
+import { ChatPanel } from "./ChatPanel";
 import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
 import { InventoryBar } from "./InventoryBar";
@@ -55,6 +57,10 @@ function GameViewInner() {
   const onPickup = useCallback((dropId: string) => room.send("pickup", { dropId }), [room.send]);
   const onUse = useCallback((itemId: string) => room.send("use", { itemId }), [room.send]);
   const onEquip = useCallback((itemId: string) => room.send("equip", { itemId }), [room.send]);
+  const onChat = useCallback(
+    (channel: ChatChannel, text: string) => room.send("chat", { channel, text }),
+    [room.send],
+  );
 
   const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
   const alive = self?.alive ?? true;
@@ -117,6 +123,7 @@ function GameViewInner() {
           <ProgressBar player={self} />
           <InventoryBar player={self} onUse={onUse} onEquip={onEquip} />
           <PickupPrompt player={self} drops={room.drops} onPickup={onPickup} />
+          <ChatPanel entries={room.chat} onSend={onChat} enabled={Boolean(room.sessionId)} />
         </>
       ) : null}
       <DeathOverlay
