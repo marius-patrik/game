@@ -34,3 +34,15 @@ When a change adds `"types": ["bun"]` (or any new ambient types) to `packages/sh
 
 ## Dispatching many agents hitting a shared rate-limit
 Parallel dispatch via `Agent({ isolation: "worktree", run_in_background: true })` shares one Anthropic account. When the rate limit kicks in mid-commit, agents exit cleanly but their branches sit at the old base with uncommitted files in the worktree. Recovery: inspect `git status` in each worktree, commit/rebase manually, or roll forward in the overseer seat. For the one agent that got no worktree allocated (e.g. the third-in-queue), its uncommitted work lands in the **primary** checkout — look there before assuming the work is lost.
+
+## Colyseus MapSchema + biome noForEach
+Biome's `lint/complexity/noForEach` rule flags `MapSchema.forEach(...)` even though it's the documented iteration API. Use `for (const [, v] of map)` instead of `map.forEach(...)` — the destructured tuple iterator works cleanly on `MapSchema` and keeps biome happy.
+
+## Colyseus MapSchema `@type({ map: "string" })`
+Primitive-value maps on Schema classes use the quoted string form: `@type({ map: "string" }) equipment = new MapSchema<string>();`. For Schema-valued maps use the class: `@type({ map: QuestProgress }) quests = new MapSchema<QuestProgress>();`. Forgetting the quotes for primitives produces a runtime `Cannot read properties of undefined` during serialization.
+
+## Claude Preview shadcn `select` change event
+The native `onChange` handler on a React-controlled `<select>` responds to the instance-level setter, not just `.dispatchEvent("change")`. From Claude Preview `preview_eval`, driving a zone swap through the HUD dropdown doesn't work; the reliable path is clicking the portal entity in the world, OR programmatically invoking the `travel()` callback via a hook ref. In practice, prefer click-to-travel for test flows.
+
+## Adding a Drizzle migration without drizzle-kit
+When the new sql file is added under `apps/server/drizzle/` **and** registered in `meta/_journal.json` (with a matching snapshot file), `runMigrations()` at startup applies it automatically. Pair with `generate-migrations.ts` so the migration ships inside the compiled binary — `bun run build:release` re-emits `migrations-embedded.ts` each build.
