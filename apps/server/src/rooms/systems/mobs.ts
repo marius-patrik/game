@@ -83,6 +83,13 @@ const BOSS: MobArchetype = {
   spawnWeight: 5,
 };
 
+/** Boss enters an enraged "charge" mode once HP drops below this fraction —
+ * speed + attack cadence ramp up so the final push feels harder. */
+const BOSS_ENRAGE_HP_FRACTION = 0.5;
+const BOSS_ENRAGE_SPEED = 2.6;
+const BOSS_ENRAGE_CONTACT_COOLDOWN_MS = 720;
+const BOSS_ENRAGE_TELEGRAPH_MS = 400;
+
 const ARCHETYPES: Record<MobKind, MobArchetype> = { grunt: GRUNT, caster: CASTER, boss: BOSS };
 
 // spawn distribution per zone: [kind, weight] — weights sum to 100 roughly.
@@ -264,11 +271,16 @@ export class MobSystem {
       const arche = ARCHETYPES[kind];
       const nearest = this.findNearestPlayer(mob, players, arche.detectRadius);
       if (!nearest) continue;
+      const enraged = kind === "boss" && mob.hp <= mob.maxHp * BOSS_ENRAGE_HP_FRACTION;
+      const speed = enraged ? BOSS_ENRAGE_SPEED : arche.speed;
+      const contactCooldownMs = enraged ? BOSS_ENRAGE_CONTACT_COOLDOWN_MS : arche.contactCooldownMs;
+      const telegraphMs = enraged ? BOSS_ENRAGE_TELEGRAPH_MS : BOSS_TELEGRAPH_MS;
+
       const dx = nearest.pos.x - mob.x;
       const dz = nearest.pos.z - mob.z;
       const dist = Math.hypot(dx, dz);
       if (dist <= 0.0001) continue;
-      const step = Math.min(arche.speed * dtSec, dist);
+      const step = Math.min(speed * dtSec, dist);
       const nx = mob.x + (dx / dist) * step;
       const nz = mob.z + (dz / dist) * step;
       const clamped = clampToBounds({ x: nx, y: mob.y, z: nz }, this.zone);
@@ -303,18 +315,18 @@ export class MobSystem {
             rt.windingOrigin = undefined;
           }
         } else if (nowDist <= arche.contactRange + 0.8) {
-          if (now - rt.lastAttackAt >= arche.contactCooldownMs) {
-            rt.windingStrikeAt = now + BOSS_TELEGRAPH_MS;
+          if (now - rt.lastAttackAt >= contactCooldownMs) {
+            rt.windingStrikeAt = now + telegraphMs;
             rt.windingTargetId = nearest.id;
             rt.windingOrigin = { x: mob.x, y: mob.y, z: mob.z };
-            this.onTelegraph(mob.id, rt.windingOrigin, BOSS_TELEGRAPH_RADIUS, BOSS_TELEGRAPH_MS);
+            this.onTelegraph(mob.id, rt.windingOrigin, BOSS_TELEGRAPH_RADIUS, telegraphMs);
           }
         }
         continue;
       }
 
       if (nowDist <= arche.contactRange) {
-        if (now - rt.lastAttackAt >= arche.contactCooldownMs) {
+        if (now - rt.lastAttackAt >= contactCooldownMs) {
           const already = playerDamageThisTick.get(nearest.id) ?? 0;
           const room = this.maxContactDmgPerTick - already;
           if (room > 0) {
