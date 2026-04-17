@@ -63,6 +63,7 @@ import {
   removeItem,
 } from "../inventory";
 import { log } from "../logger";
+import { PartyManager } from "../party";
 import {
   DEFAULT_SECURITY,
   RateLimiter,
@@ -98,6 +99,9 @@ const SAVE_INTERVAL_MS = 10_000;
 const LOOT_SPAWN_INTERVAL_MS = 5_000;
 const PORTAL_REARM_MS = 2_000;
 const SELL_FRACTION = 0.4;
+const PARTY_SHARE_RADIUS = 10; // metres
+const PARTY_SHARE_RADIUS_SQ = PARTY_SHARE_RADIUS * PARTY_SHARE_RADIUS;
+const PARTY_XP_SHARE_FRACTION = 0.6;
 
 function stripControlChars(input: string): string {
   let out = "";
@@ -129,6 +133,7 @@ export class GameRoom extends Room<GameRoomState> {
   private chatCounter = 0;
   private mobSystem!: MobSystem;
   private muteUntil = new Map<string, number>();
+  private partyManager = new PartyManager();
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -338,6 +343,7 @@ export class GameRoom extends Room<GameRoomState> {
         log.warn({ err, userId }, "failed to save player progress on leave");
       }
     }
+    this.removeFromParty(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
     this.playerCombat.delete(client.sessionId);
@@ -458,7 +464,8 @@ export class GameRoom extends Room<GameRoomState> {
         dmg,
         crit,
       });
-      if (hit.killed) this.onMobKilledByPlayer(attacker, hit.kind, hit.xpBonus, hit.gold);
+      if (hit.killed)
+        this.onMobKilledByPlayer(attacker, hit.kind, hit.xpBonus, hit.gold, hit.dropPos);
       return;
     }
 
@@ -564,7 +571,7 @@ export class GameRoom extends Room<GameRoomState> {
             dmg,
             crit,
           });
-          if (hit.killed) this.onMobKilledByPlayer(p, hit.kind, hit.xpBonus, hit.gold);
+          if (hit.killed) this.onMobKilledByPlayer(p, hit.kind, hit.xpBonus, hit.gold, hit.dropPos);
         } else {
           const target = this.state.players.get(result.targetId);
           const targetCombat = this.playerCombat.get(result.targetId);
@@ -598,7 +605,7 @@ export class GameRoom extends Room<GameRoomState> {
         const killed = hits.filter((h) => h.ok && h.killed);
         for (const h of killed) {
           if (!h.ok) continue;
-          this.onMobKilledByPlayer(p, h.kind, h.xpBonus, h.gold);
+          this.onMobKilledByPlayer(p, h.kind, h.xpBonus, h.gold, h.dropPos);
         }
         this.broadcast("skill-cast", {
           casterId: client.sessionId,
@@ -879,10 +886,37 @@ export class GameRoom extends Room<GameRoomState> {
 
   // ---------- Mob kill callbacks ----------
 
-  private onMobKilledByPlayer(p: Player, kind: MobKind, xpBonus: number, gold: number) {
-    this.awardXp(p, 10 + xpBonus);
+  private onMobKilledByPlayer(
+    p: Player,
+    kind: MobKind,
+    xpBonus: number,
+    gold: number,
+    mobPos?: Vec3,
+  ) {
+    const baseXp = 10 + xpBonus;
+    // Share XP with party members standing within radius of the kill. Killer
+    // keeps the full award; other party members get a fraction (see
+    // PARTY_XP_SHARE_FRACTION). No sharing for quest progress or gold — this
+    // is tuned to reward grouping without inflating rewards too much.
+    const party = this.partyManager.getPartyBySession(p.id);
+    if (party && mobPos) {
+      for (const memberSid of party.members) {
+        const member = this.state.players.get(memberSid);
+        if (!member || !member.alive) continue;
+        if (memberSid === p.id) {
+          this.awardXp(member, baseXp);
+          continue;
+        }
+        const dx = member.x - mobPos.x;
+        const dz = member.z - mobPos.z;
+        if (dx * dx + dz * dz > PARTY_SHARE_RADIUS_SQ) continue;
+        this.awardXp(member, Math.max(1, Math.floor(baseXp * PARTY_XP_SHARE_FRACTION)));
+      }
+    } else {
+      this.awardXp(p, baseXp);
+    }
     p.gold += gold;
-    // quest progress: any kill-mobs quest ticks up
+    // quest progress: any kill-mobs quest ticks up — killer only, not party.
     for (const [, q] of p.quests) {
       const def = getQuest(q.id);
       if (!def) continue;
@@ -894,6 +928,27 @@ export class GameRoom extends Room<GameRoomState> {
     // boss always drops a soul on top of normal loot
     if (kind === "boss") {
       this.spawnDrop("soul", 1, { x: p.x, y: p.y, z: p.z });
+    }
+  }
+
+  private removeFromParty(sessionId: string) {
+    const result = this.partyManager.leave(sessionId);
+    const leaver = this.state.players.get(sessionId);
+    if (leaver) leaver.partyId = "";
+    if (!result.partyId) return;
+    if (result.dissolved) return;
+    // If leader was promoted, all remaining members' partyId schema fields
+    // are already correct (they didn't change); leader change is pure server
+    // state. Notify the new leader so the HUD can optionally flag it later.
+    if (result.newLeader) {
+      const promoted = this.clients.find((c) => c.sessionId === result.newLeader);
+      promoted?.send("chat", {
+        id: `c${++this.chatCounter}-${this.roomId.slice(-4)}`,
+        channel: "zone",
+        from: "party",
+        text: "You are now the party leader.",
+        at: Date.now(),
+      } satisfies ChatEntry);
     }
   }
 
@@ -1161,6 +1216,10 @@ export class GameRoom extends Room<GameRoomState> {
             log.warn({ err, userId, zoneId: this.zone.id }, "portal save failed");
           });
         }
+        // Parties are zone-scoped — traveling out drops the travelling
+        // member so the rest of the party doesn't silently get share-XP from
+        // someone they can't see.
+        this.removeFromParty(sessionId);
         client.send("zone-exit", { to: portal.to });
         return;
       }
@@ -1300,6 +1359,119 @@ export class GameRoom extends Room<GameRoomState> {
       case "unblock":
         this.dispatchBlockCommand(client, command);
         return;
+      case "party":
+        this.dispatchPartyCommand(client, p, command.sub);
+        return;
+    }
+  }
+
+  private dispatchPartyCommand(
+    client: Client<unknown, SessionUser>,
+    self: Player,
+    sub: Extract<ChatCommand, { kind: "party" }>["sub"],
+  ) {
+    const sessionId = client.sessionId;
+    const systemEntry = (text: string): ChatEntry => {
+      this.chatCounter += 1;
+      return {
+        id: `c${this.chatCounter.toString(36)}-${this.roomId.slice(-4)}`,
+        channel: "zone",
+        from: "party",
+        text,
+        at: Date.now(),
+      };
+    };
+
+    if (sub.action === "status") {
+      const party = this.partyManager.getPartyBySession(sessionId);
+      if (!party) {
+        client.send(
+          "chat",
+          systemEntry("You're not in a party. /party invite <name> to start one."),
+        );
+        return;
+      }
+      const names: string[] = [];
+      for (const memberSid of party.members) {
+        const member = this.state.players.get(memberSid);
+        names.push(
+          `${member?.name ?? memberSid.slice(0, 6)}${memberSid === party.leader ? " (leader)" : ""}`,
+        );
+      }
+      client.send("chat", systemEntry(`Party ${party.id}: ${names.join(", ")}`));
+      return;
+    }
+
+    if (sub.action === "leave") {
+      const party = this.partyManager.getPartyBySession(sessionId);
+      if (!party) {
+        client.send("chat", systemEntry("You're not in a party."));
+        return;
+      }
+      // Notify remaining members before we clear state.
+      const remaining: string[] = [];
+      for (const memberSid of party.members) {
+        if (memberSid !== sessionId) remaining.push(memberSid);
+      }
+      this.removeFromParty(sessionId);
+      client.send("chat", systemEntry("Left the party."));
+      const leaverName = self.name || sessionId.slice(0, 6);
+      for (const memberSid of remaining) {
+        const memberClient = this.clients.find((c) => c.sessionId === memberSid);
+        memberClient?.send("chat", systemEntry(`${leaverName} left the party.`));
+      }
+      return;
+    }
+
+    if (sub.action === "invite") {
+      const match = this.findPlayerByName(sub.target, sessionId);
+      if (!match) {
+        this.sendChatError(client, "not_found");
+        return;
+      }
+      const result = this.partyManager.invite(sessionId, match.sessionId);
+      if (!result.ok) {
+        if (result.reason === "full") this.sendChatError(client, "party_full");
+        else if (result.reason === "already_in_party")
+          this.sendChatError(client, "party_other_party");
+        else client.send("chat", systemEntry(`Couldn't invite ${sub.target}: ${result.reason}.`));
+        return;
+      }
+      // Sender is now (or already was) a party leader — reflect via schema.
+      self.partyId = result.partyId;
+      client.send("chat", systemEntry(`Invited ${match.sessionId.slice(0, 6)} to your party.`));
+      const inviteeClient = this.clients.find((c) => c.sessionId === match.sessionId);
+      const inviterName = self.name || sessionId.slice(0, 6);
+      inviteeClient?.send(
+        "chat",
+        systemEntry(`[party invite from ${inviterName}] — /party accept`),
+      );
+      return;
+    }
+
+    if (sub.action === "accept") {
+      const result = this.partyManager.accept(sessionId);
+      if (!result.ok) {
+        if (result.reason === "expired")
+          client.send("chat", systemEntry("That invite expired. Ask again."));
+        else if (result.reason === "full") this.sendChatError(client, "party_full");
+        else client.send("chat", systemEntry("No pending party invite."));
+        return;
+      }
+      self.partyId = result.partyId;
+      const members = this.partyManager.membersOf(result.partyId);
+      const memberNames: string[] = [];
+      for (const memberSid of members) {
+        const member = this.state.players.get(memberSid);
+        if (member) member.partyId = result.partyId;
+        memberNames.push(member?.name ?? memberSid.slice(0, 6));
+      }
+      const announcement = systemEntry(`Party formed: ${memberNames.join(", ")}`);
+      for (const memberSid of members) {
+        const memberClient = this.clients.find((c) => c.sessionId === memberSid);
+        memberClient?.send("chat", announcement);
+      }
+      return;
     }
   }
 

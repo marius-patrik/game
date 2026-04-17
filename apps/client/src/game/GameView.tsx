@@ -12,6 +12,7 @@ import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
 import { HitVignette } from "./HitVignette";
 import { LevelUpBanner } from "./LevelUpBanner";
+import { PartyPanel } from "./PartyPanel";
 import { ProgressBar } from "./ProgressBar";
 import { QuestToast } from "./QuestToast";
 import { QuestTracker } from "./QuestTracker";
@@ -276,6 +277,7 @@ function GameViewInner({
             />
           </div>
           <QuestTracker player={self} />
+          <PartyPanel players={room.players} sessionId={room.sessionId} />
           <SidePanel
             zoneId={room.zoneId}
             players={room.players}

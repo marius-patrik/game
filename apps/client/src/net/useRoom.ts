@@ -47,6 +47,7 @@ export type PlayerSnapshot = {
   intellect: number;
   statPoints: number;
   equippedItemId: string;
+  partyId: string;
   equipment: Record<string, string>;
   inventory: SlotSnapshot[];
   quests: QuestSnapshot[];
@@ -196,6 +197,7 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
     intellect: p.intellect,
     statPoints: p.statPoints,
     equippedItemId: p.equippedItemId,
+    partyId: p.partyId,
     equipment,
     inventory: inv,
     quests,
@@ -239,6 +241,10 @@ function chatErrorMessage(reason: ChatError["reason"]): string {
       return "Chat: blocked";
     case "not_found":
       return "Chat: player not found";
+    case "party_full":
+      return "Party: full (max 4)";
+    case "party_other_party":
+      return "Party: that player is already in another party";
   }
 }
 
