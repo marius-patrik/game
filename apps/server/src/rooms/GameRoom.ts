@@ -71,6 +71,7 @@ import {
   ViolationTracker,
   validateMovement,
 } from "../security";
+import { HazardSystem } from "./systems/hazards";
 import { type CasterBoltEvent, type MobKind, MobSystem, type PlayerRef } from "./systems/mobs";
 
 type MoveMessage = { x: number; y: number; z: number };
@@ -132,6 +133,7 @@ export class GameRoom extends Room<GameRoomState> {
   private dropCounter = 0;
   private chatCounter = 0;
   private mobSystem!: MobSystem;
+  private hazardSystem!: HazardSystem;
   private muteUntil = new Map<string, number>();
   private partyManager = new PartyManager();
 
@@ -196,6 +198,23 @@ export class GameRoom extends Room<GameRoomState> {
       spawnDrop: (itemId, qty, pos) => this.spawnDrop(itemId, qty, pos),
     });
     this.mobSystem.start();
+
+    this.hazardSystem = new HazardSystem({
+      hazards: this.state.hazards,
+      getPlayers: () =>
+        this.collectPlayerRefs().map((p) => ({
+          id: p.id,
+          x: p.pos.x,
+          z: p.pos.z,
+          alive: p.alive,
+        })),
+      damagePlayer: (id, dmg) => this.applyWorldDamage(id, dmg),
+    });
+
+    if (this.zone.id === "arena") {
+      this.mobSystem.spawnSpecificKind("healer");
+      this.hazardSystem.addHazard({ x: 0, z: 0, radius: 5, dps: 3 });
+    }
 
     this.spawnZoneNpcs();
   }
@@ -361,6 +380,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (this.saveInterval) clearInterval(this.saveInterval);
     if (this.lootInterval) clearInterval(this.lootInterval);
     this.mobSystem?.stop();
+    this.hazardSystem?.stop();
     await this.flushAllPositions();
     await this.flushAllProgress();
   }
@@ -371,6 +391,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.handleZoneTick();
     this.regenMana(dt);
     this.mobSystem?.tick(dt);
+    this.hazardSystem?.tick(dt);
   }
 
   private regenMana(dtMs: number) {
@@ -1281,6 +1302,26 @@ export class GameRoom extends Room<GameRoomState> {
     target.hp = newHp;
     this.lastDamageSource.set(playerId, {
       cause: { kind: "mob", mobKind: source.kind },
+      at: Date.now(),
+    });
+    if (newHp === 0) {
+      target.alive = false;
+      this.spawnKillDrop(target);
+      const targetClient = this.clients.find((c) => c.sessionId === playerId);
+      this.sendDeath(playerId);
+      this.scheduleRespawn(playerId, targetClient);
+    }
+  }
+
+  private applyWorldDamage(playerId: string, dmg: number): void {
+    const target = this.state.players.get(playerId);
+    const combat = this.playerCombat.get(playerId);
+    if (!target || !combat || !target.alive) return;
+    if (Date.now() < combat.invulnerableUntil) return;
+    const newHp = Math.max(0, target.hp - dmg);
+    target.hp = newHp;
+    this.lastDamageSource.set(playerId, {
+      cause: { kind: "world" },
       at: Date.now(),
     });
     if (newHp === 0) {

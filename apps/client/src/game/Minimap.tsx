@@ -1,4 +1,4 @@
-import type { MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { ZONES, type ZoneId } from "@game/shared";
 import { useEffect, useRef, useState } from "react";
 
@@ -18,12 +18,14 @@ export function Minimap({
   players,
   mobs,
   npcs,
+  hazards,
   sessionId,
 }: {
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   mobs: Map<string, MobSnapshot>;
   npcs: Map<string, NpcSnapshot>;
+  hazards: Map<string, HazardSnapshot>;
   sessionId?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -86,12 +88,42 @@ export function Minimap({
         ctx.stroke();
       }
 
-      // mobs (red)
-      for (const m of mobs.values()) {
-        ctx.fillStyle = "#ef4444";
+      // hazards (orange exclamation glyph — drawn first so mobs/players stack on top)
+      for (const h of hazards.values()) {
+        const px = toX(h.x);
+        const py = toY(h.z);
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.35)";
+        ctx.lineWidth = 1;
+        const rScale = Math.max(3, h.radius * scale * 0.45);
         ctx.beginPath();
-        ctx.arc(toX(m.x), toY(m.z), 3, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(px, py, rScale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#f97316";
+        ctx.font = "bold 10px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("!", px, py + 0.5);
+      }
+
+      // mobs (healer = green "+", others = red dot)
+      for (const m of mobs.values()) {
+        const px = toX(m.x);
+        const py = toY(m.z);
+        if (m.kind === "healer") {
+          ctx.strokeStyle = "#22c55e";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(px - 4, py);
+          ctx.lineTo(px + 4, py);
+          ctx.moveTo(px, py - 4);
+          ctx.lineTo(px, py + 4);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = "#ef4444";
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // NPCs — distinct glyphs per kind so "vendor in lobby" and
@@ -168,7 +200,7 @@ export function Minimap({
     };
     loop();
     return () => cancelAnimationFrame(raf);
-  }, [zoneId, players, mobs, npcs, sessionId, size]);
+  }, [zoneId, players, mobs, npcs, hazards, sessionId, size]);
 
   return (
     <div

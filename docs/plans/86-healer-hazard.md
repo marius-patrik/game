@@ -1,8 +1,9 @@
 # Plan: #86 — Healer mob archetype + arena hazard zone
 
-**Status:** draft
-**Owner agent:** backend
+**Status:** shipped
+**Owner agent:** backend → execution
 **Branch:** `feat/healer-hazard`
+**PR:** [#89](https://github.com/marius-patrik/game/pull/89)
 
 ## Context
 
@@ -194,4 +195,24 @@ export class HazardZone extends Schema {
 - Hazard types beyond damage-on-enter — no poison, slow, silence.
 
 ## Retro
-_(filled after merge)_
+
+**Shipped in PR [#89](https://github.com/marius-patrik/game/pull/89) — 72/72 server tests pass.**
+
+### What went well
+- **Plan held up.** Option 1+3 landed as designed: healer is a 4th `MobKind` entry reusing `ARCHETYPES` + spawn/respawn machinery; hazard is its own shared Schema class + `HazardSystem` tick. No restructuring of `mobs.ts`'s per-mob step computation was needed, so the merge-hotspot risk flagged in pitfalls.md didn't bite.
+- **Balancing values were right first time.** All six initial knobs (HEALER_HEAL_RADIUS=3, HEALER_TICK_HP=4, HEALER_TICK_MS=1000, hazard radius=5, dps=3, tickMs=500) survived playtest without tuning. Hazard kills a standing 120-HP player in ~20s — matches the "survive a brief cross-through" intent.
+- **Tests ran in one shot.** 3 healer cases + 3 hazard cases wrote cleanly against `MapSchema`-backed harnesses; no runtime Colyseus decoration surprises.
+
+### What surprised us
+- **Respawn needs a "kind-sticky" map.** `spawnMob()` pulled its kind from the zone's weighted mix on respawn, which would have turned a dead healer into a random grunt/caster 8s later. Added `respawnKind: Map<mobId, MobKind>` to preserve the archetype for scripted spawns. Thin surface (one set on kill, one consult on respawn-due), but worth calling out for any future fixed-archetype spawns (e.g. named minibosses).
+- **Damage-cause plumbing needed `applyWorldDamage`.** The existing `applyMobContactDamage` embeds `{ kind: "mob", mobKind }` in the death-cause stamp — not reusable for a hazard. Cloned it into a sibling `applyWorldDamage` that stamps `{ kind: "world" }`. Cheap; keeps mob death-cause shape strictly mob-typed. If a third damage category appears (e.g. friendly-fire, environmental-fall), factor the shared body then.
+- **Preview harness flakes on programmatic travel.** Calling `travel('arena')` via fiber inspection + `send('move', {x:15,z:0})` occasionally bounces the player between zones because the server's portal detector fires before the client's zoneId-triggered rejoin lands. UI-driven travel in the preview still works, but scripted verification needs to call `travel()` once and wait — not re-move after the zone flip. Filed as a note in pitfalls below.
+
+### Non-obvious takeaways
+- **Mob-on-mob schema mutations "just work."** Adding `other.hp = Math.min(...)` inside the healer tick broadcasts via Colyseus without any new infrastructure, because mutations to existing `Mob` fields are already watched. Future anti-cheat will need to relax any "HP only changes through player actions" invariant, but we don't have one yet.
+- **First-tick cadence gotcha.** The heal loop uses `now - lastHealAt >= HEALER_TICK_MS` with `lastHealAt ?? 0`. First tick at `now=1000ms` fires immediately (1000-0 >= 1000). This is intentional but subtle — tests assume it.
+- **Adding a shared `@type` didn't reorder Player decorators.** Was slightly worried because decorator order matters for Colyseus field-id assignment, but HazardZone was appended as a new class + new map field on `GameRoomState`; existing Player shape was untouched.
+
+### For next time
+- **Tint-only healer stayed within budget.** One extra ring mesh for the halo + color swap via React props. No new geometry. Bundle delta: negligible. This pattern is the default for future archetype variants (e.g. "enraged grunt", "elite caster") — never add a new GLB.
+- **If we add multiple hazards per zone**, the current HazardSystem already iterates a `MapSchema<HazardZone>` so it scales without refactor. The choice to put hazards in their own MapSchema (vs. as Mobs) paid off — the client-side ring renderer stayed tiny because it doesn't share any mob mesh plumbing.

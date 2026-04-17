@@ -9,7 +9,7 @@ import {
   pickWeighted,
 } from "@game/shared";
 
-export type MobKind = "grunt" | "caster" | "boss";
+export type MobKind = "grunt" | "caster" | "boss" | "healer";
 
 export type MobArchetype = {
   kind: MobKind;
@@ -83,6 +83,27 @@ const BOSS: MobArchetype = {
   spawnWeight: 5,
 };
 
+// Healer: low-HP support mob that radiates healing to nearby allies. Doesn't
+// chase or melee; stays put and ticks a small HP refund on other mobs in range.
+// Excluded from the random spawn mix — only enters via spawnSpecificKind().
+const HEALER: MobArchetype = {
+  kind: "healer",
+  speed: 0.8,
+  maxHp: 20,
+  contactRange: 0.8,
+  contactDamage: 0,
+  contactCooldownMs: 99_999,
+  detectRadius: 6,
+  lootTable: [
+    { value: "mana_potion", weight: 70 },
+    { value: "ring_spark", weight: 20 },
+    { value: "soul", weight: 5 },
+  ],
+  xpBonus: 10,
+  goldDrop: [3, 8],
+  spawnWeight: 0,
+};
+
 /** Boss enters an enraged "charge" mode once HP drops below this fraction —
  * speed + attack cadence ramp up so the final push feels harder. */
 const BOSS_ENRAGE_HP_FRACTION = 0.5;
@@ -90,7 +111,19 @@ const BOSS_ENRAGE_SPEED = 2.6;
 const BOSS_ENRAGE_CONTACT_COOLDOWN_MS = 720;
 const BOSS_ENRAGE_TELEGRAPH_MS = 400;
 
-const ARCHETYPES: Record<MobKind, MobArchetype> = { grunt: GRUNT, caster: CASTER, boss: BOSS };
+const ARCHETYPES: Record<MobKind, MobArchetype> = {
+  grunt: GRUNT,
+  caster: CASTER,
+  boss: BOSS,
+  healer: HEALER,
+};
+
+// Healer tuning. Radius is the AoE around the healer; heal tick is applied
+// to each ally inside the radius every HEALER_TICK_MS, capped at mob maxHp.
+const HEALER_HEAL_RADIUS = 3;
+const HEALER_HEAL_RADIUS_SQ = HEALER_HEAL_RADIUS * HEALER_HEAL_RADIUS;
+const HEALER_TICK_HP = 4;
+const HEALER_TICK_MS = 1000;
 
 // spawn distribution per zone: [kind, weight] — weights sum to 100 roughly.
 const ZONE_SPAWN_MIX: Record<string, ReadonlyArray<WeightedEntry<MobKind>>> = {
@@ -166,6 +199,8 @@ type MobRuntime = {
   windingStrikeAt?: number;
   windingTargetId?: string;
   windingOrigin?: Vec3;
+  /** healer: last heal-tick timestamp; used to gate the HEALER_TICK_MS cadence */
+  lastHealAt?: number;
 };
 
 export class MobSystem {
@@ -187,6 +222,9 @@ export class MobSystem {
   private readonly targetCount: number;
   private readonly runtime = new Map<string, MobRuntime>();
   private readonly respawnAt = new Map<string, number>();
+  /** Mob ids that were explicitly spawned via spawnSpecificKind — when they
+   * die, respawn as the same kind instead of picking from the zone mix. */
+  private readonly respawnKind = new Map<string, MobKind>();
   private counter = 0;
   private boltCounter = 0;
   private lastPlayerPresenceAt = 0;
@@ -218,6 +256,7 @@ export class MobSystem {
     this.mobs.clear();
     this.runtime.clear();
     this.respawnAt.clear();
+    this.respawnKind.clear();
   }
 
   onPlayerLeave(_sessionId: string): void {
@@ -279,7 +318,14 @@ export class MobSystem {
       }
       for (const mobId of due) {
         this.respawnAt.delete(mobId);
-        this.spawnMob();
+        const forcedKind = this.respawnKind.get(mobId);
+        if (forcedKind !== undefined) {
+          this.respawnKind.delete(mobId);
+          const newId = this.spawnMob(forcedKind);
+          this.respawnKind.set(newId, forcedKind);
+        } else {
+          this.spawnMob();
+        }
       }
     }
 
@@ -291,6 +337,19 @@ export class MobSystem {
       const runtime = this.runtime.get(mob.id);
       const kind = runtime?.kind ?? "grunt";
       const arche = ARCHETYPES[kind];
+
+      // Healer: stand still and radiate heal-ticks to nearby mobs. No player
+      // interaction at all — contact damage is 0 and chasing is skipped.
+      if (kind === "healer") {
+        const rt = this.ensureRuntime(mob.id, kind);
+        const lastHealAt = rt.lastHealAt ?? 0;
+        if (now - lastHealAt >= HEALER_TICK_MS) {
+          this.applyHealTick(mob);
+          rt.lastHealAt = now;
+        }
+        continue;
+      }
+
       const nearest = this.findNearestPlayer(mob, players, arche.detectRadius);
       if (!nearest) continue;
       const enraged = kind === "boss" && mob.hp <= mob.maxHp * BOSS_ENRAGE_HP_FRACTION;
@@ -396,6 +455,28 @@ export class MobSystem {
     }
   }
 
+  /** Spawn one mob of a specific kind, regardless of the zone's spawn weights.
+   * Used for scripted arena spawns (e.g. the healer that the arena seeds on
+   * create). The mob lives inside the same respawn + runtime lifecycle as
+   * weighted spawns; when it dies it respawns as the same kind. */
+  spawnSpecificKind(kind: MobKind): void {
+    const id = this.spawnMob(kind);
+    this.respawnKind.set(id, kind);
+  }
+
+  /** Healer heal-tick. Iterates all mobs and heals each non-self mob whose
+   * XZ distance is within HEALER_HEAL_RADIUS, capped at that mob's maxHp. */
+  private applyHealTick(healer: Mob): void {
+    for (const [, other] of this.mobs) {
+      if (other.id === healer.id) continue;
+      if (!other.alive) continue;
+      const dx = other.x - healer.x;
+      const dz = other.z - healer.z;
+      if (dx * dx + dz * dz > HEALER_HEAL_RADIUS_SQ) continue;
+      other.hp = Math.min(other.maxHp, other.hp + HEALER_TICK_HP);
+    }
+  }
+
   private findNearestPlayer(
     mob: Mob,
     players: readonly PlayerRef[],
@@ -432,9 +513,9 @@ export class MobSystem {
     return pickWeighted(mix, this.rng);
   }
 
-  private spawnMob(): void {
+  private spawnMob(forcedKind?: MobKind): string {
     this.counter += 1;
-    const kind = this.pickKind();
+    const kind = forcedKind ?? this.pickKind();
     const arche = ARCHETYPES[kind];
     const id = `m${this.counter.toString(36)}`;
     const pos = this.pickSpawnPos();
@@ -449,6 +530,7 @@ export class MobSystem {
     mob.alive = true;
     this.mobs.set(id, mob);
     this.runtime.set(id, { lastAttackAt: Number.NEGATIVE_INFINITY, kind });
+    return id;
   }
 
   private pickSpawnPos(): Vec3 {

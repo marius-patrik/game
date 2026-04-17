@@ -12,10 +12,10 @@ export type AttackBroadcast = {
   crit?: boolean;
 };
 
-/** The three mob archetypes the server spawns. Kept in shared so the
+/** The mob archetypes the server spawns. Kept in shared so the
  * `DeathCause` payload (and any future mob-flavoured UI) can refer to
  * them without importing from the server package. */
-export type MobArchetypeId = "grunt" | "caster" | "boss";
+export type MobArchetypeId = "grunt" | "caster" | "boss" | "healer";
 
 /** Cause of death surfaced to the dying player in the `died` message. */
 export type DeathCause =

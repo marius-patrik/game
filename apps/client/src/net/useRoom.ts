@@ -8,6 +8,7 @@ import {
   type DiedMessage,
   type EquipSlot,
   type GameRoomState,
+  type HazardZone,
   type InventorySlot,
   type Mob,
   type Npc,
@@ -82,6 +83,14 @@ export type NpcSnapshot = {
   z: number;
 };
 
+export type HazardSnapshot = {
+  id: string;
+  x: number;
+  z: number;
+  radius: number;
+  dps: number;
+};
+
 export type AttackEvent = {
   attackerId: string;
   targetId: string;
@@ -134,6 +143,7 @@ export type RoomState = {
   drops: Map<string, DropSnapshot>;
   mobs: Map<string, MobSnapshot>;
   npcs: Map<string, NpcSnapshot>;
+  hazards: Map<string, HazardSnapshot>;
   chat: ChatEntry[];
   lastAttack?: AttackEvent;
   lastRespawn?: RespawnEvent;
@@ -225,6 +235,10 @@ function snapNpc(n: Npc, key: string): NpcSnapshot {
   return { id: key, kind: n.kind, name: n.name, x: n.x, y: n.y, z: n.z };
 }
 
+function snapHazard(h: HazardZone, key: string): HazardSnapshot {
+  return { id: key, x: h.x, z: h.z, radius: h.radius, dps: h.dps };
+}
+
 function chatErrorMessage(reason: ChatError["reason"]): string {
   switch (reason) {
     case "rate_limit":
@@ -256,6 +270,7 @@ export function useRoom(): RoomState {
     drops: new Map(),
     mobs: new Map(),
     npcs: new Map(),
+    hazards: new Map(),
     chat: [],
     bolts: new Map(),
     zoneId: DEFAULT_ZONE,
@@ -290,6 +305,7 @@ export function useRoom(): RoomState {
         const drops = new Map<string, DropSnapshot>();
         const mobs = new Map<string, MobSnapshot>();
         const npcs = new Map<string, NpcSnapshot>();
+        const hazards = new Map<string, HazardSnapshot>();
         const chat: ChatEntry[] = [];
         const bolts = new Map<string, CasterBoltSnapshot>();
         let lastAttack: AttackEvent | undefined;
@@ -316,6 +332,7 @@ export function useRoom(): RoomState {
             drops: new Map(drops),
             mobs: new Map(mobs),
             npcs: new Map(npcs),
+            hazards: new Map(hazards),
             chat: [...chat],
             bolts: new Map(bolts),
             lastAttack,
@@ -378,6 +395,18 @@ export function useRoom(): RoomState {
         });
         $(room.state).npcs.onRemove((_n: Npc, key: string) => {
           npcs.delete(key);
+          commit();
+        });
+        $(room.state).hazards.onAdd((h: HazardZone, key: string) => {
+          hazards.set(key, snapHazard(h, key));
+          commit();
+          $(h).onChange(() => {
+            hazards.set(key, snapHazard(h, key));
+            commit();
+          });
+        });
+        $(room.state).hazards.onRemove((_h: HazardZone, key: string) => {
+          hazards.delete(key);
           commit();
         });
 
@@ -540,6 +569,7 @@ export function useRoom(): RoomState {
             drops: new Map(),
             mobs: new Map(),
             npcs: new Map(),
+            hazards: new Map(),
             chat: [],
             bolts: new Map(),
           }));
@@ -554,6 +584,7 @@ export function useRoom(): RoomState {
             drops: new Map(),
             mobs: new Map(),
             npcs: new Map(),
+            hazards: new Map(),
             chat: [],
             bolts: new Map(),
           }));
@@ -570,6 +601,7 @@ export function useRoom(): RoomState {
           drops: new Map(),
           mobs: new Map(),
           npcs: new Map(),
+          hazards: new Map(),
         }));
       }
     })();

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { type ChatChannel, type ChatEntry, QUEST_CATALOG, type ZoneId } from "@game/shared";
 import { ChevronsRight, Coins, Map as MapIcon, MessageSquare, ScrollText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +14,7 @@ export function SidePanel({
   players,
   mobs,
   npcs,
+  hazards,
   sessionId,
   chat,
   onSendChat,
@@ -25,6 +26,7 @@ export function SidePanel({
   players: Map<string, PlayerSnapshot>;
   mobs: Map<string, MobSnapshot>;
   npcs: Map<string, NpcSnapshot>;
+  hazards: Map<string, HazardSnapshot>;
   sessionId?: string;
   chat: ChatEntry[];
   onSendChat: (channel: ChatChannel, text: string) => void;
@@ -117,6 +119,7 @@ export function SidePanel({
                   players={players}
                   mobs={mobs}
                   npcs={npcs}
+                  hazards={hazards}
                   sessionId={sessionId}
                 />
               </div>
