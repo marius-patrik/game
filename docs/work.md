@@ -10,13 +10,11 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#70** mobile touch polish → `feat/mobile-touch-polish` (frontend-agent, worktree, parallel with #71)
-- **#71** admin moderation tools → `feat/admin-moderation` (backend-agent, worktree, parallel with #70)
+- **#72** chat moderation — profanity / `/block` / DMs → `feat/chat-moderation` (backend-agent, worktree).
 
 ## Next
 
-- **#72** chat moderation — profanity / `/block` / DMs. Rebases after #71 lands (both touch `handleChat`).
-- **#73** party / group system. Rebases after #72 (both dispatch commands from `handleChat`).
+- **#73** party / group system. Dispatches after #72 merges (both touch `handleChat`'s command dispatch).
 
 ## Backlog
 
@@ -34,6 +32,7 @@ Post-alpha ship targets. Previous backlog blocks closed in #58/#59/#60/#62/#64-6
 
 ## Done
 
+- [x] **Social + ops wave 1** — **#70** mobile touch polish (#77: double-tap equip, long-press ItemTooltipDrawer via vaul, responsive HUD breakpoints), **#71** admin moderation (#76: kick / mute / revoke session endpoints + `/admin/sessions` action buttons + mute state in `GameRoom.handleChat`).
 - [x] **Alpha-polish leftovers all shipped** — combat feel, UX polish, mob behaviour. Five PRs: crit hits + killed-by death cause (#64), SFX polish + minimap POI icons (#65), inventory-full toast (#66), boss enrage charge at <50% HP (#67), caster mob ranged projectile (#68). Covers all 8 items deferred from #62.
 - [x] **Alpha polish pass** (#62) — ZoneDecor in lobby (pillars + market stalls + fountain + perimeter hedge) and arena (crumbled obelisks + firepit + darker perimeter); HitVignette (red radial flash + 180ms shake on HP loss); LevelUpBanner (spring-scaled "+3 stat points" pop); QuestToast (slide-in on quest ready-to-turn-in); InteractionPrompt sprite trimmed so NPC labels don't eat the screen at close range. Floating centerpiece moved to y=6 so it stops competing with gameplay.
 - [x] **HUD consolidation + free camera + proximity prompts + backlog sweep** — ActionBar (skills + inventory), SidePanel tabs (Map / Quests / Chat), TopMenu 3-dots (travel / theme / settings / admin / sign-out), clickable stat card, QuestTracker. OrbitControls re-added with constrained zoom + rotate + chase target. E-key NPC interact + auto-pickup. Basic attack moved into the ability list as "Strike". Closed four backlog items: gated portals (level-req), persisted skill cooldowns (migration 0004), chat persistence (new `chat_message` table), and admin live-sessions page. Boss AOE telegraph + zone-transition fade followed in #60.
