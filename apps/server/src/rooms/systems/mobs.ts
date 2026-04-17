@@ -124,6 +124,16 @@ export type MobHitResult =
 
 export type MobDamageSource = { mobId: string; kind: MobKind };
 
+export type CasterBoltEvent = {
+  id: string;
+  mobId: string;
+  from: Vec3;
+  to: Vec3;
+  targetId: string;
+  durationMs: number;
+  damage: number;
+};
+
 export type MobSystemDeps = {
   mobs: MapSchema<Mob>;
   zone: Zone;
@@ -131,6 +141,7 @@ export type MobSystemDeps = {
   damagePlayer: (playerId: string, dmg: number, source: MobDamageSource) => void;
   onMobKilled?: (mobId: string, pos: Vec3, kind: MobKind) => void;
   onTelegraph?: (mobId: string, pos: Vec3, radius: number, durationMs: number) => void;
+  onCasterBolt?: (bolt: CasterBoltEvent) => void;
   spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   rng?: () => number;
   now?: () => number;
@@ -139,6 +150,14 @@ export type MobSystemDeps = {
 
 const BOSS_TELEGRAPH_MS = 600;
 const BOSS_TELEGRAPH_RADIUS = 2.2;
+
+// Caster mobs stand off at ~5m and fire bolts; contact damage is disabled
+// so closing the distance becomes a useful kiting strategy for the player.
+const CASTER_KITE_RANGE = 5;
+const CASTER_BACKPEDAL_RANGE = 3;
+const CASTER_BOLT_SPEED = 9; // m/s — translates to a roughly 550ms flight at max range
+const CASTER_BOLT_MAX_FLIGHT_MS = 1200;
+const CASTER_BOLT_DAMAGE = 8;
 
 type MobRuntime = {
   lastAttackAt: number;
@@ -161,6 +180,7 @@ export class MobSystem {
     radius: number,
     durationMs: number,
   ) => void;
+  private readonly onCasterBolt: (bolt: CasterBoltEvent) => void;
   private readonly spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   private readonly rng: () => number;
   private readonly now: () => number;
@@ -168,6 +188,7 @@ export class MobSystem {
   private readonly runtime = new Map<string, MobRuntime>();
   private readonly respawnAt = new Map<string, number>();
   private counter = 0;
+  private boltCounter = 0;
   private lastPlayerPresenceAt = 0;
   private readonly idlePauseAfterEmptyMs = 30_000;
   private readonly spawnInsetFromPlayer = 4;
@@ -181,6 +202,7 @@ export class MobSystem {
     this.damagePlayer = deps.damagePlayer;
     this.onMobKilled = deps.onMobKilled ?? (() => {});
     this.onTelegraph = deps.onTelegraph ?? (() => {});
+    this.onCasterBolt = deps.onCasterBolt ?? (() => {});
     this.spawnDrop = deps.spawnDrop;
     this.rng = deps.rng ?? Math.random;
     this.now = deps.now ?? (() => Date.now());
@@ -280,15 +302,49 @@ export class MobSystem {
       const dz = nearest.pos.z - mob.z;
       const dist = Math.hypot(dx, dz);
       if (dist <= 0.0001) continue;
-      const step = Math.min(speed * dtSec, dist);
-      const nx = mob.x + (dx / dist) * step;
-      const nz = mob.z + (dz / dist) * step;
+      // Casters kite: hold in a band 3-5m from the target, and back away
+      // instead of charging in if the player closes. Non-casters (including
+      // an enraged boss) use the `speed` computed above.
+      let stepSigned = Math.min(speed * dtSec, dist);
+      if (kind === "caster") {
+        if (dist <= CASTER_KITE_RANGE && dist >= CASTER_BACKPEDAL_RANGE) {
+          stepSigned = 0; // stand and shoot
+        } else if (dist < CASTER_BACKPEDAL_RANGE) {
+          stepSigned = -Math.min(arche.speed * dtSec, CASTER_BACKPEDAL_RANGE - dist);
+        }
+      }
+      const nx = mob.x + (dx / dist) * stepSigned;
+      const nz = mob.z + (dz / dist) * stepSigned;
       const clamped = clampToBounds({ x: nx, y: mob.y, z: nz }, this.zone);
       mob.x = clamped.x;
       mob.z = clamped.z;
 
       const nowDist = Math.hypot(nearest.pos.x - mob.x, nearest.pos.z - mob.z);
       const rt = this.ensureRuntime(mob.id, kind);
+
+      // Caster: fire a tracked bolt on cooldown. Contact damage is disabled
+      // for casters so the pattern is "close the gap to silence them".
+      if (kind === "caster") {
+        if (now - rt.lastAttackAt >= arche.contactCooldownMs && nowDist <= arche.detectRadius) {
+          rt.lastAttackAt = now;
+          const flightMs = Math.min(
+            CASTER_BOLT_MAX_FLIGHT_MS,
+            Math.max(200, (nowDist / CASTER_BOLT_SPEED) * 1000),
+          );
+          this.boltCounter += 1;
+          const boltId = `b${this.boltCounter.toString(36)}`;
+          this.onCasterBolt({
+            id: boltId,
+            mobId: mob.id,
+            from: { x: mob.x, y: mob.y + 0.6, z: mob.z },
+            to: { x: nearest.pos.x, y: nearest.pos.y + 0.6, z: nearest.pos.z },
+            targetId: nearest.id,
+            durationMs: flightMs,
+            damage: CASTER_BOLT_DAMAGE,
+          });
+        }
+        continue;
+      }
 
       // Boss AOE: broadcast a telegraph before the damage resolves, then
       // deliver damage to anyone still in the marked radius.

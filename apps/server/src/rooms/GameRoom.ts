@@ -66,7 +66,7 @@ import {
   ViolationTracker,
   validateMovement,
 } from "../security";
-import { type MobKind, MobSystem, type PlayerRef } from "./systems/mobs";
+import { type CasterBoltEvent, type MobKind, MobSystem, type PlayerRef } from "./systems/mobs";
 
 type MoveMessage = { x: number; y: number; z: number };
 type UseMessage = { itemId: string };
@@ -182,6 +182,7 @@ export class GameRoom extends Room<GameRoomState> {
       onMobKilled: (mobId, pos, kind) => this.broadcast("mob-killed", { mobId, pos, kind }),
       onTelegraph: (mobId, pos, radius, durationMs) =>
         this.broadcast("boss-telegraph", { mobId, pos, radius, durationMs }),
+      onCasterBolt: (bolt) => this.fireCasterBolt(bolt),
       spawnDrop: (itemId, qty, pos) => this.spawnDrop(itemId, qty, pos),
     });
     this.mobSystem.start();
@@ -1166,6 +1167,40 @@ export class GameRoom extends Room<GameRoomState> {
       out.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive });
     });
     return out;
+  }
+
+  private fireCasterBolt(bolt: CasterBoltEvent): void {
+    // Visual bolt flies to clients immediately; damage resolves when the
+    // server-side flight timer expires, and only if the target is still
+    // close enough to the intended landing pos. Players who sprint out of
+    // the bolt's path won't take the hit, which makes casters kite-able.
+    this.broadcast("caster-bolt", {
+      id: bolt.id,
+      mobId: bolt.mobId,
+      from: bolt.from,
+      to: bolt.to,
+      targetId: bolt.targetId,
+      durationMs: bolt.durationMs,
+      damage: bolt.damage,
+    });
+    this.clock.setTimeout(() => {
+      const target = this.state.players.get(bolt.targetId);
+      const combat = this.playerCombat.get(bolt.targetId);
+      if (!target || !combat || !target.alive) return;
+      if (Date.now() < combat.invulnerableUntil) return;
+      const dx = target.x - bolt.to.x;
+      const dz = target.z - bolt.to.z;
+      const HIT_RADIUS = 0.9;
+      if (dx * dx + dz * dz > HIT_RADIUS * HIT_RADIUS) {
+        this.broadcast("caster-bolt-miss", { id: bolt.id });
+        return;
+      }
+      this.applyMobContactDamage(bolt.targetId, bolt.damage, {
+        mobId: bolt.mobId,
+        kind: "caster",
+      });
+      this.broadcast("caster-bolt-hit", { id: bolt.id, targetId: bolt.targetId });
+    }, bolt.durationMs);
   }
 
   private applyMobContactDamage(
