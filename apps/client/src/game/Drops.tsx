@@ -2,8 +2,11 @@ import type { DropSnapshot } from "@/net/useRoom";
 import { getItem } from "@game/shared/items";
 import { Float } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { type MutableRefObject, useMemo, useRef } from "react";
 import { Color, type Mesh } from "three";
+import { PickupFly, useFlyingDrops } from "./PickupFly";
+
+type Vec3 = { x: number; y: number; z: number };
 
 const ITEM_COLOR: Record<string, string> = {
   heal_potion: "#ef4444",
@@ -67,16 +70,27 @@ function DropMarker({
 
 export function Drops({
   drops,
+  selfPosRef,
   onPickup,
 }: {
   drops: Map<string, DropSnapshot>;
+  selfPosRef?: MutableRefObject<Vec3>;
   onPickup: (dropId: string) => void;
 }) {
+  // Ghost entries for drops that despawned server-side — kept alive locally
+  // for the fly-to-player animation duration so the item never just "pops".
+  const { flying, complete } = useFlyingDrops(drops);
+
   return (
     <>
       {[...drops.values()].map((d) => (
         <DropMarker key={d.id} drop={d} onPickup={onPickup} />
       ))}
+      {selfPosRef
+        ? flying.map((d) => (
+            <PickupFly key={`fly-${d.id}`} drop={d} selfPosRef={selfPosRef} onComplete={complete} />
+          ))
+        : null}
     </>
   );
 }

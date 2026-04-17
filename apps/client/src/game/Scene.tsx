@@ -28,6 +28,7 @@ import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
+import { SafeZoneRing } from "./SafeZoneRing";
 import { ZoneDecor } from "./ZoneDecor";
 import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
@@ -169,11 +170,17 @@ export function Scene({
         lastAttack={lastAttack}
         selfPosRef={selfPosRef}
       />
-      <Drops drops={drops} onPickup={onPickup} />
+      <Drops drops={drops} selfPosRef={selfPosRef} onPickup={onPickup} />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <HazardZones hazards={hazards} />
-      <Portals portals={zone.portals} />
+      <Portals
+        portals={zone.portals}
+        players={players}
+        sessionId={sessionId}
+        selfPosRef={selfPosRef}
+      />
+      {zoneId === "lobby" ? <SafeZoneRing center={zone.spawn} /> : null}
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
       <BossTelegraph event={lastTelegraph} />
       <CasterBolts bolts={bolts} />
