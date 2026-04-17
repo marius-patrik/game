@@ -62,6 +62,13 @@ Different from Express 4 where path params were always `string`. New REST handle
 ## Biome `useExhaustiveDependencies` hates refresh-counter state
 A pattern of `const [refreshTick, setRefreshTick] = useState(0); useEffect(..., [refreshTick])` trips the rule even though it's the classic "bump this to force a reload" idiom. Cleanest fix is to hoist the fetch into a `useCallback` and call it directly after the triggering action — drops a piece of state and keeps biome happy. Surfaced in #76 Sessions.tsx polling.
 
+## Recovering a rate-limited agent from the overseer seat
+When a dispatched agent hits the shared Anthropic account rate limit mid-run (`result: "You've hit your limit · resets <time>"`), the notification status is `completed` even though the work isn't. The pitfall about parallel dispatch talks about WIP landing in primary; for a single agent the recovery is subtly different:
+1. `git -C .claude/worktrees/agent-<id> status --short` — the agent's committed baseline is fine, but there's likely a pile of modified/untracked files.
+2. `git -C .claude/worktrees/agent-<id> diff --stat` to see scope.
+3. **Don't re-dispatch** unless you're sure the quota reset — you'll just waste another attempt. The faster path is to finish from the overseer seat: continue editing in the agent's worktree (same branch), run the full preflight there, commit, push, open the PR yourself. Document the hand-off in the plan's Status.
+4. When the PR opens, note in the body which % the agent got to and which the overseer finished — useful for retrospectives and for estimating next time. Happened on #73 at ~40% agent / 60% overseer.
+
 ## Drizzle migrations 0003 + 0004 are not in `_journal.json`
 `apps/server/drizzle/0003_stats_extras.sql` and `0004_cooldowns_chat.sql` exist on disk but neither is listed in `apps/server/drizzle/meta/_journal.json`. Drizzle's `readMigrationFiles` only iterates the journal, so unlisted migrations are silently skipped. Fresh SQLite DBs therefore don't get the `gold`/`mana`/stats/equipment/quests/skill-cooldowns columns on `player_progress`, nor the `chat_message` table — existing dev DBs happen to have them because they were migrated via an older path. This is the root cause of the 3 pre-existing `playerProgress.test.ts` failures since #55. **Do NOT retroactively register 0003/0004** — drizzle would then try to re-`CREATE TABLE chat_message` on already-populated DBs and crash. Fix wants a separate idempotent migration (e.g. `0006_reconcile.sql` with `ALTER TABLE … ADD COLUMN IF NOT EXISTS` + `CREATE TABLE IF NOT EXISTS`). Tracked in #81.
 
