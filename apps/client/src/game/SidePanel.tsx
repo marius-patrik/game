@@ -321,7 +321,8 @@ function ChatTab({
           </Button>
         </div>
         <p className="text-[10px] text-muted-foreground leading-tight">
-          /w &lt;name&gt; msg · /block &lt;name&gt; · /unblock &lt;name&gt;
+          /w &lt;name&gt; msg · /block &lt;name&gt; · /party invite &lt;name&gt; · /party accept ·
+          /party leave
         </p>
       </form>
     </div>

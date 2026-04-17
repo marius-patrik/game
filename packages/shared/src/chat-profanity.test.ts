@@ -76,4 +76,54 @@ describe("parseChatCommand", () => {
   test("unknown slash commands pass through as chat", () => {
     expect(parseChatCommand("/dance")).toEqual({ kind: "chat", text: "/dance" });
   });
+
+  test("/party invite <name> becomes a party invite", () => {
+    expect(parseChatCommand("/party invite alice")).toEqual({
+      kind: "party",
+      sub: { action: "invite", target: "alice" },
+    });
+  });
+
+  test("/p alias works", () => {
+    expect(parseChatCommand("/p invite bob")).toEqual({
+      kind: "party",
+      sub: { action: "invite", target: "bob" },
+    });
+  });
+
+  test("/party accept / leave / status parse", () => {
+    expect(parseChatCommand("/party accept")).toEqual({
+      kind: "party",
+      sub: { action: "accept" },
+    });
+    expect(parseChatCommand("/party leave")).toEqual({
+      kind: "party",
+      sub: { action: "leave" },
+    });
+    expect(parseChatCommand("/party status")).toEqual({
+      kind: "party",
+      sub: { action: "status" },
+    });
+  });
+
+  test("bare /party defaults to status", () => {
+    expect(parseChatCommand("/party")).toEqual({
+      kind: "party",
+      sub: { action: "status" },
+    });
+  });
+
+  test("/party invite without a name falls back to chat", () => {
+    expect(parseChatCommand("/party invite")).toEqual({
+      kind: "chat",
+      text: "/party invite",
+    });
+  });
+
+  test("unknown /party subcommand falls back to chat", () => {
+    expect(parseChatCommand("/party disco")).toEqual({
+      kind: "chat",
+      text: "/party disco",
+    });
+  });
 });
