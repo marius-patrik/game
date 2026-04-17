@@ -10,7 +10,8 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Gemini dispatched; working through schema import-cycle.
+- **#97** equipment slots + weapon-driven primary/secondary attacks (depends on #96, shipped).
+- **#101** seasonal/daily quest rotator (depends on #96; parallel with #97 — non-overlapping files).
 
 ## Next
 
@@ -44,6 +45,7 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 ## Done
 
+- [x] **#96** character system (#115) — multi-character per account with customizer (name + color, sphere preview), persisted `character` / `character_progress` / `character_inventory` tables, backfill reconciler for legacy single-char data, REST `/api/characters`. `Player.characterId` + `customizationColor` on schema. +4 server tests (76 pass). Shipped by gemini-cli; overseer rebased onto post-#108 main and resolved a GameRoom.ts conflict.
 - [x] **#108** 3D cursor + reusable ground targeting (#114) — system cursor hidden on canvas, `Cursor3D` + `ClickBurst` ground overlay, `useTargeting` hook with `CircleTargeter` live (Cone/Rect stubs ready for #98 meteor/blink), dash migrated to targeter (Esc/right-click/re-press cancels, left-click confirms, out-of-range snaps red). Server `cast` accepts target + clamps. Surfaced 3 pitfalls: R3F `e.point` stale under PointerLock, `.ts`-parses-as-non-JSX silent breakage, shadcn disabled-button onClick swallowing.
 - [x] **#107** game-feel (#113) — floating sphere players, dynamic `cameraProfile`-driven chase cam (combat/dialog/wide, smooth transitions, no model-bob coupling), FOV slider 60–100 in Settings, Ctrl cursor-lock toggle via Pointer Lock API. Cursor-lock keybind hardcoded pending #95 keybinds-store migration.
 - [x] **#106** sell dialog grid (#112) — vendor sell tab uses `SellItemSlot` grid with icons, count badges, and price tooltips; shift-click sells stacks.
