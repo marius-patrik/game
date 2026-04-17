@@ -57,7 +57,7 @@ export function SkillBar({
   }, []);
 
   return (
-    <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-14">
+    <div className="pointer-events-auto absolute bottom-10 left-1/2 z-10 flex -translate-x-1/2 gap-2 sm:bottom-14">
       {SKILL_BAR.map((id, idx) => {
         const skill = SKILL_CATALOG[id];
         const ready = cdRef.current[id] ?? 0;

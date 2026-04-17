@@ -1,13 +1,17 @@
 import type { MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { ZONES, type ZoneId } from "@game/shared";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
- * 160×160 top-down HUD minimap. Renders zone bounds, portals as gold rings,
+ * Top-down HUD minimap. Renders zone bounds, portals as gold rings,
  * mobs as red dots, other players as hue-coded dots, and self as a larger
- * white dot with a facing indicator.
+ * white dot with a facing indicator. Scales down on narrow viewports so
+ * it doesn't collide with the HP/mana/XP panel.
  */
-const SIZE = 160;
+function pickSize(): number {
+  if (typeof window === "undefined") return 160;
+  return window.innerWidth < 640 ? 120 : 160;
+}
 
 export function Minimap({
   zoneId,
@@ -21,15 +25,23 @@ export function Minimap({
   sessionId?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const [size, setSize] = useState<number>(() => pickSize());
+
+  useEffect(() => {
+    const onResize = () => setSize(pickSize());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = SIZE * dpr;
-    canvas.height = SIZE * dpr;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
 
     let raf = 0;
@@ -42,19 +54,19 @@ export function Minimap({
       const maxZ = zone.bounds.max.z;
       const spanX = maxX - minX;
       const spanZ = maxZ - minZ;
-      const scale = (SIZE - 16) / Math.max(spanX, spanZ);
-      const offX = 8 + (SIZE - 16 - spanX * scale) / 2;
-      const offZ = 8 + (SIZE - 16 - spanZ * scale) / 2;
+      const scale = (size - 16) / Math.max(spanX, spanZ);
+      const offX = 8 + (size - 16 - spanX * scale) / 2;
+      const offZ = 8 + (size - 16 - spanZ * scale) / 2;
       const toX = (wx: number) => offX + (wx - minX) * scale;
       const toY = (wz: number) => offZ + (wz - minZ) * scale;
 
-      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.clearRect(0, 0, size, size);
       // panel background
       ctx.fillStyle = "rgba(9, 9, 11, 0.7)";
-      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.fillRect(0, 0, size, size);
       ctx.strokeStyle = "rgba(161, 161, 170, 0.4)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, SIZE - 1, SIZE - 1);
+      ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
       // zone bounds
       ctx.strokeStyle = "rgba(161, 161, 170, 0.35)";
       ctx.strokeRect(toX(minX), toY(minZ), spanX * scale, spanZ * scale);
@@ -113,14 +125,14 @@ export function Minimap({
     };
     loop();
     return () => cancelAnimationFrame(raf);
-  }, [zoneId, players, mobs, sessionId]);
+  }, [zoneId, players, mobs, sessionId, size]);
 
   return (
     <div
       className="pointer-events-none absolute top-20 left-2 overflow-hidden rounded-lg border border-border/50 shadow-md backdrop-blur-md sm:top-4 sm:left-4"
-      style={{ width: SIZE, height: SIZE }}
+      style={{ width: size, height: size }}
     >
-      <canvas ref={ref} style={{ width: SIZE, height: SIZE, display: "block" }} />
+      <canvas ref={ref} style={{ width: size, height: size, display: "block" }} />
     </div>
   );
 }
