@@ -37,23 +37,23 @@ export function LevelUpBanner({ self }: { self: PlayerSnapshot | undefined }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 1.15, y: -10 }}
           transition={{ duration: 0.45, ease: [0.22, 1.6, 0.36, 1] }}
-          className="pointer-events-none absolute top-[28%] left-1/2 z-40 -translate-x-1/2"
+          className="pointer-events-none absolute top-[28%] left-1/2 z-40 max-w-[90vw] -translate-x-1/2"
         >
-          <div className="flex items-center gap-3 rounded-2xl border-2 border-amber-400 bg-background/80 px-6 py-3 shadow-2xl backdrop-blur-md">
-            <Sparkles className="size-6 text-amber-400" />
-            <div className="text-center">
-              <div className="font-bold text-amber-400 text-xs uppercase tracking-widest">
+          <div className="flex items-center gap-2 rounded-2xl border-2 border-amber-400 bg-background/80 px-4 py-3 shadow-2xl backdrop-blur-md sm:gap-3 sm:px-6">
+            <Sparkles className="size-5 shrink-0 text-amber-400 sm:size-6" />
+            <div className="min-w-0 text-center">
+              <div className="font-bold text-[10px] text-amber-400 uppercase tracking-widest sm:text-xs">
                 Level up!
               </div>
-              <div className="flex items-center gap-1.5 font-bold text-2xl">
-                <Star className="size-5 text-amber-400" />
+              <div className="flex items-center justify-center gap-1.5 font-bold text-xl sm:text-2xl">
+                <Star className="size-4 text-amber-400 sm:size-5" />
                 <span>Lv {visibleFor}</span>
               </div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="truncate text-[10px] text-muted-foreground sm:text-[11px]">
                 +3 stat points · HP + mana restored
               </div>
             </div>
-            <Sparkles className="size-6 text-amber-400" />
+            <Sparkles className="size-5 shrink-0 text-amber-400 sm:size-6" />
           </div>
         </motion.div>
       ) : null}

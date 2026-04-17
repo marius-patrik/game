@@ -32,13 +32,13 @@ export function HitVignette({ self }: { self: PlayerSnapshot | undefined }) {
         {hitAt !== undefined && Date.now() - hitAt < 300 ? (
           <motion.div
             key={hitAt}
-            initial={{ opacity: 0.9 }}
+            initial={{ opacity: 0.7 }}
             animate={{ opacity: 0 }}
             transition={{ duration: 0.28, ease: "easeOut" }}
             className="pointer-events-none absolute inset-0 z-30"
             style={{
               background:
-                "radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(220,38,38,0.55) 100%)",
+                "radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(220,38,38,0.45) 100%)",
             }}
             onAnimationComplete={() => setHitAt(undefined)}
           />

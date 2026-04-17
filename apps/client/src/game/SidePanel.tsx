@@ -34,9 +34,32 @@ export function SidePanel({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tab, setTab] = useState<Tab>("map");
+  const keyboardAutoCollapsedRef = useRef(false);
+
+  // Auto-collapse when the soft keyboard opens while the chat tab is focused
+  // (mobile only — the chat input fills the remaining HUD space and would
+  // otherwise push the ActionBar offscreen). Re-open once the keyboard dismisses.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const baseline = vv.height;
+    const onResize = () => {
+      if (tab !== "chat") return;
+      const shrunk = vv.height < baseline - 120;
+      if (shrunk && !collapsed) {
+        setCollapsed(true);
+        keyboardAutoCollapsedRef.current = true;
+      } else if (!shrunk && keyboardAutoCollapsedRef.current) {
+        setCollapsed(false);
+        keyboardAutoCollapsedRef.current = false;
+      }
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [tab, collapsed]);
 
   return (
-    <div className="pointer-events-auto absolute right-2 bottom-32 flex max-h-[50vh] flex-col overflow-hidden rounded-xl border border-border/40 bg-background/85 shadow-xl backdrop-blur-md sm:right-4 sm:bottom-24 sm:w-[320px]">
+    <div className="pointer-events-auto absolute right-2 bottom-32 flex max-h-[50vh] max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-border/40 bg-background/85 shadow-xl backdrop-blur-md sm:right-4 sm:bottom-24 sm:w-[320px]">
       {collapsed ? (
         <Button
           variant="ghost"
