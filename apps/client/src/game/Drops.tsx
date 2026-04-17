@@ -11,7 +11,13 @@ const ITEM_COLOR: Record<string, string> = {
   soul: "#a78bfa",
 };
 
-function DropMarker({ drop }: { drop: DropSnapshot }) {
+function DropMarker({
+  drop,
+  onPickup,
+}: {
+  drop: DropSnapshot;
+  onPickup: (dropId: string) => void;
+}) {
   const meshRef = useRef<Mesh>(null);
   const color = useMemo(() => new Color(ITEM_COLOR[drop.itemId] ?? "#f59e0b"), [drop.itemId]);
   const def = getItem(drop.itemId);
@@ -24,7 +30,14 @@ function DropMarker({ drop }: { drop: DropSnapshot }) {
   return (
     <Float speed={2} floatIntensity={0.4} rotationIntensity={0}>
       <group position={[drop.x, drop.y + 0.4, drop.z]}>
-        <mesh ref={meshRef} castShadow>
+        <mesh
+          ref={meshRef}
+          castShadow
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onPickup(drop.id);
+          }}
+        >
           {isWeapon ? (
             <boxGeometry args={[0.18, 0.6, 0.18]} />
           ) : (
@@ -44,11 +57,17 @@ function DropMarker({ drop }: { drop: DropSnapshot }) {
   );
 }
 
-export function Drops({ drops }: { drops: Map<string, DropSnapshot> }) {
+export function Drops({
+  drops,
+  onPickup,
+}: {
+  drops: Map<string, DropSnapshot>;
+  onPickup: (dropId: string) => void;
+}) {
   return (
     <>
       {[...drops.values()].map((d) => (
-        <DropMarker key={d.id} drop={d} />
+        <DropMarker key={d.id} drop={d} onPickup={onPickup} />
       ))}
     </>
   );

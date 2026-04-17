@@ -13,24 +13,23 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const HEIGHT = 0.1;
   const fillWidth = WIDTH * frac;
   const fillOffset = -(WIDTH - fillWidth) / 2;
+  // Match the shadcn tokens used by the HUD Progress:
+  // track = secondary/muted, fill = destructive (red) for enemies.
   return (
     <Billboard position={[0, 1.1, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.03, HEIGHT + 0.03]} />
-        <meshBasicMaterial color="#111827" transparent opacity={0.75} />
+        <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
       </mesh>
       <mesh position={[fillOffset, 0, 0.001]}>
         <planeGeometry args={[fillWidth, HEIGHT]} />
-        <meshBasicMaterial
-          color={frac > 0.5 ? "#22c55e" : frac > 0.25 ? "#eab308" : "#ef4444"}
-          toneMapped={false}
-        />
+        <meshBasicMaterial color="#ef4444" toneMapped={false} />
       </mesh>
     </Billboard>
   );
 }
 
-function MobEntity({ mob }: { mob: MobSnapshot }) {
+function MobEntity({ mob, onAttack }: { mob: MobSnapshot; onAttack: () => void }) {
   const ref = useRef<Group>(null);
   const target = useRef({ x: mob.x, y: mob.y, z: mob.z });
   target.current.x = mob.x;
@@ -49,7 +48,13 @@ function MobEntity({ mob }: { mob: MobSnapshot }) {
   return (
     <group ref={ref} position={[mob.x, mob.y + 0.5, mob.z]}>
       <Float speed={2.4} floatIntensity={0.25} rotationIntensity={0.1}>
-        <mesh castShadow>
+        <mesh
+          castShadow
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            onAttack();
+          }}
+        >
           <coneGeometry args={[0.35, 0.9, 8]} />
           <meshStandardMaterial
             color="#dc2626"
@@ -67,7 +72,13 @@ function MobEntity({ mob }: { mob: MobSnapshot }) {
 
 type DeathFx = { id: string; pos: { x: number; y: number; z: number }; until: number };
 
-export function Mobs({ mobs }: { mobs: Map<string, MobSnapshot> }) {
+export function Mobs({
+  mobs,
+  onAttack,
+}: {
+  mobs: Map<string, MobSnapshot>;
+  onAttack: () => void;
+}) {
   const lastRef = useRef(new Map<string, MobSnapshot>());
   const [deaths, setDeaths] = useState<DeathFx[]>([]);
 
@@ -101,7 +112,7 @@ export function Mobs({ mobs }: { mobs: Map<string, MobSnapshot> }) {
   return (
     <>
       {[...mobs.values()].map((m) => (
-        <MobEntity key={m.id} mob={m} />
+        <MobEntity key={m.id} mob={m} onAttack={onAttack} />
       ))}
       {deaths.map((d) => (
         <group key={d.id} position={[d.pos.x, d.pos.y + 0.6, d.pos.z]}>
