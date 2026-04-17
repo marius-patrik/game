@@ -86,7 +86,7 @@ export function CharacterNew() {
             </div>
 
             <div className="space-y-2">
-              <Label>Cube Color</Label>
+              <Label>Sphere Color</Label>
               <div className="grid grid-cols-4 gap-2">
                 {PRESET_COLORS.map((c) => (
                   <button
