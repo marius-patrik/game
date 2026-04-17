@@ -10,16 +10,14 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#106** sell dialog grid UI — small UX fix, can ship in parallel with the big queue. Standalone, no dependencies.
-- **#107** game-feel — floating sphere players + dynamic camera arm + FOV slider + cursor-lock toggle. **Prerequisite for #96 customizer + #108 cursor.**
+- **#108** 3D cursor + ground targeting system (reusable for cast-in-space abilities) — depends on #107. Claude Agent dispatched.
+- **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Schema foundation for downstream.
 
 ## Next
 
 Full user-requested rebuild + polish, dependency-ordered:
 
-1. **#108** 3D cursor + ground targeting system (reusable for cast-in-space abilities) — depends on #107.
-2. **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Schema foundation for downstream.
-3. **#97** equipment slots + weapon-driven primary/secondary attacks — depends on #96.
+1. **#97** equipment slots + weapon-driven primary/secondary attacks — depends on #96.
 4. **#98** skill system + skills tab + ultimate slot — depends on #97.
 5. **#93** HUD rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts, **current-equipment tab**) — depends on #96/#97/#98.
 6. **#110** compass/radar at top — depends on #93.
@@ -47,6 +45,8 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 ## Done
 
+- [x] **#107** game-feel (#113) — floating sphere players, dynamic `cameraProfile`-driven chase cam (combat/dialog/wide, smooth transitions, no model-bob coupling), FOV slider 60–100 in Settings, Ctrl cursor-lock toggle via Pointer Lock API. Cursor-lock keybind hardcoded pending #95 keybinds-store migration.
+- [x] **#106** sell dialog grid (#112) — vendor sell tab uses `SellItemSlot` grid with icons, count badges, and price tooltips; shift-click sells stacks.
 - [x] **#92** bug sweep (#104) — fixed the interaction prompt/drop leak, hardened the level-up banner dismissal, isolated the 3D scene palette from app dark mode, tightened viewport overflow, moved Mercer + Elder Cubius out of their stalls, stabilized player color, and added travel/leave diagnostics.
 - [x] **#100** portal polish + pickup fly-to-player + lobby safe-zone visual (#103) — rebuilt portals as vertical rotating gates with a proximity pulse, added local-intent pickup fly animation, and mounted a lobby safe-zone ground ring.
 - [x] **#86** healer mob + arena hazard zone (#89) — 4th `MobKind` ("healer", 20 HP, 4 HP/s heal to mobs within 3m, skips self + caps at maxHp). New `HazardZone` schema + `HazardSystem` (arena seeds one 5m-radius 3-dps circle). Scripted-spawn via new `spawnSpecificKind()` + `respawnKind` preserves archetype across respawn. Six new tests (72 pass total). Zero balance changes from plan; mobile draw-call budget preserved.
