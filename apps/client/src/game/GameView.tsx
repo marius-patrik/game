@@ -94,6 +94,7 @@ function GameViewInner() {
             players={room.players}
             drops={room.drops}
             sessionId={room.sessionId}
+            zoneId={room.zoneId}
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
           />

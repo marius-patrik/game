@@ -8,6 +8,14 @@ const zone: Zone = {
   maxClients: 10,
   spawn: { x: 0, y: 0, z: 0 },
   bounds: { min: { x: -20, y: 0, z: -20 }, max: { x: 20, y: 10, z: 20 } },
+  portals: [],
+  theme: {
+    preset: "city",
+    ground: "#000",
+    gridMajor: "#000",
+    gridMinor: "#000",
+    fog: { near: 10, far: 40 },
+  },
 };
 
 describe("validateMovement", () => {
