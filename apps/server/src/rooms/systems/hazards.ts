@@ -1,5 +1,5 @@
 import type { MapSchema } from "@colyseus/schema";
-import { HazardZone } from "@game/shared";
+import { HazardZone } from "@game/shared/schema";
 
 export type HazardPlayerRef = { id: string; x: number; z: number; alive: boolean };
 

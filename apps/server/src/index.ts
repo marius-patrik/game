@@ -10,6 +10,7 @@ import {
   resolveUserIdForSession,
   revokeUserSessions,
 } from "./adminCommands";
+import charactersRouter from "./api/characters";
 import { auth } from "./auth";
 import { db } from "./db/client";
 import { runMigrations } from "./db/migrate";
@@ -52,6 +53,8 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+
+app.use("/api/characters", charactersRouter);
 
 app.all("/api/auth/*", async (req, res) => {
   const url = `${req.protocol}://${req.get("host")}${req.originalUrl}`;

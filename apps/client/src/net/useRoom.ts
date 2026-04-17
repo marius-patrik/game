@@ -1,3 +1,4 @@
+import { useCharacterStore } from "@/state/characterStore";
 import {
   CHAT_MAX_HISTORY,
   type ChatChannel,
@@ -265,6 +266,7 @@ function chatErrorMessage(reason: ChatError["reason"]): string {
 }
 
 export function useRoom(): RoomState {
+  const selectedCharacterId = useCharacterStore((s) => s.selectedCharacterId);
   const [zoneId, setZoneId] = useState<ZoneId>(DEFAULT_ZONE);
   const [state, setState] = useState<RoomState>(() => ({
     status: "idle",
@@ -297,8 +299,8 @@ export function useRoom(): RoomState {
 
     (async () => {
       try {
-        console.info("[game] joining zone", { zoneId });
-        room = await joinZone(zoneId);
+        console.info("[game] joining zone", { zoneId, characterId: selectedCharacterId });
+        room = await joinZone(zoneId, selectedCharacterId ?? undefined);
         roomRef.current = room;
         if (cancelled) {
           room.leave();
@@ -617,7 +619,7 @@ export function useRoom(): RoomState {
       room?.leave();
       roomRef.current = undefined;
     };
-  }, [zoneId]);
+  }, [zoneId, selectedCharacterId]);
 
   const prevStatus = useRef<RoomState["status"]>("idle");
   useEffect(() => {

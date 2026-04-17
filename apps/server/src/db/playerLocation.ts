@@ -6,7 +6,7 @@ import { playerLocation } from "./schema";
 type DB = typeof defaultDb;
 
 export type PlayerLocationRow = {
-  userId: string;
+  characterId: string;
   zoneId: string;
   x: number;
   y: number;
@@ -15,20 +15,20 @@ export type PlayerLocationRow = {
 };
 
 export async function getPlayerLocation(
-  userId: string,
+  characterId: string,
   zoneId: string,
   db: DB = defaultDb,
 ): Promise<PlayerLocationRow | undefined> {
   const rows = await db
     .select()
     .from(playerLocation)
-    .where(and(eq(playerLocation.userId, userId), eq(playerLocation.zoneId, zoneId)))
+    .where(and(eq(playerLocation.characterId, characterId), eq(playerLocation.zoneId, zoneId)))
     .limit(1);
   return rows[0];
 }
 
 export async function savePlayerLocation(
-  userId: string,
+  characterId: string,
   zoneId: string,
   pos: Vec3,
   now: Date = new Date(),
@@ -36,9 +36,9 @@ export async function savePlayerLocation(
 ): Promise<void> {
   await db
     .insert(playerLocation)
-    .values({ userId, zoneId, x: pos.x, y: pos.y, z: pos.z, updatedAt: now })
+    .values({ characterId, zoneId, x: pos.x, y: pos.y, z: pos.z, updatedAt: now })
     .onConflictDoUpdate({
-      target: [playerLocation.userId, playerLocation.zoneId],
+      target: [playerLocation.characterId, playerLocation.zoneId],
       set: { x: pos.x, y: pos.y, z: pos.z, updatedAt: now },
     });
 }

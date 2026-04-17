@@ -6,7 +6,18 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@game/shared": ["../../packages/shared/src/index.ts"]
+      "@game/shared": ["../../packages/shared/src/index.ts"],
+      "@game/shared/schema": ["../../packages/shared/src/schema.ts"],
+      "@game/shared/zones": ["../../packages/shared/src/zones.ts"],
+      "@game/shared/items": ["../../packages/shared/src/items.ts"],
+      "@game/shared/loot": ["../../packages/shared/src/loot.ts"],
+      "@game/shared/progression": ["../../packages/shared/src/progression.ts"],
+      "@game/shared/stats": ["../../packages/shared/src/stats.ts"],
+      "@game/shared/combat": ["../../packages/shared/src/combat.ts"],
+      "@game/shared/chat": ["../../packages/shared/src/chat.ts"],
+      "@game/shared/chat-profanity": ["../../packages/shared/src/chat-profanity.ts"],
+      "@game/shared/skills": ["../../packages/shared/src/skills.ts"],
+      "@game/shared/quests": ["../../packages/shared/src/quests.ts"]
     }
   },
   "include": ["src"]
