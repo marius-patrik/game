@@ -16,18 +16,17 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const HEIGHT = 0.12;
   const fillWidth = WIDTH * frac;
   const fillOffset = -(WIDTH - fillWidth) / 2;
+  // Track + fill colors mirror the shadcn HUD Progress (secondary + emerald/amber/destructive).
+  const fillColor = frac > 0.5 ? "#10b981" : frac > 0.25 ? "#eab308" : "#ef4444";
   return (
     <Billboard position={[0, 1.15, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.04, HEIGHT + 0.04]} />
-        <meshBasicMaterial color="#111827" transparent opacity={0.75} />
+        <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
       </mesh>
       <mesh position={[fillOffset, 0, 0.001]}>
         <planeGeometry args={[fillWidth, HEIGHT]} />
-        <meshBasicMaterial
-          color={frac > 0.5 ? "#22c55e" : frac > 0.25 ? "#eab308" : "#ef4444"}
-          toneMapped={false}
-        />
+        <meshBasicMaterial color={fillColor} toneMapped={false} />
       </mesh>
     </Billboard>
   );

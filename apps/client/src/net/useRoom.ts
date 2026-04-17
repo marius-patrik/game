@@ -155,6 +155,7 @@ export function useRoom(): RoomState {
     travel: () => {},
   }));
   const roomRef = useRef<Room<GameRoomState> | undefined>(undefined);
+  const zoneSwitchingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,6 +165,7 @@ export function useRoom(): RoomState {
 
     const travel = (next: ZoneId) => {
       if (next === zoneId) return;
+      zoneSwitchingRef.current = true;
       setZoneId(next);
     };
 
@@ -334,14 +336,18 @@ export function useRoom(): RoomState {
     const prev = prevStatus.current;
     if (prev === state.status) return;
     prevStatus.current = state.status;
+    const transitioning = zoneSwitchingRef.current;
     if (prev === "connected" && (state.status === "idle" || state.status === "error")) {
-      toast.error("Disconnected", {
-        description: state.error ?? "Lost connection to the zone.",
-      });
+      if (!transitioning) {
+        toast.error("Disconnected", {
+          description: state.error ?? "Lost connection to the zone.",
+        });
+      }
     } else if (prev === "error" && state.status === "connected") {
       toast.success("Reconnected");
     } else if (prev === "idle" && state.status === "connected") {
-      toast.success(`Joined ${state.zoneId}`);
+      if (!transitioning) toast.success(`Joined ${state.zoneId}`);
+      zoneSwitchingRef.current = false;
     }
   }, [state.status, state.error, state.zoneId]);
 

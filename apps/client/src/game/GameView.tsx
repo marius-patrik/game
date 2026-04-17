@@ -1,26 +1,24 @@
 import { QualityProvider, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
-import { VirtualJoystick } from "@/input/VirtualJoystick";
-import { isTouchDevice } from "@/input/isTouchDevice";
 import { useRoom } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
-import type { ChatChannel } from "@game/shared";
+import { type ChatChannel, ZONES } from "@game/shared";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { AttackButton } from "./AttackButton";
 import { ChatPanel } from "./ChatPanel";
 import { DeathOverlay } from "./DeathOverlay";
 import { HUD } from "./HUD";
 import { InventoryBar } from "./InventoryBar";
-import { PickupPrompt } from "./PickupPrompt";
 import { ProgressBar } from "./ProgressBar";
 import { Scene } from "./Scene";
-import { useAttack } from "./useAttack";
-import { useMovement } from "./useMovement";
+import { useClickControls } from "./useClickControls";
+
+type Vec3 = { x: number; y: number; z: number };
 
 const CINEMATIC_STORAGE_KEY = "cinematic.intro.played";
 const CLIENT_RESPAWN_DELAY_MS = 2500;
+const ATTACK_COOLDOWN_MS = 400;
 
 export function GameView() {
   return (
@@ -35,8 +33,6 @@ function GameViewInner() {
   const { budget } = useQuality();
   const room = useRoom();
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
-  const [touch, setTouch] = useState(false);
-  useEffect(() => setTouch(isTouchDevice()), []);
 
   const [cinematicActive, setCinematicActive] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -49,11 +45,7 @@ function GameViewInner() {
     }
   }, []);
 
-  const onMove = useCallback(
-    (pos: { x: number; y: number; z: number }) => room.send("move", pos),
-    [room.send],
-  );
-  const onAttack = useCallback(() => room.send("attack"), [room.send]);
+  const onMove = useCallback((pos: Vec3) => room.send("move", pos), [room.send]);
   const onPickup = useCallback((dropId: string) => room.send("pickup", { dropId }), [room.send]);
   const onUse = useCallback((itemId: string) => room.send("use", { itemId }), [room.send]);
   const onEquip = useCallback((itemId: string) => room.send("equip", { itemId }), [room.send]);
@@ -65,6 +57,7 @@ function GameViewInner() {
   const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
   const alive = self?.alive ?? true;
   const canAct = Boolean(room.sessionId) && !cinematicActive && alive;
+  const zone = ZONES[room.zoneId];
 
   const deathAtRef = useRef<number | undefined>(undefined);
   const lastAliveRef = useRef(true);
@@ -74,12 +67,39 @@ function GameViewInner() {
     lastAliveRef.current = alive;
   }, [alive]);
 
-  useMovement({
+  const [moveTarget, setMoveTarget] = useState<Vec3 | null>(null);
+  // Reset click target on zone swap / respawn so we don't chase a stale point.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers only
+  useEffect(() => {
+    setMoveTarget(null);
+  }, [room.zoneId, self?.alive]);
+  const clearMoveTarget = useCallback(() => setMoveTarget(null), []);
+
+  const onGroundClick = useCallback(
+    (pos: Vec3) => {
+      if (!canAct) return;
+      setMoveTarget({ x: pos.x, y: 0, z: pos.z });
+    },
+    [canAct],
+  );
+
+  const lastAttackRef = useRef(0);
+  const onAttack = useCallback(() => {
+    if (!canAct) return;
+    const now = performance.now();
+    if (now - lastAttackRef.current < ATTACK_COOLDOWN_MS) return;
+    lastAttackRef.current = now;
+    room.send("attack");
+  }, [canAct, room.send]);
+
+  useClickControls({
     enabled: canAct,
-    initial: { x: self?.x ?? 0, y: 0, z: self?.z ?? 0 },
+    initial: { x: self?.x ?? zone.spawn.x, y: 0, z: self?.z ?? zone.spawn.z },
+    zone,
+    moveTarget,
+    onArrive: clearMoveTarget,
     onSend: onMove,
   });
-  useAttack({ enabled: canAct, onAttack });
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -96,8 +116,12 @@ function GameViewInner() {
             mobs={room.mobs}
             sessionId={room.sessionId}
             zoneId={room.zoneId}
+            moveTarget={moveTarget}
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
+            onGroundClick={onGroundClick}
+            onAttack={onAttack}
+            onPickup={onPickup}
           />
           {budget.postFX ? (
             <EffectComposer multisampling={0}>
@@ -114,17 +138,10 @@ function GameViewInner() {
         onTravel={room.travel}
       />
       <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
-      {touch && room.sessionId && !cinematicActive ? (
-        <>
-          <VirtualJoystick />
-          <AttackButton disabled={!alive} />
-        </>
-      ) : null}
       {!cinematicActive && room.sessionId ? (
         <>
           <ProgressBar player={self} />
           <InventoryBar player={self} onUse={onUse} onEquip={onEquip} />
-          <PickupPrompt player={self} drops={room.drops} onPickup={onPickup} />
           <ChatPanel entries={room.chat} onSend={onChat} enabled={Boolean(room.sessionId)} />
         </>
       ) : null}
