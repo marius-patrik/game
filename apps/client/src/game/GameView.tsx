@@ -19,6 +19,7 @@ import { StatPanel } from "./StatPanel";
 import { TopMenu } from "./TopMenu";
 import { Tutorial } from "./Tutorial";
 import { VendorPanel } from "./VendorPanel";
+import { ZoneTransition } from "./ZoneTransition";
 import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
@@ -329,6 +330,7 @@ function GameViewInner({
         respawnDelayMs={CLIENT_RESPAWN_DELAY_MS}
         deathAt={deathAtRef.current}
       />
+      <ZoneTransition status={room.status} />
     </div>
   );
 }
