@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/theme/theme-toggle";
 import { ZONES, type ZoneId } from "@game/shared";
 import { motion } from "framer-motion";
 import { Gamepad2, LogOut, MapPin, Shield, Wifi, WifiOff } from "lucide-react";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -21,11 +22,13 @@ export function HUD({
   playerCount,
   zoneId,
   onTravel,
+  settingsSlot,
 }: {
   status: "idle" | "connecting" | "connected" | "error";
   playerCount: number;
   zoneId: ZoneId;
   onTravel: (zoneId: ZoneId) => void;
+  settingsSlot?: ReactNode;
 }) {
   const { data: session } = useSession();
   const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
@@ -107,6 +110,7 @@ export function HUD({
               {session.user.name}
             </div>
           ) : null}
+          {settingsSlot}
           <ThemeToggle />
           {isAdmin ? (
             <Link href="/admin">
@@ -159,7 +163,7 @@ export function HUD({
         className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-2 sm:p-4"
       >
         <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:text-xs">
-          click ground to move · click enemy to attack · click loot to pick up · drag to orbit
+          click ground to move · click enemy to attack · click loot to pick up
         </div>
       </motion.div>
     </>

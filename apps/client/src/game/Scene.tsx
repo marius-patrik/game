@@ -1,14 +1,14 @@
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
-import type { DropSnapshot, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { AttackEvent, DropSnapshot, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
-import { Environment, Float, OrbitControls } from "@react-three/drei";
+import { Environment, Float } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { type Group, MathUtils, Vector3 } from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { Mobs } from "./Mobs";
 import { Players } from "./Players";
@@ -17,6 +17,13 @@ import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
+// Fixed 3rd-person arm — feels like a camera on a boom attached to the player.
+// Yaw is locked; no orbit controls at all, so portal travel + zone swap carry
+// a predictable viewpoint into the new room.
+const CAMERA_HEIGHT = 7;
+const CAMERA_DISTANCE = 9.5;
+const CAMERA_YAW = -Math.PI / 4;
+
 export function Scene({
   players,
   drops,
@@ -24,6 +31,7 @@ export function Scene({
   sessionId,
   zoneId = DEFAULT_ZONE,
   moveTarget,
+  lastAttack,
   cinematicActive = false,
   onCinematicComplete,
   onGroundClick,
@@ -36,6 +44,7 @@ export function Scene({
   sessionId?: string;
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
+  lastAttack?: AttackEvent;
   cinematicActive?: boolean;
   onCinematicComplete?: () => void;
   onGroundClick: (pos: Vec3) => void;
@@ -43,7 +52,6 @@ export function Scene({
   onPickup: (dropId: string) => void;
 }) {
   const cubeGroup = useRef<Group>(null);
-  const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const { resolved } = useTheme();
   const { tier, budget } = useQuality();
 
@@ -118,10 +126,11 @@ export function Scene({
         <SparkBurst baseCount={160} color="#f472b6" lifetime={1.2} speed={2.4} />
       </group>
 
-      <Players players={players} sessionId={sessionId} />
+      <Players players={players} sessionId={sessionId} lastAttack={lastAttack} />
       <Drops drops={drops} onPickup={onPickup} />
-      <Mobs mobs={mobs} onAttack={onAttack} />
+      <Mobs mobs={mobs} onAttack={onAttack} lastAttack={lastAttack} />
       <Portals portals={zone.portals} />
+      <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -139,35 +148,23 @@ export function Scene({
 
       <gridHelper args={[gridSize, gridSize, palette.gridMajor, palette.gridMinor]} />
 
-      <OrbitControls
-        ref={controlsRef}
-        makeDefault
-        enableDamping
-        dampingFactor={0.08}
-        enablePan={false}
-        minDistance={4}
-        maxDistance={22}
-        maxPolarAngle={Math.PI * 0.48}
-        enabled={!cinematicActive}
-      />
-      <ChaseCamera self={self} controlsRef={controlsRef} cinematicActive={cinematicActive} />
+      <ChaseArm self={self} cinematicActive={cinematicActive} />
     </>
   );
 }
 
-function ChaseCamera({
+function ChaseArm({
   self,
-  controlsRef,
   cinematicActive,
 }: {
   self: PlayerSnapshot | undefined;
-  controlsRef: React.RefObject<OrbitControlsImpl | null>;
   cinematicActive: boolean;
 }) {
   const camera = useThree((s) => s.camera);
   const snapped = useRef(false);
+  const lookAtTarget = useRef(new Vector3());
+  const desiredPos = useRef(new Vector3());
 
-  // Snap on mount / zone change / player id change.
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are intentional triggers only
   useEffect(() => {
     snapped.current = false;
@@ -175,24 +172,24 @@ function ChaseCamera({
 
   useFrame((_, dt) => {
     if (cinematicActive || !self) return;
-    const controls = controlsRef.current;
-    if (!controls) return;
-    const k = 1 - Math.exp(-dt * 8);
+    desiredPos.current.set(
+      self.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
+      self.y + CAMERA_HEIGHT,
+      self.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
+    );
+    lookAtTarget.current.set(self.x, self.y + 0.6, self.z);
+
     if (!snapped.current) {
-      const offset = new Vector3(
-        camera.position.x - controls.target.x,
-        camera.position.y - controls.target.y,
-        camera.position.z - controls.target.z,
-      );
-      controls.target.set(self.x, self.y, self.z);
-      camera.position.set(self.x + offset.x, self.y + offset.y, self.z + offset.z);
+      camera.position.copy(desiredPos.current);
+      camera.lookAt(lookAtTarget.current);
       snapped.current = true;
     } else {
-      controls.target.x = MathUtils.lerp(controls.target.x, self.x, k);
-      controls.target.y = MathUtils.lerp(controls.target.y, self.y, k);
-      controls.target.z = MathUtils.lerp(controls.target.z, self.z, k);
+      const k = 1 - Math.exp(-dt * 10);
+      camera.position.x = MathUtils.lerp(camera.position.x, desiredPos.current.x, k);
+      camera.position.y = MathUtils.lerp(camera.position.y, desiredPos.current.y, k);
+      camera.position.z = MathUtils.lerp(camera.position.z, desiredPos.current.z, k);
+      camera.lookAt(lookAtTarget.current);
     }
-    controls.update();
   });
   return null;
 }
@@ -211,6 +208,10 @@ function MoveTargetMarker({ pos }: { pos: Vec3 }) {
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.3, 0.42, 32]} />
         <meshBasicMaterial color="#fde68a" transparent opacity={0.9} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.001]}>
+        <ringGeometry args={[0.12, 0.18, 24]} />
+        <meshBasicMaterial color="#fde68a" transparent opacity={0.55} />
       </mesh>
     </group>
   );

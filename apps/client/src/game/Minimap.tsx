@@ -1,0 +1,126 @@
+import type { MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import { ZONES, type ZoneId } from "@game/shared";
+import { useEffect, useRef } from "react";
+
+/**
+ * 160×160 top-down HUD minimap. Renders zone bounds, portals as gold rings,
+ * mobs as red dots, other players as hue-coded dots, and self as a larger
+ * white dot with a facing indicator.
+ */
+const SIZE = 160;
+
+export function Minimap({
+  zoneId,
+  players,
+  mobs,
+  sessionId,
+}: {
+  zoneId: ZoneId;
+  players: Map<string, PlayerSnapshot>;
+  mobs: Map<string, MobSnapshot>;
+  sessionId?: string;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE * dpr;
+    canvas.height = SIZE * dpr;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    let raf = 0;
+    const draw = () => {
+      const zone = ZONES[zoneId];
+      if (!zone) return;
+      const minX = zone.bounds.min.x;
+      const maxX = zone.bounds.max.x;
+      const minZ = zone.bounds.min.z;
+      const maxZ = zone.bounds.max.z;
+      const spanX = maxX - minX;
+      const spanZ = maxZ - minZ;
+      const scale = (SIZE - 16) / Math.max(spanX, spanZ);
+      const offX = 8 + (SIZE - 16 - spanX * scale) / 2;
+      const offZ = 8 + (SIZE - 16 - spanZ * scale) / 2;
+      const toX = (wx: number) => offX + (wx - minX) * scale;
+      const toY = (wz: number) => offZ + (wz - minZ) * scale;
+
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      // panel background
+      ctx.fillStyle = "rgba(9, 9, 11, 0.7)";
+      ctx.fillRect(0, 0, SIZE, SIZE);
+      ctx.strokeStyle = "rgba(161, 161, 170, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, SIZE - 1, SIZE - 1);
+      // zone bounds
+      ctx.strokeStyle = "rgba(161, 161, 170, 0.35)";
+      ctx.strokeRect(toX(minX), toY(minZ), spanX * scale, spanZ * scale);
+
+      // portals
+      for (const p of zone.portals) {
+        ctx.fillStyle = "rgba(251, 191, 36, 0.9)";
+        ctx.beginPath();
+        ctx.arc(toX(p.pos.x), toY(p.pos.z), 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(251, 191, 36, 0.35)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(toX(p.pos.x), toY(p.pos.z), 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // mobs (red)
+      for (const m of mobs.values()) {
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(toX(m.x), toY(m.z), 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // players (others = cyan; self = white dot)
+      for (const p of players.values()) {
+        if (p.id === sessionId) continue;
+        ctx.fillStyle = "#22d3ee";
+        ctx.beginPath();
+        ctx.arc(toX(p.x), toY(p.z), 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const self = sessionId ? players.get(sessionId) : undefined;
+      if (self) {
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(toX(self.x), toY(self.z), 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // zone label
+      ctx.fillStyle = "rgba(250, 250, 250, 0.85)";
+      ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(zone.name, 6, 6);
+    };
+
+    const loop = () => {
+      draw();
+      raf = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => cancelAnimationFrame(raf);
+  }, [zoneId, players, mobs, sessionId]);
+
+  return (
+    <div
+      className="pointer-events-none absolute top-20 left-2 overflow-hidden rounded-lg border border-border/50 shadow-md backdrop-blur-md sm:top-4 sm:left-4"
+      style={{ width: SIZE, height: SIZE }}
+    >
+      <canvas ref={ref} style={{ width: SIZE, height: SIZE, display: "block" }} />
+    </div>
+  );
+}

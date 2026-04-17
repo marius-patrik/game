@@ -1,8 +1,8 @@
-import type { PlayerSnapshot } from "@/net/useRoom";
-import { Billboard } from "@react-three/drei";
+import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
+import { Billboard, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
-import { Color, type Group, MathUtils } from "three";
+import { useEffect, useMemo, useRef } from "react";
+import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
 
 function hashHue(id: string): number {
   let h = 0;
@@ -16,10 +16,9 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const HEIGHT = 0.12;
   const fillWidth = WIDTH * frac;
   const fillOffset = -(WIDTH - fillWidth) / 2;
-  // Track + fill colors mirror the shadcn HUD Progress (secondary + emerald/amber/destructive).
   const fillColor = frac > 0.5 ? "#10b981" : frac > 0.25 ? "#eab308" : "#ef4444";
   return (
-    <Billboard position={[0, 1.15, 0]}>
+    <Billboard position={[0, 1.65, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.04, HEIGHT + 0.04]} />
         <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
@@ -32,68 +31,230 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   );
 }
 
-function PlayerCube({ player, isSelf }: { player: PlayerSnapshot; isSelf: boolean }) {
-  const ref = useRef<Group>(null);
+function PlayerModel({
+  player,
+  isSelf,
+  lastAttack,
+}: {
+  player: PlayerSnapshot;
+  isSelf: boolean;
+  lastAttack: AttackEvent | undefined;
+}) {
+  const root = useRef<Group>(null);
+  const body = useRef<Mesh>(null);
+  const head = useRef<Mesh>(null);
+  const leftArm = useRef<Group>(null);
+  const rightArm = useRef<Group>(null);
+  const trailAnchor = useRef<Mesh>(null);
+  const swing = useRef<Group>(null);
+  const swingMat = useRef<MeshStandardMaterial>(null);
+
+  // latch position target + velocity estimate
   const target = useRef({ x: player.x, y: player.y, z: player.z });
   target.current.x = player.x;
   target.current.y = player.y;
   target.current.z = player.z;
+  const prevPos = useRef({ x: player.x, z: player.z });
+  const speed = useRef(0);
+  const facing = useRef(0);
 
-  useFrame((_, dt) => {
-    const g = ref.current;
+  // attack swing trigger (self only — visible swing on my character when I click)
+  const lastAttackRef = useRef<AttackEvent | undefined>(undefined);
+  const swingUntil = useRef(0);
+  useEffect(() => {
+    if (!isSelf) return;
+    if (!lastAttack) return;
+    if (lastAttack === lastAttackRef.current) return;
+    lastAttackRef.current = lastAttack;
+    if (lastAttack.attackerId === player.id) {
+      swingUntil.current = performance.now() + 320;
+    }
+  }, [lastAttack, isSelf, player.id]);
+
+  useFrame((state, dt) => {
+    const g = root.current;
     if (!g) return;
     const k = 1 - Math.exp(-dt * 14);
     g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
     g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.5, k);
     g.position.z = MathUtils.lerp(g.position.z, target.current.z, k);
+
+    // estimate speed from interpolated position
+    const dx = g.position.x - prevPos.current.x;
+    const dz = g.position.z - prevPos.current.z;
+    const inst = Math.hypot(dx, dz) / Math.max(dt, 0.0001);
+    speed.current = MathUtils.lerp(speed.current, Math.min(inst, 6), 1 - Math.exp(-dt * 8));
+    if (inst > 0.05) facing.current = Math.atan2(dx, dz);
+    g.rotation.y = MathUtils.lerp(g.rotation.y, facing.current, 1 - Math.exp(-dt * 10));
+    prevPos.current.x = g.position.x;
+    prevPos.current.z = g.position.z;
+
+    // body bob when moving, gentle idle
+    const t = state.clock.getElapsedTime();
+    const moving = speed.current / 6;
+    if (body.current) {
+      const bob = moving * Math.sin(t * 14) * 0.09 + (1 - moving) * Math.sin(t * 2) * 0.02;
+      body.current.position.y = 0.15 + bob;
+    }
+    if (head.current) {
+      head.current.position.y = 0.88 + moving * Math.sin(t * 14) * 0.05;
+      head.current.rotation.y = Math.sin(t * 1.4) * 0.25;
+    }
+    if (leftArm.current) {
+      leftArm.current.rotation.x = moving * Math.sin(t * 12) * 0.9;
+    }
+    if (rightArm.current) {
+      rightArm.current.rotation.x = moving * Math.sin(t * 12 + Math.PI) * 0.9;
+    }
+
+    // swing arc visibility
+    const now = performance.now();
+    const swinging = now < swingUntil.current;
+    if (swing.current) {
+      swing.current.visible = swinging;
+      if (swinging) {
+        const remain = swingUntil.current - now;
+        const progress = 1 - remain / 320;
+        swing.current.rotation.y = MathUtils.lerp(-1.4, 1.4, progress);
+        const s = 1 + Math.sin(progress * Math.PI) * 0.25;
+        swing.current.scale.setScalar(s);
+      }
+    }
+    if (swingMat.current) {
+      const opacity = swinging ? Math.sin(((swingUntil.current - now) / 320) * Math.PI) : 0;
+      swingMat.current.opacity = opacity;
+    }
   });
 
-  const { color, emissive } = useMemo(() => {
+  const { bodyColor, headColor, emissive } = useMemo(() => {
     const hue = hashHue(player.id);
     return {
-      color: new Color().setHSL(hue, 0.65, isSelf ? 0.62 : 0.5),
-      emissive: new Color().setHSL(hue, 0.7, 0.3),
+      bodyColor: new Color().setHSL(hue, 0.72, isSelf ? 0.6 : 0.48),
+      headColor: new Color().setHSL(hue, 0.85, isSelf ? 0.72 : 0.62),
+      emissive: new Color().setHSL(hue, 0.9, isSelf ? 0.35 : 0.22),
     };
   }, [player.id, isSelf]);
 
   const dead = !player.alive;
+  if (dead) {
+    return (
+      <group ref={root} position={[player.x, player.y + 0.05, player.z]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.8, 0.15, 0.8]} />
+          <meshStandardMaterial
+            color={bodyColor}
+            emissive={emissive}
+            emissiveIntensity={0.1}
+            transparent
+            opacity={0.25}
+          />
+        </mesh>
+      </group>
+    );
+  }
 
   return (
-    <group ref={ref} position={[player.x, player.y + 0.5, player.z]}>
-      <mesh castShadow visible={!dead}>
-        <boxGeometry args={[0.8, 0.8, 0.8]} />
+    <group ref={root} position={[player.x, player.y + 0.5, player.z]}>
+      {/* body */}
+      <mesh ref={body} castShadow>
+        <boxGeometry args={[0.7, 0.7, 0.7]} />
         <meshStandardMaterial
-          color={color}
+          color={bodyColor}
           emissive={emissive}
-          emissiveIntensity={isSelf ? 0.55 : 0.25}
+          emissiveIntensity={isSelf ? 0.5 : 0.25}
           metalness={0.3}
-          roughness={0.3}
-          transparent={dead}
-          opacity={dead ? 0.25 : 1}
+          roughness={0.35}
         />
       </mesh>
-      {isSelf && !dead ? (
-        <mesh position={[0, 0.85, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.35, 0.45, 24]} />
-          <meshBasicMaterial color="#fde68a" />
+      {/* head */}
+      <mesh ref={head} position={[0, 0.88, 0]} castShadow>
+        <octahedronGeometry args={[0.28, 0]} />
+        <meshStandardMaterial
+          color={headColor}
+          emissive={emissive}
+          emissiveIntensity={isSelf ? 0.6 : 0.35}
+          metalness={0.4}
+          roughness={0.25}
+        />
+      </mesh>
+      {/* arms — thin boxes that swing with stride */}
+      <group ref={leftArm} position={[-0.48, 0.32, 0]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.5, 0.18]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.45} />
         </mesh>
+      </group>
+      <group ref={rightArm} position={[0.48, 0.32, 0]}>
+        <mesh position={[0, -0.18, 0]} castShadow>
+          <boxGeometry args={[0.18, 0.5, 0.18]} />
+          <meshStandardMaterial color={bodyColor} roughness={0.45} />
+        </mesh>
+      </group>
+      {/* self marker — spinning halo ring */}
+      {isSelf ? <SelfHalo emissive={emissive} /> : null}
+      {/* swing arc — only on self when attacking */}
+      {isSelf ? (
+        <group ref={swing} position={[0, 0.3, 0]}>
+          <mesh rotation={[0, 0, 0]}>
+            <torusGeometry args={[0.9, 0.08, 12, 24, Math.PI]} />
+            <meshStandardMaterial
+              ref={swingMat}
+              color="#fde68a"
+              emissive="#fcd34d"
+              emissiveIntensity={2}
+              toneMapped={false}
+              transparent
+              opacity={0}
+            />
+          </mesh>
+        </group>
       ) : null}
-      {!dead ? <HPBar hp={player.hp} maxHp={player.maxHp} /> : null}
+      {/* trail — short trail when moving */}
+      <Trail width={0.6} length={2.2} color={headColor} attenuation={(t) => t * t}>
+        <mesh ref={trailAnchor} position={[0, 0.1, 0]} visible={false}>
+          <sphereGeometry args={[0.05, 8, 8]} />
+          <meshBasicMaterial color={headColor} />
+        </mesh>
+      </Trail>
+      {/* sparkle aura */}
+      <Sparkles
+        count={isSelf ? 24 : 12}
+        scale={[1.3, 1.6, 1.3]}
+        size={1.6}
+        speed={0.5}
+        color={headColor}
+      />
+      <HPBar hp={player.hp} maxHp={player.maxHp} />
     </group>
+  );
+}
+
+function SelfHalo({ emissive }: { emissive: Color }) {
+  const ref = useRef<Mesh>(null);
+  useFrame((_, dt) => {
+    if (ref.current) ref.current.rotation.z += dt * 1.6;
+  });
+  return (
+    <mesh ref={ref} position={[0, 1.35, 0]} rotation={[Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[0.3, 0.42, 32]} />
+      <meshBasicMaterial color={emissive} transparent opacity={0.95} toneMapped={false} />
+    </mesh>
   );
 }
 
 export function Players({
   players,
   sessionId,
+  lastAttack,
 }: {
   players: Map<string, PlayerSnapshot>;
   sessionId?: string;
+  lastAttack?: AttackEvent;
 }) {
   return (
     <>
       {[...players.values()].map((p) => (
-        <PlayerCube key={p.id} player={p} isSelf={p.id === sessionId} />
+        <PlayerModel key={p.id} player={p} isSelf={p.id === sessionId} lastAttack={lastAttack} />
       ))}
     </>
   );
