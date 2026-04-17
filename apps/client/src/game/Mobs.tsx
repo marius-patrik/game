@@ -39,6 +39,16 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
   // Boss enters a faster "charge" state below 50% HP. Surface that visibly so
   // players know they need to kite; server enforces the speed/cooldown change.
   const enraged = mob.kind === "boss" && mob.maxHp > 0 && mob.hp <= mob.maxHp * 0.5;
+  // Healer: tint the body green + add a soft halo so players can identify the
+  // support target at a glance. Mesh geometry stays identical to keep cost low.
+  const isHealer = mob.kind === "healer";
+  const bodyColor = isHealer ? "#22c55e" : "#dc2626";
+  const bodyEmissive = isHealer ? "#14532d" : "#7f1d1d";
+  const spikeColor = isHealer ? "#15803d" : "#b91c1c";
+  const spikeEmissive = isHealer ? "#052e16" : "#450a0a";
+  const trailColor = isHealer ? "#86efac" : "#ef4444";
+  const sparklesColor = enraged ? "#f97316" : isHealer ? "#86efac" : "#fca5a5";
+  const groundRingColor = isHealer ? "#22c55e" : "#ef4444";
 
   const target = useRef({ x: mob.x, y: mob.y, z: mob.z });
   target.current.x = mob.x;
@@ -121,8 +131,8 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
           <coneGeometry args={[0.4, 0.95, 10]} />
           <meshStandardMaterial
             ref={bodyMat}
-            color="#dc2626"
-            emissive="#7f1d1d"
+            color={bodyColor}
+            emissive={bodyEmissive}
             emissiveIntensity={0.45}
             metalness={0.2}
             roughness={0.55}
@@ -157,15 +167,30 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
                 castShadow
               >
                 <coneGeometry args={[0.08, 0.3, 6]} />
-                <meshStandardMaterial color="#b91c1c" emissive="#450a0a" emissiveIntensity={0.5} />
+                <meshStandardMaterial
+                  color={spikeColor}
+                  emissive={spikeEmissive}
+                  emissiveIntensity={0.5}
+                />
               </mesh>
             );
           })}
         </group>
         <mesh position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.45, 0.55, 24]} />
-          <meshBasicMaterial color="#ef4444" transparent opacity={0.35} toneMapped={false} />
+          <meshBasicMaterial
+            color={groundRingColor}
+            transparent
+            opacity={0.35}
+            toneMapped={false}
+          />
         </mesh>
+        {isHealer ? (
+          <mesh position={[0, 0.85, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.28, 0.36, 24]} />
+            <meshBasicMaterial color="#4ade80" transparent opacity={0.85} toneMapped={false} />
+          </mesh>
+        ) : null}
         {enraged ? (
           <mesh ref={enrageRing} position={[0, -0.48, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[0.75, 1.1, 32]} />
@@ -173,10 +198,10 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
           </mesh>
         ) : null}
       </Float>
-      <Trail width={0.5} length={1.8} color="#ef4444" attenuation={(t) => t * t}>
+      <Trail width={0.5} length={1.8} color={trailColor} attenuation={(t) => t * t}>
         <mesh ref={trailAnchor} visible={false}>
           <sphereGeometry args={[0.04, 6, 6]} />
-          <meshBasicMaterial color="#ef4444" />
+          <meshBasicMaterial color={trailColor} />
         </mesh>
       </Trail>
       <Sparkles
@@ -184,7 +209,7 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
         scale={[1, 1.2, 1]}
         size={enraged ? 1.8 : 1.2}
         speed={enraged ? 0.9 : 0.4}
-        color={enraged ? "#f97316" : "#fca5a5"}
+        color={sparklesColor}
       />
       <HPBar hp={mob.hp} maxHp={mob.maxHp} />
     </group>

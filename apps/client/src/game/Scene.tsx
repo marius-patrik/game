@@ -6,6 +6,7 @@ import type {
   BossTelegraphEvent,
   CasterBoltSnapshot,
   DropSnapshot,
+  HazardSnapshot,
   MobSnapshot,
   NpcSnapshot,
   PlayerSnapshot,
@@ -21,6 +22,7 @@ import { BossTelegraph } from "./BossTelegraph";
 import { CasterBolts } from "./CasterBolts";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
+import { HazardZones } from "./HazardZones";
 import { InteractionPrompt } from "./InteractionPrompt";
 import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
@@ -44,6 +46,7 @@ export function Scene({
   drops,
   mobs,
   npcs,
+  hazards,
   bolts,
   sessionId,
   zoneId = DEFAULT_ZONE,
@@ -63,6 +66,7 @@ export function Scene({
   drops: Map<string, DropSnapshot>;
   mobs: Map<string, MobSnapshot>;
   npcs: Map<string, NpcSnapshot>;
+  hazards: Map<string, HazardSnapshot>;
   bolts: Map<string, CasterBoltSnapshot>;
   sessionId?: string;
   zoneId?: ZoneId;
@@ -168,6 +172,7 @@ export function Scene({
       <Drops drops={drops} onPickup={onPickup} />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
+      <HazardZones hazards={hazards} />
       <Portals portals={zone.portals} />
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
       <BossTelegraph event={lastTelegraph} />

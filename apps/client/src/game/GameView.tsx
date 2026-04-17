@@ -242,6 +242,7 @@ function GameViewInner({
             drops={room.drops}
             mobs={room.mobs}
             npcs={room.npcs}
+            hazards={room.hazards}
             bolts={room.bolts}
             sessionId={room.sessionId}
             zoneId={room.zoneId}
@@ -289,6 +290,7 @@ function GameViewInner({
             players={room.players}
             mobs={room.mobs}
             npcs={room.npcs}
+            hazards={room.hazards}
             sessionId={room.sessionId}
             chat={room.chat}
             onSendChat={onSendChat}

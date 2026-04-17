@@ -69,9 +69,18 @@ export class Npc extends Schema {
   @type("number") z = 0;
 }
 
+export class HazardZone extends Schema {
+  @type("string") id = "";
+  @type("number") x = 0;
+  @type("number") z = 0;
+  @type("number") radius = 0;
+  @type("number") dps = 0;
+}
+
 export class GameRoomState extends Schema {
   @type({ map: Player }) players = new MapSchema<Player>();
   @type({ map: WorldDrop }) drops = new MapSchema<WorldDrop>();
   @type({ map: Mob }) mobs = new MapSchema<Mob>();
   @type({ map: Npc }) npcs = new MapSchema<Npc>();
+  @type({ map: HazardZone }) hazards = new MapSchema<HazardZone>();
 }
