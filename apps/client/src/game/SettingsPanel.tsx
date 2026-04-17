@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { FOV_MAX, FOV_MIN } from "@/state/preferencesStore";
 import { Settings } from "lucide-react";
 import { useState } from "react";
 
@@ -20,6 +21,8 @@ export function SettingsPanel({
   onVolumeChange,
   skipCinematics,
   onSkipCinematicsChange,
+  fov,
+  onFovChange,
   externalOpen,
   onExternalOpenChange,
 }: {
@@ -29,6 +32,8 @@ export function SettingsPanel({
   onVolumeChange: (v: number) => void;
   skipCinematics: boolean;
   onSkipCinematicsChange: (v: boolean) => void;
+  fov: number;
+  onFovChange: (v: number) => void;
   /** Optional external open control for when the dialog trigger lives elsewhere. */
   externalOpen?: boolean;
   onExternalOpenChange?: (o: boolean) => void;
@@ -80,6 +85,23 @@ export function SettingsPanel({
             </div>
             <p className="text-muted-foreground text-xs">
               Lower tiers reduce draw calls, shadow resolution, and post-FX for weaker devices.
+            </p>
+          </section>
+          <section className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium">Field of view</span>
+              <span className="text-muted-foreground">{Math.round(fov)}°</span>
+            </div>
+            <Slider
+              value={[fov]}
+              min={FOV_MIN}
+              max={FOV_MAX}
+              step={1}
+              onValueChange={([v]) => onFovChange(v ?? fov)}
+              aria-label="Field of view"
+            />
+            <p className="text-muted-foreground text-xs">
+              Wider FOV shows more of the world; narrower feels like a zoom.
             </p>
           </section>
           <section className="flex flex-col gap-2">

@@ -6,6 +6,15 @@ import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } fr
 
 type Vec3 = { x: number; y: number; z: number };
 
+/** Sphere radius for the player mesh (meters). */
+const SPHERE_RADIUS = 0.42;
+/** Rest hover height for the sphere mesh above the floor (meters). */
+const HOVER_HEIGHT = 1.0;
+/** Peak amplitude of the idle bob animation. */
+const BOB_AMPLITUDE = 0.05;
+/** Full bob cycle duration (seconds). 2s per spec. */
+const BOB_PERIOD_SEC = 2.0;
+
 function hashHue(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -20,7 +29,7 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const fillOffset = -(WIDTH - fillWidth) / 2;
   const fillColor = frac > 0.5 ? "#10b981" : frac > 0.25 ? "#eab308" : "#ef4444";
   return (
-    <Billboard position={[0, 1.65, 0]}>
+    <Billboard position={[0, 1.7, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.04, HEIGHT + 0.04]} />
         <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
@@ -45,10 +54,8 @@ function PlayerModel({
   selfPosRef?: MutableRefObject<Vec3>;
 }) {
   const root = useRef<Group>(null);
-  const body = useRef<Mesh>(null);
-  const head = useRef<Mesh>(null);
-  const leftArm = useRef<Group>(null);
-  const rightArm = useRef<Group>(null);
+  const bobGroup = useRef<Group>(null);
+  const sphere = useRef<Mesh>(null);
   const trailAnchor = useRef<Mesh>(null);
   const swing = useRef<Group>(null);
   const swingMat = useRef<MeshStandardMaterial>(null);
@@ -82,17 +89,20 @@ function PlayerModel({
     // the 20Hz server-echo phase lag that made the camera/player feel jelly.
     // Others = lerp toward the latest snapshot at a brisk constant so they
     // catch up in ~120ms between 50ms snapshots.
+    //
+    // IMPORTANT: the root group sits at a **fixed** Y for the chase camera
+    // to track. The bob animation lives on a child group (bobGroup) so the
+    // camera never inherits its oscillation.
     if (isSelf && selfPosRef) {
       const s = selfPosRef.current;
       g.position.x = s.x;
-      g.position.y = 0.5;
       g.position.z = s.z;
     } else {
       const k = 1 - Math.exp(-dt * 22);
       g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
-      g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.5, k);
       g.position.z = MathUtils.lerp(g.position.z, target.current.z, k);
     }
+    g.position.y = 0;
 
     // estimate speed from actual rendered position
     const dx = g.position.x - prevPos.current.x;
@@ -104,23 +114,21 @@ function PlayerModel({
     prevPos.current.x = g.position.x;
     prevPos.current.z = g.position.z;
 
-    // body bob when moving, gentle idle — kept local to the body mesh so
-    // the group root (which the camera targets) stays stable.
+    // Idle bob ±0.05m over 2s. Runs continuously (floating orb aesthetic)
+    // and is applied to `bobGroup`, NOT `root`, so the chase camera —
+    // which follows the authoritative ref, not any mesh — doesn't oscillate.
     const t = state.clock.getElapsedTime();
-    const moving = Math.min(1, speed.current / 4);
-    if (body.current) {
-      const bob = moving * Math.sin(t * 14) * 0.07 + (1 - moving) * Math.sin(t * 2) * 0.02;
-      body.current.position.y = 0.15 + bob;
+    const phase = (t / BOB_PERIOD_SEC) * Math.PI * 2;
+    const bob = Math.sin(phase) * BOB_AMPLITUDE;
+    if (bobGroup.current) {
+      bobGroup.current.position.y = HOVER_HEIGHT + bob;
+      // Subtle forward-lean into motion; resets on idle.
+      const moving = Math.min(1, speed.current / 4);
+      bobGroup.current.rotation.x = moving * 0.08;
     }
-    if (head.current) {
-      head.current.position.y = 0.88 + moving * Math.sin(t * 14) * 0.04;
-      head.current.rotation.y = Math.sin(t * 1.4) * 0.25;
-    }
-    if (leftArm.current) {
-      leftArm.current.rotation.x = moving * Math.sin(t * 12) * 0.9;
-    }
-    if (rightArm.current) {
-      rightArm.current.rotation.x = moving * Math.sin(t * 12 + Math.PI) * 0.9;
+    if (sphere.current) {
+      // Slow spin makes the orb feel alive without needing face detail.
+      sphere.current.rotation.y += dt * 0.4;
     }
 
     // swing arc visibility
@@ -142,7 +150,7 @@ function PlayerModel({
     }
   });
 
-  const { bodyColor, headColor, emissive } = useMemo(() => {
+  const { bodyColor, emissive, accent } = useMemo(() => {
     const seed = player.customizationColor ? new Color(player.customizationColor) : undefined;
     const hsl = { h: 0, s: 0, l: 0 };
     let hue = hashHue(player.id);
@@ -152,17 +160,17 @@ function PlayerModel({
     }
     return {
       bodyColor: new Color().setHSL(hue, 0.72, isSelf ? 0.6 : 0.48),
-      headColor: new Color().setHSL(hue, 0.85, isSelf ? 0.72 : 0.62),
-      emissive: new Color().setHSL(hue, 0.9, isSelf ? 0.35 : 0.22),
+      accent: new Color().setHSL(hue, 0.85, isSelf ? 0.72 : 0.62),
+      emissive: new Color().setHSL(hue, 0.9, isSelf ? 0.4 : 0.25),
     };
   }, [player.customizationColor, player.id, isSelf]);
 
   const dead = !player.alive;
   if (dead) {
     return (
-      <group ref={root} position={[player.x, player.y + 0.05, player.z]}>
-        <mesh castShadow>
-          <boxGeometry args={[0.8, 0.15, 0.8]} />
+      <group ref={root} position={[player.x, 0, player.z]}>
+        <mesh position={[0, 0.1, 0]} castShadow>
+          <sphereGeometry args={[SPHERE_RADIUS, 20, 16]} />
           <meshStandardMaterial
             color={bodyColor}
             emissive={emissive}
@@ -176,69 +184,66 @@ function PlayerModel({
   }
 
   return (
-    <group ref={root} position={[player.x, player.y + 0.5, player.z]}>
-      <mesh ref={body} castShadow>
-        <boxGeometry args={[0.7, 0.7, 0.7]} />
-        <meshStandardMaterial
-          color={bodyColor}
-          emissive={emissive}
-          emissiveIntensity={isSelf ? 0.5 : 0.25}
-          metalness={0.3}
-          roughness={0.35}
-        />
-      </mesh>
-      <mesh ref={head} position={[0, 0.88, 0]} castShadow>
-        <octahedronGeometry args={[0.28, 0]} />
-        <meshStandardMaterial
-          color={headColor}
-          emissive={emissive}
-          emissiveIntensity={isSelf ? 0.6 : 0.35}
-          metalness={0.4}
-          roughness={0.25}
-        />
-      </mesh>
-      <group ref={leftArm} position={[-0.48, 0.32, 0]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <boxGeometry args={[0.18, 0.5, 0.18]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.45} />
+    <group ref={root} position={[player.x, 0, player.z]}>
+      <group ref={bobGroup} position={[0, HOVER_HEIGHT, 0]}>
+        <mesh ref={sphere} castShadow>
+          <sphereGeometry args={[SPHERE_RADIUS, 32, 24]} />
+          <meshStandardMaterial
+            color={bodyColor}
+            emissive={emissive}
+            emissiveIntensity={isSelf ? 0.55 : 0.3}
+            metalness={0.35}
+            roughness={0.3}
+          />
         </mesh>
-      </group>
-      <group ref={rightArm} position={[0.48, 0.32, 0]}>
-        <mesh position={[0, -0.18, 0]} castShadow>
-          <boxGeometry args={[0.18, 0.5, 0.18]} />
-          <meshStandardMaterial color={bodyColor} roughness={0.45} />
+        {/* Thin equatorial band for visual interest + facing hint. */}
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[SPHERE_RADIUS * 1.02, SPHERE_RADIUS * 0.07, 8, 32]} />
+          <meshStandardMaterial
+            color={accent}
+            emissive={emissive}
+            emissiveIntensity={isSelf ? 0.8 : 0.5}
+            metalness={0.5}
+            roughness={0.25}
+            toneMapped={false}
+          />
         </mesh>
-      </group>
-      {isSelf ? <SelfHalo emissive={emissive} /> : null}
-      {isSelf ? (
-        <group ref={swing} position={[0, 0.3, 0]}>
-          <mesh rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.9, 0.08, 12, 24, Math.PI]} />
-            <meshStandardMaterial
-              ref={swingMat}
-              color="#fde68a"
-              emissive="#fcd34d"
-              emissiveIntensity={2}
-              toneMapped={false}
-              transparent
-              opacity={0}
-            />
+        {isSelf ? <SelfHalo emissive={emissive} /> : null}
+        {isSelf ? (
+          <group ref={swing} position={[0, 0, 0]}>
+            <mesh rotation={[0, 0, 0]}>
+              <torusGeometry args={[0.9, 0.08, 12, 24, Math.PI]} />
+              <meshStandardMaterial
+                ref={swingMat}
+                color="#fde68a"
+                emissive="#fcd34d"
+                emissiveIntensity={2}
+                toneMapped={false}
+                transparent
+                opacity={0}
+              />
+            </mesh>
+          </group>
+        ) : null}
+        <Trail width={0.6} length={2.2} color={accent} attenuation={(tt) => tt * tt}>
+          <mesh ref={trailAnchor} position={[0, 0, 0]} visible={false}>
+            <sphereGeometry args={[0.05, 8, 8]} />
+            <meshBasicMaterial color={accent} />
           </mesh>
-        </group>
-      ) : null}
-      <Trail width={0.6} length={2.2} color={headColor} attenuation={(t) => t * t}>
-        <mesh ref={trailAnchor} position={[0, 0.1, 0]} visible={false}>
-          <sphereGeometry args={[0.05, 8, 8]} />
-          <meshBasicMaterial color={headColor} />
-        </mesh>
-      </Trail>
-      <Sparkles
-        count={isSelf ? 24 : 12}
-        scale={[1.3, 1.6, 1.3]}
-        size={1.6}
-        speed={0.5}
-        color={headColor}
-      />
+        </Trail>
+        <Sparkles
+          count={isSelf ? 24 : 12}
+          scale={[1.3, 1.6, 1.3]}
+          size={1.6}
+          speed={0.5}
+          color={accent}
+        />
+      </group>
+      {/* Soft shadow disc on the floor, keeps the orb grounded visually. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]}>
+        <circleGeometry args={[SPHERE_RADIUS * 1.1, 24]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.28} />
+      </mesh>
       <HPBar hp={player.hp} maxHp={player.maxHp} />
     </group>
   );
@@ -250,7 +255,7 @@ function SelfHalo({ emissive }: { emissive: Color }) {
     if (ref.current) ref.current.rotation.z += dt * 1.6;
   });
   return (
-    <mesh ref={ref} position={[0, 1.35, 0]} rotation={[Math.PI / 2, 0, 0]}>
+    <mesh ref={ref} position={[0, 0.62, 0]} rotation={[Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.3, 0.42, 32]} />
       <meshBasicMaterial color={emissive} transparent opacity={0.95} toneMapped={false} />
     </mesh>
