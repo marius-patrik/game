@@ -9,30 +9,90 @@ import {
   pickWeighted,
 } from "@game/shared";
 
-export type MobConfig = {
-  detectRadius: number;
+export type MobKind = "grunt" | "caster" | "boss";
+
+export type MobArchetype = {
+  kind: MobKind;
   speed: number;
-  contactRange: number;
-  contactCooldownMs: number;
-  contactDamage: number;
-  maxContactDmgPerTick: number;
   maxHp: number;
-  respawnDelayMs: number;
-  idlePauseAfterEmptyMs: number;
-  spawnInsetFromPlayer: number;
+  contactRange: number;
+  contactDamage: number;
+  contactCooldownMs: number;
+  detectRadius: number;
+  lootTable: readonly WeightedEntry<ItemId>[];
+  xpBonus: number; // extra XP on kill
+  goldDrop: [number, number]; // min..max gold
+  spawnWeight: number;
 };
 
-export const DEFAULT_MOB_CONFIG: MobConfig = {
-  detectRadius: 8,
+const GRUNT: MobArchetype = {
+  kind: "grunt",
   speed: 1.8,
-  contactRange: 1.2,
-  contactCooldownMs: 1000,
-  contactDamage: 5,
-  maxContactDmgPerTick: 15,
   maxHp: 30,
-  respawnDelayMs: 8000,
-  idlePauseAfterEmptyMs: 30_000,
-  spawnInsetFromPlayer: 4,
+  contactRange: 1.2,
+  contactDamage: 5,
+  contactCooldownMs: 1000,
+  detectRadius: 8,
+  lootTable: [
+    { value: "heal_potion", weight: 80 },
+    { value: "mana_potion", weight: 30 },
+    { value: "sword", weight: 12 },
+    { value: "helm", weight: 10 },
+    { value: "soul", weight: 2 },
+  ],
+  xpBonus: 0,
+  goldDrop: [2, 6],
+  spawnWeight: 70,
+};
+
+const CASTER: MobArchetype = {
+  kind: "caster",
+  speed: 1.2,
+  maxHp: 22,
+  contactRange: 1.2,
+  contactDamage: 7,
+  contactCooldownMs: 900,
+  detectRadius: 10,
+  lootTable: [
+    { value: "mana_potion", weight: 80 },
+    { value: "ring_spark", weight: 12 },
+    { value: "soul", weight: 6 },
+  ],
+  xpBonus: 5,
+  goldDrop: [4, 10],
+  spawnWeight: 25,
+};
+
+const BOSS: MobArchetype = {
+  kind: "boss",
+  speed: 1.4,
+  maxHp: 140,
+  contactRange: 1.6,
+  contactDamage: 14,
+  contactCooldownMs: 1200,
+  detectRadius: 14,
+  lootTable: [
+    { value: "greataxe", weight: 35 },
+    { value: "cuirass", weight: 30 },
+    { value: "ring_spark", weight: 20 },
+    { value: "soul", weight: 10 },
+    { value: "heal_potion", weight: 5 },
+  ],
+  xpBonus: 60,
+  goldDrop: [25, 60],
+  spawnWeight: 5,
+};
+
+const ARCHETYPES: Record<MobKind, MobArchetype> = { grunt: GRUNT, caster: CASTER, boss: BOSS };
+
+// spawn distribution per zone: [kind, weight] — weights sum to 100 roughly.
+const ZONE_SPAWN_MIX: Record<string, ReadonlyArray<WeightedEntry<MobKind>>> = {
+  lobby: [{ value: "grunt", weight: 100 }],
+  arena: [
+    { value: "grunt", weight: 55 },
+    { value: "caster", weight: 35 },
+    { value: "boss", weight: 10 },
+  ],
 };
 
 const ZONE_MOB_COUNTS: Record<string, number> = {
@@ -40,34 +100,36 @@ const ZONE_MOB_COUNTS: Record<string, number> = {
   arena: 6,
 };
 
-const DEFAULT_LOOT_TABLE: readonly WeightedEntry<ItemId>[] = [
-  { value: "heal_potion", weight: 80 },
-  { value: "sword", weight: 18 },
-  { value: "soul", weight: 2 },
-];
-
 export type PlayerRef = { id: string; pos: Vec3; alive: boolean };
 
 export type MobHitResult =
   | { ok: false; reason: "not_found" | "already_dead" }
-  | { ok: true; targetId: string; newHp: number; killed: boolean; dropPos: Vec3 };
+  | {
+      ok: true;
+      targetId: string;
+      newHp: number;
+      killed: boolean;
+      dropPos: Vec3;
+      kind: MobKind;
+      xpBonus: number;
+      gold: number;
+    };
 
 export type MobSystemDeps = {
   mobs: MapSchema<Mob>;
   zone: Zone;
   getPlayers: () => readonly PlayerRef[];
   damagePlayer: (playerId: string, dmg: number) => void;
-  onMobKilled?: (mobId: string, pos: Vec3) => void;
+  onMobKilled?: (mobId: string, pos: Vec3, kind: MobKind) => void;
   spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   rng?: () => number;
   now?: () => number;
-  config?: Partial<MobConfig>;
-  lootTable?: readonly WeightedEntry<ItemId>[];
   mobCount?: number;
 };
 
 type MobRuntime = {
   lastAttackAt: number;
+  kind: MobKind;
 };
 
 export class MobSystem {
@@ -75,17 +137,19 @@ export class MobSystem {
   private readonly zone: Zone;
   private readonly getPlayers: () => readonly PlayerRef[];
   private readonly damagePlayer: (playerId: string, dmg: number) => void;
-  private readonly onMobKilled: (mobId: string, pos: Vec3) => void;
+  private readonly onMobKilled: (mobId: string, pos: Vec3, kind: MobKind) => void;
   private readonly spawnDrop: (itemId: ItemId, qty: number, pos: Vec3) => void;
   private readonly rng: () => number;
   private readonly now: () => number;
-  private readonly config: MobConfig;
-  private readonly lootTable: readonly WeightedEntry<ItemId>[];
   private readonly targetCount: number;
   private readonly runtime = new Map<string, MobRuntime>();
   private readonly respawnAt = new Map<string, number>();
   private counter = 0;
   private lastPlayerPresenceAt = 0;
+  private readonly idlePauseAfterEmptyMs = 30_000;
+  private readonly spawnInsetFromPlayer = 4;
+  private readonly respawnDelayMs = 8000;
+  private readonly maxContactDmgPerTick = 15;
 
   constructor(deps: MobSystemDeps) {
     this.mobs = deps.mobs;
@@ -96,8 +160,6 @@ export class MobSystem {
     this.spawnDrop = deps.spawnDrop;
     this.rng = deps.rng ?? Math.random;
     this.now = deps.now ?? (() => Date.now());
-    this.config = { ...DEFAULT_MOB_CONFIG, ...(deps.config ?? {}) };
-    this.lootTable = deps.lootTable ?? DEFAULT_LOOT_TABLE;
     this.targetCount = deps.mobCount ?? ZONE_MOB_COUNTS[deps.zone.id] ?? 3;
     this.lastPlayerPresenceAt = this.now();
   }
@@ -113,7 +175,7 @@ export class MobSystem {
   }
 
   onPlayerLeave(_sessionId: string): void {
-    // Targets are re-picked each tick from live players, so no runtime state needs clearing.
+    /* noop */
   }
 
   applyDamage(mobId: string, amount: number): MobHitResult {
@@ -124,8 +186,37 @@ export class MobSystem {
     mob.hp = newHp;
     const killed = newHp === 0;
     const pos: Vec3 = { x: mob.x, y: mob.y, z: mob.z };
-    if (killed) this.killMob(mob);
-    return { ok: true, targetId: mobId, newHp, killed, dropPos: pos };
+    const runtime = this.runtime.get(mobId);
+    const kind = runtime?.kind ?? "grunt";
+    const arche = ARCHETYPES[kind];
+    if (killed) this.killMob(mob, kind);
+    const goldMin = arche.goldDrop[0];
+    const goldMax = arche.goldDrop[1];
+    const gold = killed ? Math.floor(goldMin + this.rng() * (goldMax - goldMin + 1)) : 0;
+    return {
+      ok: true,
+      targetId: mobId,
+      newHp,
+      killed,
+      dropPos: pos,
+      kind,
+      xpBonus: killed ? arche.xpBonus : 0,
+      gold,
+    };
+  }
+
+  /** Damage all mobs within `radius` of `origin`. Returns per-hit results. */
+  applyRadialDamage(origin: Vec3, radius: number, amount: number): MobHitResult[] {
+    const out: MobHitResult[] = [];
+    const r2 = radius * radius;
+    for (const [, mob] of this.mobs) {
+      if (!mob.alive) continue;
+      const dx = mob.x - origin.x;
+      const dz = mob.z - origin.z;
+      if (dx * dx + dz * dz > r2) continue;
+      out.push(this.applyDamage(mob.id, amount));
+    }
+    return out;
   }
 
   tick(dtMs: number): void {
@@ -133,7 +224,7 @@ export class MobSystem {
     const players = this.getPlayers().filter((p) => p.alive);
 
     if (players.length > 0) this.lastPlayerPresenceAt = now;
-    const paused = now - this.lastPlayerPresenceAt > this.config.idlePauseAfterEmptyMs;
+    const paused = now - this.lastPlayerPresenceAt > this.idlePauseAfterEmptyMs;
 
     if (!paused) {
       const due: string[] = [];
@@ -151,13 +242,16 @@ export class MobSystem {
 
     for (const [, mob] of this.mobs) {
       if (!mob.alive) continue;
-      const nearest = this.findNearestPlayer(mob, players);
+      const runtime = this.runtime.get(mob.id);
+      const kind = runtime?.kind ?? "grunt";
+      const arche = ARCHETYPES[kind];
+      const nearest = this.findNearestPlayer(mob, players, arche.detectRadius);
       if (!nearest) continue;
       const dx = nearest.pos.x - mob.x;
       const dz = nearest.pos.z - mob.z;
       const dist = Math.hypot(dx, dz);
       if (dist <= 0.0001) continue;
-      const step = Math.min(this.config.speed * dtSec, dist);
+      const step = Math.min(arche.speed * dtSec, dist);
       const nx = mob.x + (dx / dist) * step;
       const nz = mob.z + (dz / dist) * step;
       const clamped = clampToBounds({ x: nx, y: mob.y, z: nz }, this.zone);
@@ -165,13 +259,13 @@ export class MobSystem {
       mob.z = clamped.z;
 
       const nowDist = Math.hypot(nearest.pos.x - mob.x, nearest.pos.z - mob.z);
-      if (nowDist <= this.config.contactRange) {
-        const rt = this.ensureRuntime(mob.id);
-        if (now - rt.lastAttackAt >= this.config.contactCooldownMs) {
+      if (nowDist <= arche.contactRange) {
+        const rt = this.ensureRuntime(mob.id, kind);
+        if (now - rt.lastAttackAt >= arche.contactCooldownMs) {
           const already = playerDamageThisTick.get(nearest.id) ?? 0;
-          const room = this.config.maxContactDmgPerTick - already;
+          const room = this.maxContactDmgPerTick - already;
           if (room > 0) {
-            const dmg = Math.min(this.config.contactDamage, room);
+            const dmg = Math.min(arche.contactDamage, room);
             this.damagePlayer(nearest.id, dmg);
             playerDamageThisTick.set(nearest.id, already + dmg);
             rt.lastAttackAt = now;
@@ -181,9 +275,13 @@ export class MobSystem {
     }
   }
 
-  private findNearestPlayer(mob: Mob, players: readonly PlayerRef[]): PlayerRef | null {
+  private findNearestPlayer(
+    mob: Mob,
+    players: readonly PlayerRef[],
+    detectRadius: number,
+  ): PlayerRef | null {
     let best: PlayerRef | null = null;
-    let bestDistSq = this.config.detectRadius * this.config.detectRadius;
+    let bestDistSq = detectRadius * detectRadius;
     for (const p of players) {
       const dx = p.pos.x - mob.x;
       const dz = p.pos.z - mob.z;
@@ -196,38 +294,46 @@ export class MobSystem {
     return best;
   }
 
-  private killMob(mob: Mob): void {
+  private killMob(mob: Mob, kind: MobKind): void {
     const pos: Vec3 = { x: mob.x, y: mob.y, z: mob.z };
     mob.alive = false;
-    const itemId = pickWeighted(this.lootTable, this.rng);
+    const arche = ARCHETYPES[kind];
+    const itemId = pickWeighted(arche.lootTable, this.rng);
     this.spawnDrop(itemId, 1, pos);
-    this.onMobKilled(mob.id, pos);
+    this.onMobKilled(mob.id, pos, kind);
     this.mobs.delete(mob.id);
     this.runtime.delete(mob.id);
-    this.respawnAt.set(mob.id, this.now() + this.config.respawnDelayMs);
+    this.respawnAt.set(mob.id, this.now() + this.respawnDelayMs);
+  }
+
+  private pickKind(): MobKind {
+    const mix = ZONE_SPAWN_MIX[this.zone.id] ?? [{ value: "grunt" as MobKind, weight: 1 }];
+    return pickWeighted(mix, this.rng);
   }
 
   private spawnMob(): void {
     this.counter += 1;
+    const kind = this.pickKind();
+    const arche = ARCHETYPES[kind];
     const id = `m${this.counter.toString(36)}`;
     const pos = this.pickSpawnPos();
     const mob = new Mob();
     mob.id = id;
-    mob.kind = "default";
+    mob.kind = kind;
     mob.x = pos.x;
     mob.y = pos.y;
     mob.z = pos.z;
-    mob.hp = this.config.maxHp;
-    mob.maxHp = this.config.maxHp;
+    mob.hp = arche.maxHp;
+    mob.maxHp = arche.maxHp;
     mob.alive = true;
     this.mobs.set(id, mob);
-    this.runtime.set(id, { lastAttackAt: Number.NEGATIVE_INFINITY });
+    this.runtime.set(id, { lastAttackAt: Number.NEGATIVE_INFINITY, kind });
   }
 
   private pickSpawnPos(): Vec3 {
     const { min, max } = this.zone.bounds;
     const spawn = this.zone.spawn;
-    const inset = this.config.spawnInsetFromPlayer;
+    const inset = this.spawnInsetFromPlayer;
     const insetSq = inset * inset;
     for (let i = 0; i < 8; i++) {
       const x = min.x + this.rng() * (max.x - min.x);
@@ -241,10 +347,10 @@ export class MobSystem {
     return { x: fallbackX, y: 0, z: fallbackZ };
   }
 
-  private ensureRuntime(mobId: string): MobRuntime {
+  private ensureRuntime(mobId: string, kind: MobKind): MobRuntime {
     const existing = this.runtime.get(mobId);
     if (existing) return existing;
-    const next = { lastAttackAt: Number.NEGATIVE_INFINITY };
+    const next = { lastAttackAt: Number.NEGATIVE_INFINITY, kind };
     this.runtime.set(mobId, next);
     return next;
   }

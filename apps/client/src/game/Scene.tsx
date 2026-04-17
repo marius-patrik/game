@@ -1,7 +1,13 @@
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
-import type { AttackEvent, DropSnapshot, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type {
+  AttackEvent,
+  DropSnapshot,
+  MobSnapshot,
+  NpcSnapshot,
+  PlayerSnapshot,
+} from "@/net/useRoom";
 import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float } from "@react-three/drei";
@@ -11,6 +17,7 @@ import { type Group, MathUtils, Vector3 } from "three";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { Mobs } from "./Mobs";
+import { Npcs } from "./Npcs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { resolveZonePalette } from "./zonePalette";
@@ -28,6 +35,7 @@ export function Scene({
   players,
   drops,
   mobs,
+  npcs,
   sessionId,
   zoneId = DEFAULT_ZONE,
   moveTarget,
@@ -37,10 +45,12 @@ export function Scene({
   onGroundClick,
   onAttack,
   onPickup,
+  onNpcClick,
 }: {
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
   mobs: Map<string, MobSnapshot>;
+  npcs: Map<string, NpcSnapshot>;
   sessionId?: string;
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
@@ -50,6 +60,7 @@ export function Scene({
   onGroundClick: (pos: Vec3) => void;
   onAttack: () => void;
   onPickup: (dropId: string) => void;
+  onNpcClick: (npc: NpcSnapshot) => void;
 }) {
   const cubeGroup = useRef<Group>(null);
   const { resolved } = useTheme();
@@ -129,6 +140,7 @@ export function Scene({
       <Players players={players} sessionId={sessionId} lastAttack={lastAttack} />
       <Drops drops={drops} onPickup={onPickup} />
       <Mobs mobs={mobs} onAttack={onAttack} lastAttack={lastAttack} />
+      <Npcs npcs={npcs} onInteract={onNpcClick} />
       <Portals portals={zone.portals} />
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
 
