@@ -4,7 +4,16 @@
  * when the Howler-backed AudioEngine has no registered sound for an event.
  */
 
-type SfxName = "attack" | "hit" | "pickup" | "portal" | "levelup" | "death" | "crit";
+type SfxName =
+  | "attack"
+  | "hit"
+  | "pickup"
+  | "portal"
+  | "levelup"
+  | "death"
+  | "crit"
+  | "questFanfare"
+  | "click";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -130,6 +139,15 @@ export function playSfx(name: SfxName): void {
       // Bright layered ping on top of the normal hit so the ear picks out crits.
       blip(1760, 150, "triangle", 0.3, 0.001, 2640);
       blip(880, 90, "square", 0.18, 0.001, 1320);
+      break;
+    case "questFanfare":
+      // Bright arpeggio — dedicated quest-complete chime, longer + brassier
+      // than levelup so the two feel distinct when both fire close together.
+      chord([523, 659, 784, 988, 1175, 1319], 520, "triangle", 0.26);
+      break;
+    case "click":
+      // Very short UI tick; intentionally quiet so it doesn't dominate.
+      blip(1200, 45, "triangle", 0.08, 0.001, 1600);
       break;
   }
 }

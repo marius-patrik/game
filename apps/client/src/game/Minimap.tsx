@@ -1,4 +1,4 @@
-import type { MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { ZONES, type ZoneId } from "@game/shared";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,11 +17,13 @@ export function Minimap({
   zoneId,
   players,
   mobs,
+  npcs,
   sessionId,
 }: {
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
   mobs: Map<string, MobSnapshot>;
+  npcs: Map<string, NpcSnapshot>;
   sessionId?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -92,6 +94,47 @@ export function Minimap({
         ctx.fill();
       }
 
+      // NPCs — distinct glyphs per kind so "vendor in lobby" and
+      // "quest-giver in lobby" are recognisable at a glance.
+      for (const n of npcs.values()) {
+        const px = toX(n.x);
+        const py = toY(n.z);
+        if (n.kind === "vendor") {
+          ctx.fillStyle = "#f59e0b"; // amber
+          ctx.beginPath();
+          ctx.moveTo(px, py - 5);
+          ctx.lineTo(px + 5, py);
+          ctx.lineTo(px, py + 5);
+          ctx.lineTo(px - 5, py);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = "rgba(0,0,0,0.55)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else if (n.kind === "questgiver") {
+          ctx.fillStyle = "#facc15"; // brighter yellow so it reads differently from portals
+          const r = 5;
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+            const x = px + Math.cos(a) * r;
+            const y = py + Math.sin(a) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = "rgba(0,0,0,0.55)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = "#a3a3a3";
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
       // players (others = cyan; self = white dot)
       for (const p of players.values()) {
         if (p.id === sessionId) continue;
@@ -125,7 +168,7 @@ export function Minimap({
     };
     loop();
     return () => cancelAnimationFrame(raf);
-  }, [zoneId, players, mobs, sessionId, size]);
+  }, [zoneId, players, mobs, npcs, sessionId, size]);
 
   return (
     <div

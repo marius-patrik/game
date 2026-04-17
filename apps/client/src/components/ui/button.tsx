@@ -1,3 +1,4 @@
+import { playSfx } from "@/game/sfx";
 import { cn } from "@/lib/utils";
 import { Slot } from "@radix-ui/react-slot";
 import { type VariantProps, cva } from "class-variance-authority";
@@ -31,13 +32,24 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /** Set `sfx={false}` to suppress the UI click SFX (e.g. rapid-fire game controls). */
+  sfx?: boolean;
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, sfx = true, onPointerDown, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (sfx && !props.disabled) playSfx("click");
+      onPointerDown?.(event);
+    };
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        onPointerDown={handlePointerDown}
+        {...props}
+      />
     );
   },
 );

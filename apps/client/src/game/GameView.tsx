@@ -280,6 +280,7 @@ function GameViewInner({
             zoneId={room.zoneId}
             players={room.players}
             mobs={room.mobs}
+            npcs={room.npcs}
             sessionId={room.sessionId}
             chat={room.chat}
             onSendChat={onSendChat}
