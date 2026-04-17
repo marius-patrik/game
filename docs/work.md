@@ -10,11 +10,13 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-_Nothing in flight._ All alpha-polish leftovers landed (#64/#65/#66/#67/#68).
+- **#70** mobile touch polish → `feat/mobile-touch-polish` (frontend-agent, worktree, parallel with #71)
+- **#71** admin moderation tools → `feat/admin-moderation` (backend-agent, worktree, parallel with #70)
 
 ## Next
 
-_Next is empty — pick from Backlog or run `maintenance`._
+- **#72** chat moderation — profanity / `/block` / DMs. Rebases after #71 lands (both touch `handleChat`).
+- **#73** party / group system. Rebases after #72 (both dispatch commands from `handleChat`).
 
 ## Backlog
 
