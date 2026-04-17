@@ -810,7 +810,10 @@ export class GameRoom extends Room<GameRoomState> {
     if (dx * dx + dz * dz > this.loot.pickupRange * this.loot.pickupRange) return;
     const currentSlots = this.slotsFromPlayer(p);
     const result = addItem(currentSlots, drop.itemId, drop.qty, INVENTORY_SLOT_CAP);
-    if (!result.ok) return;
+    if (!result.ok) {
+      client.send("pickup-error", { reason: result.reason, itemId: drop.itemId });
+      return;
+    }
     this.writeSlotsToPlayer(p, result.slots);
     this.state.drops.delete(drop.id);
     const def = getItem(drop.itemId);
