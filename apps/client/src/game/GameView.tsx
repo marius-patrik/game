@@ -413,6 +413,7 @@ function GameViewInner({
             chat={room.chat}
             onSendChat={onSendChat}
             quests={self?.quests ?? []}
+            dailyQuests={self?.dailyQuests ?? []}
             onTurnInQuest={onTurnInQuest}
             canTurnIn={canTurnIn}
           />

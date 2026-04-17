@@ -89,6 +89,18 @@ export function reconcileSchema(client: Database): void {
     );
   `);
 
+  client.exec(`
+    CREATE TABLE IF NOT EXISTS character_daily_progress (
+      character_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      quest_id TEXT NOT NULL,
+      progress INTEGER NOT NULL DEFAULT 0,
+      completed_at INTEGER,
+      PRIMARY KEY (character_id, date, quest_id),
+      FOREIGN KEY (character_id) REFERENCES character(id) ON DELETE CASCADE
+    );
+  `);
+
   // Handle player_location transition from user_id to character_id
   const locationColumns = existingColumns(client, "player_location");
   if (locationColumns.has("user_id") && !locationColumns.has("character_id")) {

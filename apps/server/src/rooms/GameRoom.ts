@@ -64,6 +64,7 @@ import {
 } from "../inventory";
 import { log } from "../logger";
 import { PartyManager } from "../party";
+import { dailyTracker } from "../quests/dailyTracker";
 import {
   DEFAULT_SECURITY,
   RateLimiter,
@@ -298,6 +299,14 @@ export class GameRoom extends Room<GameRoomState> {
       this.recomputeDerivedStats(p);
       p.mana = p.maxMana;
     }
+
+    await dailyTracker.loadPlayerDailies(p, char.id);
+    const exploreRewards = dailyTracker.onZoneEntered(p, this.zone.id);
+    for (const r of exploreRewards) {
+      this.awardXp(p, r.xp);
+      client.send("quest-complete", { questId: r.questId, isDaily: true });
+    }
+
     for (const row of inventory) {
       const slot = new InventorySlot();
       slot.itemId = row.itemId;
@@ -466,17 +475,17 @@ export class GameRoom extends Room<GameRoomState> {
     combat.lastAttackAt = now;
 
     const candidates: Combatant[] = [];
-    this.state.players.forEach((p, id) => {
+    for (const [id, p] of this.state.players) {
       candidates.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive, hp: p.hp });
-    });
-    this.state.mobs.forEach((m, id) => {
+    }
+    for (const [id, m] of this.state.mobs) {
       candidates.push({
         id: `mob:${id}`,
         pos: { x: m.x, y: m.y, z: m.z },
         alive: m.alive,
         hp: m.hp,
       });
-    });
+    }
 
     const attackerC: Combatant = {
       id: client.sessionId,
@@ -580,18 +589,18 @@ export class GameRoom extends Room<GameRoomState> {
     switch (skill.id) {
       case "basic": {
         const candidates: Combatant[] = [];
-        this.state.players.forEach((pp, id) => {
-          if (id === client.sessionId) return;
+        for (const [id, pp] of this.state.players) {
+          if (id === client.sessionId) continue;
           candidates.push({ id, pos: { x: pp.x, y: pp.y, z: pp.z }, alive: pp.alive, hp: pp.hp });
-        });
-        this.state.mobs.forEach((m, id) => {
+        }
+        for (const [id, m] of this.state.mobs) {
           candidates.push({
             id: `mob:${id}`,
             pos: { x: m.x, y: m.y, z: m.z },
             alive: m.alive,
             hp: m.hp,
           });
-        });
+        }
         const attackerC: Combatant = {
           id: client.sessionId,
           pos: { x: p.x, y: p.y, z: p.z },
@@ -1115,7 +1124,7 @@ export class GameRoom extends Room<GameRoomState> {
     q.id = def.id;
     q.status = "active";
     q.progress = 0;
-    q.goal = def.objective.kind === "killMobs" ? def.objective.count : def.objective.count;
+    q.goal = def.objective.kind === "explore" ? 1 : def.objective.count;
     p.quests.set(questId, q);
   }
 
@@ -1164,6 +1173,13 @@ export class GameRoom extends Room<GameRoomState> {
     this.state.drops.delete(drop.id);
     const def = getItem(drop.itemId);
     if (def?.xpReward) this.awardXp(p, def.xpReward);
+
+    const dailyRewards = dailyTracker.onItemPickedUp(p, drop.itemId, drop.qty);
+    for (const r of dailyRewards) {
+      this.awardXp(p, r.xp);
+      client.send("quest-complete", { questId: r.questId, isDaily: true });
+    }
+
     client.send("pickup", { itemId: drop.itemId, qty: result.added });
   }
 
@@ -1254,6 +1270,14 @@ export class GameRoom extends Room<GameRoomState> {
       q.progress = Math.min(q.progress + 1, q.goal);
       if (q.progress >= q.goal) q.status = "complete";
     }
+
+    const dailyRewards = dailyTracker.onMobKilled(p, kind);
+    for (const r of dailyRewards) {
+      this.awardXp(p, r.xp);
+      const client = this.clients.find((c) => c.sessionId === p.id);
+      client?.send("quest-complete", { questId: r.questId, isDaily: true });
+    }
+
     if (kind === "boss") {
       this.spawnDrop("soul", 1, { x: p.x, y: p.y, z: p.z });
     }
@@ -1404,22 +1428,24 @@ export class GameRoom extends Room<GameRoomState> {
 
   private async persistProgress(characterId: string, p: Player) {
     const equip: Record<string, string> = {};
-    p.equipment.forEach((itemId, slot) => {
+    for (const [slot, itemId] of p.equipment) {
       equip[slot] = itemId;
-    });
+    }
     const quests: Record<string, { status: string; progress: number; goal: number }> = {};
-    p.quests.forEach((q, id) => {
+    for (const [id, q] of p.quests) {
       quests[id] = { status: q.status, progress: q.progress, goal: q.goal };
-    });
+    }
     const sessionId = this.sessionIdForCharacter(characterId);
     const cdMs: Record<string, number> = {};
     if (sessionId) {
       const cds = this.skillCds.get(sessionId);
       const now = Date.now();
-      cds?.forEach((readyAt, id) => {
-        const remaining = readyAt - now;
-        if (remaining > 0) cdMs[id] = remaining;
-      });
+      if (cds) {
+        for (const [id, readyAt] of cds) {
+          const remaining = readyAt - now;
+          if (remaining > 0) cdMs[id] = remaining;
+        }
+      }
     }
     await saveCharacter({
       characterId,
@@ -1441,6 +1467,7 @@ export class GameRoom extends Room<GameRoomState> {
       skillCooldownsJson: JSON.stringify(cdMs),
       inventory: this.slotsFromPlayer(p),
     });
+    await dailyTracker.persistPlayerDailies(characterId, p);
   }
 
   private sessionIdForCharacter(characterId: string): string | undefined {
@@ -1519,11 +1546,11 @@ export class GameRoom extends Room<GameRoomState> {
     const portals = this.zone.portals;
     if (portals.length === 0) return;
     const now = Date.now();
-    this.state.players.forEach((p, sessionId) => {
-      if (!p.alive) return;
+    for (const [sessionId, p] of this.state.players) {
+      if (!p.alive) continue;
       const portalState = this.playerPortal.get(sessionId);
-      if (!portalState) return;
-      if (now < portalState.rearmAt) return;
+      if (!portalState) continue;
+      if (now < portalState.rearmAt) continue;
       for (const portal of portals) {
         const dx = p.x - portal.pos.x;
         const dz = p.z - portal.pos.z;
@@ -1532,10 +1559,10 @@ export class GameRoom extends Room<GameRoomState> {
         if (portal.minLevel !== undefined && p.level < portal.minLevel) {
           portalState.rearmAt = now + PORTAL_REARM_MS;
           client?.send("portal-locked", { to: portal.to, minLevel: portal.minLevel });
-          return;
+          break;
         }
         portalState.rearmAt = now + PORTAL_REARM_MS;
-        if (!client) return;
+        if (!client) break;
         const userId = this.playerUserId.get(sessionId);
         const charId = this.playerCharacterId.get(sessionId);
         log.info(
@@ -1556,16 +1583,16 @@ export class GameRoom extends Room<GameRoomState> {
         }
         this.removeFromParty(sessionId);
         client.send("zone-exit", { to: portal.to });
-        return;
+        break;
       }
-    });
+    }
   }
 
   private collectPlayerRefs(): PlayerRef[] {
     const out: PlayerRef[] = [];
-    this.state.players.forEach((p, id) => {
+    for (const [id, p] of this.state.players) {
       out.push({ id, pos: { x: p.x, y: p.y, z: p.z }, alive: p.alive });
-    });
+    }
     return out;
   }
 
