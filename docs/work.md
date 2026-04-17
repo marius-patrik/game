@@ -10,21 +10,32 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-_Nothing in flight._ Three-PR post-alpha wave (migration reconciler, cinematic portal, healer/hazard) just landed.
+- **#92** bug sweep (persistence, level-up toast, dark mode, viewport, NPC placement, Elder Cubius, disconnects, cube color, lobby safe zone). Wave 1A — standalone.
+- **#100** portal polish + pickup fly-to-player + lobby safe-zone visual. Wave 1B — runs parallel with #92 (different files).
 
 ## Next
 
-- **#91** design: per-class skill trees ADR — architect agent drafts `docs/decisions/NNNN-per-class-skill-trees.md` + a follow-up implementation issue. Design-only, no code. Unblocks the biggest remaining backlog system.
+Full user-requested rebuild, serialized by schema/file dependencies:
+
+1. **#96** character system — customizer + persistence + multi-character select. Schema foundation for everything downstream.
+2. **#97** equipment slots + weapon-driven primary/secondary attacks (depends on #96).
+3. **#98** skill system + skills tab + ultimate slot (depends on #97).
+4. **#93** HUD teardown + rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts) — depends on #96/#97/#98 for real tab content.
+5. **#94** hotbar redesign (2W+2S+U+2I+2P layout) — depends on #93/#97/#98.
+6. **#95** unified InteractionPrompt + full keybinds system + auto-pickup toggle — depends on #93/#94.
+7. **#99** draggable window/tab system (ADR + impl) — depends on #93.
+8. **#101** seasonal / daily quests rotator — depends on #96.
+9. **#102** final audit / pitfalls / cleanup / polish pass — last.
 
 ## Backlog
 
-Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
-
-**Larger post-alpha systems:**
-- [ ] **Seasonal / daily quests** — rotating reset via a cron-style generator.
+Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 **Maintenance chores:**
 - [ ] **#90** bump Biome 1.9.4 → 2.x — config-schema migration + autofix sweep, narrow chore PR.
+
+## Superseded
+- **#91** per-class skill trees ADR — closed; the class-less skill allocator in #98 covers the same design surface more simply.
 
 ## Done
 
