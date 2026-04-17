@@ -377,6 +377,22 @@ export function useRoom(): RoomState {
           lastPickup = { itemId: msg.itemId, qty: msg.qty, at: Date.now() };
           commit();
         });
+        let lastPickupErrorAt = 0;
+        room.onMessage(
+          "pickup-error",
+          (msg: {
+            reason: "inventory_full" | "unknown_item" | "invalid_qty";
+            itemId?: string;
+          }) => {
+            // Auto-pickup fires on every drop in range, so throttle toasts so
+            // a full bag doesn't flood the notification stack.
+            const now = Date.now();
+            if (now - lastPickupErrorAt < 2000) return;
+            lastPickupErrorAt = now;
+            if (msg.reason === "inventory_full") toast.error("Inventory full");
+            else toast.error(`Pickup failed: ${msg.reason}`);
+          },
+        );
         room.onMessage("used", (msg: { itemId: string; hp: number; mana?: number }) => {
           lastUsed = { itemId: msg.itemId, hp: msg.hp, mana: msg.mana, at: Date.now() };
           commit();
