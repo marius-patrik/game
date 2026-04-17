@@ -1,4 +1,4 @@
-import { type Vec3, type Zone, clampToBounds } from "@game/shared";
+import { type Vec3, type Zone, clampToBounds } from "@game/shared/zones";
 
 export type MovementInput = {
   prev: Vec3;

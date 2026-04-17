@@ -54,9 +54,9 @@ export const verification = sqliteTable("verification", {
 export const playerLocation = sqliteTable(
   "player_location",
   {
-    userId: text("user_id")
+    characterId: text("character_id")
       .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+      .references(() => character.id, { onDelete: "cascade" }),
     zoneId: text("zone_id").notNull(),
     x: real("x").notNull(),
     y: real("y").notNull(),
@@ -64,7 +64,56 @@ export const playerLocation = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.zoneId] }),
+    pk: primaryKey({ columns: [t.characterId, t.zoneId] }),
+  }),
+);
+
+export const character = sqliteTable("character", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#66c0f4"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  lastPlayedAt: integer("last_played_at", { mode: "timestamp" }).notNull(),
+  isDeleted: integer("is_deleted", { mode: "boolean" }).notNull().default(false),
+});
+
+export const characterProgress = sqliteTable("character_progress", {
+  characterId: text("character_id")
+    .primaryKey()
+    .references(() => character.id, { onDelete: "cascade" }),
+  level: integer("level").notNull().default(1),
+  xp: integer("xp").notNull().default(0),
+  equippedItemId: text("equipped_item_id").notNull().default(""),
+  gold: integer("gold").notNull().default(0),
+  mana: integer("mana").notNull().default(50),
+  maxMana: integer("max_mana").notNull().default(50),
+  strength: integer("strength").notNull().default(5),
+  dexterity: integer("dexterity").notNull().default(5),
+  vitality: integer("vitality").notNull().default(5),
+  intellect: integer("intellect").notNull().default(5),
+  statPoints: integer("stat_points").notNull().default(0),
+  equipmentJson: text("equipment_json").notNull().default("{}"),
+  questsJson: text("quests_json").notNull().default("{}"),
+  skillCooldownsJson: text("skill_cooldowns_json").notNull().default("{}"),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const characterInventory = sqliteTable(
+  "character_inventory",
+  {
+    characterId: text("character_id")
+      .notNull()
+      .references(() => character.id, { onDelete: "cascade" }),
+    slotIndex: integer("slot_index").notNull(),
+    itemId: text("item_id").notNull(),
+    qty: integer("qty").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.characterId, t.slotIndex] }),
   }),
 );
 

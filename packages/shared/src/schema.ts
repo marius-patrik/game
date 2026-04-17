@@ -14,6 +14,7 @@ export class QuestProgress extends Schema {
 
 export class Player extends Schema {
   @type("string") id = "";
+  @type("string") characterId = "";
   @type("string") name = "";
   @type("number") x = 0;
   @type("number") y = 0;

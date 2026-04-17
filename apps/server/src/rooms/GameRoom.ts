@@ -2,56 +2,47 @@ import { type AuthContext, type Client, Room, matchMaker } from "@colyseus/core"
 import { ArraySchema, MapSchema } from "@colyseus/schema";
 import {
   CHAT_MAX_LEN,
-  CRIT_MULTIPLIER,
   type ChatCommand,
   type ChatEntry,
   type ChatError,
   type ChatInbound,
-  DEFAULT_ZONE,
-  type DeathCause,
-  type DiedMessage,
-  EQUIP_SLOTS,
-  type EquipSlot,
-  FIRST_QUEST_ID,
-  GameRoomState,
+  isChatChannel,
+  parseChatCommand,
+} from "@game/shared/chat";
+import { filterProfanity } from "@game/shared/chat-profanity";
+import type { DeathCause, DiedMessage } from "@game/shared/combat";
+import { type EquipSlot, type ItemId, VENDOR_STOCK, getItem, isItemId } from "@game/shared/items";
+import { applyXp, xpToNextLevel } from "@game/shared/progression";
+import { FIRST_QUEST_ID, QUEST_CATALOG, getQuest } from "@game/shared/quests";
+import {
+  type GameRoomState,
   InventorySlot,
-  type ItemId,
   Npc,
   Player,
-  QUEST_CATALOG,
   QuestProgress,
-  SKILL_CATALOG,
-  STAT_POINTS_PER_LEVEL,
-  type SkillId,
-  type StatKey,
-  VENDOR_STOCK,
-  type Vec3,
   WorldDrop,
-  type Zone,
-  applyXp,
+} from "@game/shared/schema";
+import { SKILL_CATALOG, type SkillId } from "@game/shared/skills";
+import {
+  CRIT_MULTIPLIER,
+  EQUIP_SLOTS,
+  STAT_POINTS_PER_LEVEL,
+  type StatKey,
   attackCooldownMs,
-  clampToBounds,
   damageBonusFromStats,
   equipBonus,
-  filterProfanity,
-  getItem,
-  getQuest,
-  getZone,
-  isChatChannel,
-  isItemId,
   manaRegenPerSec,
   maxHpFromStats,
   maxManaFromStats,
-  parseChatCommand,
   rollCrit,
-  xpToNextLevel,
-} from "@game/shared";
+} from "@game/shared/stats";
+import { DEFAULT_ZONE, type Vec3, type Zone, clampToBounds, getZone } from "@game/shared/zones";
 import { auth } from "../auth";
 import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
+import { loadCharacter, saveCharacter } from "../db/character";
 import { insertChat, loadRecentChat } from "../db/chat";
 import { addBlock, isBlocked, removeBlock } from "../db/chatBlock";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
-import { loadProgress, saveProgress } from "../db/playerProgress";
 import {
   DEFAULT_LOOT,
   INVENTORY_SLOT_CAP,
@@ -86,7 +77,7 @@ type UnequipSlotMessage = { slot: EquipSlot };
 type BuyMessage = { itemId: string; qty?: number };
 type SellMessage = { itemId: string; qty?: number };
 type TurnInQuestMessage = { questId: string };
-type JoinOptions = { token?: string; zoneId?: string };
+type JoinOptions = { token?: string; zoneId?: string; characterId?: string };
 
 export type SessionUser = { id: string; name: string; role: string };
 
@@ -100,18 +91,9 @@ const SAVE_INTERVAL_MS = 10_000;
 const LOOT_SPAWN_INTERVAL_MS = 5_000;
 const PORTAL_REARM_MS = 2_000;
 const SELL_FRACTION = 0.4;
-const PARTY_SHARE_RADIUS = 10; // metres
+const PARTY_SHARE_RADIUS = 10;
 const PARTY_SHARE_RADIUS_SQ = PARTY_SHARE_RADIUS * PARTY_SHARE_RADIUS;
 const PARTY_XP_SHARE_FRACTION = 0.6;
-
-function stableColorFromSeed(seed: string): string {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-  const hue = hash % 360;
-  return `hsl(${hue}, 72%, 58%)`;
-}
 
 function stripControlChars(input: string): string {
   let out = "";
@@ -124,7 +106,6 @@ function stripControlChars(input: string): string {
 
 export class GameRoom extends Room<GameRoomState> {
   override maxClients = 64;
-  override state = new GameRoomState();
   private zone!: Zone;
   private security: SecurityConfig = DEFAULT_SECURITY;
   private combat: CombatConfig = DEFAULT_COMBAT;
@@ -135,6 +116,7 @@ export class GameRoom extends Room<GameRoomState> {
   private playerCombat = new Map<string, PlayerCombatState>();
   private playerPortal = new Map<string, PlayerPortalState>();
   private playerUserId = new Map<string, string>();
+  private playerCharacterId = new Map<string, string>();
   private skillCds = new Map<string, SkillCooldowns>();
   private lastDamageSource = new Map<string, LastDamageSource>();
   private saveInterval?: ReturnType<typeof setInterval>;
@@ -250,66 +232,63 @@ export class GameRoom extends Room<GameRoomState> {
     this.state.npcs.set(questgiver.id, questgiver);
   }
 
-  override async onJoin(client: Client<unknown, SessionUser>) {
-    const p = new Player();
-    p.id = client.sessionId;
-    p.name = client.auth?.name ?? "";
-    p.customizationColor = stableColorFromSeed(client.auth?.id ?? client.sessionId);
+  override async onJoin(client: Client<unknown, SessionUser>, options: JoinOptions) {
+    const characterId = options?.characterId;
+    if (!characterId) throw new Error("characterId required");
 
     const userId = client.auth?.id;
+    if (!userId) throw new Error("unauthorized");
+
+    const { character: char, progress, inventory } = await loadCharacter(characterId);
+    if (!char || char.userId !== userId || char.isDeleted) {
+      throw new Error("invalid character");
+    }
+
+    const p = new Player();
+    p.id = client.sessionId;
+    p.characterId = char.id;
+    p.name = char.name;
+    p.customizationColor = char.color;
+
     let spawn: Vec3 = { x: this.zone.spawn.x, y: this.zone.spawn.y, z: this.zone.spawn.z };
 
-    if (userId) {
-      this.playerUserId.set(client.sessionId, userId);
-      try {
-        const saved = await getPlayerLocation(userId, this.zone.id);
-        if (saved) spawn = { x: saved.x, y: saved.y, z: saved.z };
-      } catch (err) {
-        log.warn({ err, userId, zoneId: this.zone.id }, "failed to load player location");
-      }
-      try {
-        const { progress, inventory } = await loadProgress(userId);
-        if (progress) {
-          p.level = progress.level;
-          p.xp = progress.xp;
-          p.xpToNext = xpToNextLevel(progress.level);
-          p.equippedItemId = progress.equippedItemId;
-          p.gold = progress.gold;
-          p.strength = progress.strength;
-          p.dexterity = progress.dexterity;
-          p.vitality = progress.vitality;
-          p.intellect = progress.intellect;
-          p.statPoints = progress.statPoints;
-          p.maxHp = maxHpFromStats(p.vitality);
-          p.maxMana = maxManaFromStats(p.intellect);
-          p.mana = Math.min(progress.mana, p.maxMana);
-          this.loadEquipment(p, progress.equipmentJson);
-          this.loadQuests(p, progress.questsJson);
-          this.preloadSkillCooldowns(client.sessionId, progress.skillCooldownsJson);
-        } else {
-          p.xpToNext = xpToNextLevel(1);
-          p.maxHp = maxHpFromStats(p.vitality);
-          p.maxMana = maxManaFromStats(p.intellect);
-          p.mana = p.maxMana;
-        }
-        for (const row of inventory) {
-          const slot = new InventorySlot();
-          slot.itemId = row.itemId;
-          slot.qty = row.qty;
-          p.inventory.push(slot);
-        }
-      } catch (err) {
-        log.warn({ err, userId }, "failed to load player progress");
-        p.xpToNext = xpToNextLevel(1);
-        p.maxHp = maxHpFromStats(p.vitality);
-        p.maxMana = maxManaFromStats(p.intellect);
-        p.mana = p.maxMana;
-      }
+    this.playerUserId.set(client.sessionId, userId);
+    this.playerCharacterId.set(client.sessionId, char.id);
+    try {
+      const saved = await getPlayerLocation(char.id, this.zone.id);
+      if (saved) spawn = { x: saved.x, y: saved.y, z: saved.z };
+    } catch (err) {
+      log.warn({ err, characterId, zoneId: this.zone.id }, "failed to load player location");
+    }
+
+    if (progress) {
+      p.level = progress.level;
+      p.xp = progress.xp;
+      p.xpToNext = xpToNextLevel(progress.level);
+      p.equippedItemId = progress.equippedItemId;
+      p.gold = progress.gold;
+      p.strength = progress.strength;
+      p.dexterity = progress.dexterity;
+      p.vitality = progress.vitality;
+      p.intellect = progress.intellect;
+      p.statPoints = progress.statPoints;
+      p.maxHp = maxHpFromStats(p.vitality);
+      p.maxMana = maxManaFromStats(p.intellect);
+      p.mana = Math.min(progress.mana, p.maxMana);
+      this.loadEquipment(p, progress.equipmentJson);
+      this.loadQuests(p, progress.questsJson);
+      this.preloadSkillCooldowns(client.sessionId, progress.skillCooldownsJson);
     } else {
       p.xpToNext = xpToNextLevel(1);
       p.maxHp = maxHpFromStats(p.vitality);
       p.maxMana = maxManaFromStats(p.intellect);
       p.mana = p.maxMana;
+    }
+    for (const row of inventory) {
+      const slot = new InventorySlot();
+      slot.itemId = row.itemId;
+      slot.qty = row.qty;
+      p.inventory.push(slot);
     }
 
     p.x = spawn.x;
@@ -360,26 +339,34 @@ export class GameRoom extends Room<GameRoomState> {
 
   override async onLeave(client: Client<unknown, SessionUser>) {
     const p = this.state.players.get(client.sessionId);
-    const userId = client.auth?.id;
-    if (p && userId) {
+    const charId = this.playerCharacterId.get(client.sessionId);
+    if (p && charId) {
       try {
-        await savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z });
+        await savePlayerLocation(charId, this.zone.id, { x: p.x, y: p.y, z: p.z });
       } catch (err) {
-        log.warn({ err, userId, zoneId: this.zone.id }, "failed to save player location on leave");
+        log.warn(
+          { err, characterId: charId, zoneId: this.zone.id },
+          "failed to save player location on leave",
+        );
       }
       try {
-        await this.persistProgress(userId, p);
+        await this.persistProgress(charId, p);
       } catch (err) {
-        log.warn({ err, userId }, "failed to save player progress on leave");
+        log.warn({ err, characterId: charId }, "failed to save player progress on leave");
       }
     }
-    log.info({ sessionId: client.sessionId, userId, zoneId: this.zone.id }, "player left room");
+    const userId = client.auth?.id;
+    log.info(
+      { sessionId: client.sessionId, userId, characterId: charId, zoneId: this.zone.id },
+      "player left room",
+    );
     this.removeFromParty(client.sessionId);
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
     this.playerCombat.delete(client.sessionId);
     this.playerPortal.delete(client.sessionId);
     this.playerUserId.delete(client.sessionId);
+    this.playerCharacterId.delete(client.sessionId);
     this.skillCds.delete(client.sessionId);
     this.lastDamageSource.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
@@ -408,7 +395,7 @@ export class GameRoom extends Room<GameRoomState> {
 
   private regenMana(dtMs: number) {
     const dtSec = dtMs / 1000;
-    for (const [, p] of this.state.players) {
+    for (const p of this.state.players.values()) {
       if (!p.alive) continue;
       if (p.mana >= p.maxMana) continue;
       p.mana = Math.min(p.maxMana, p.mana + manaRegenPerSec(p.intellect) * dtSec);
@@ -565,9 +552,6 @@ export class GameRoom extends Room<GameRoomState> {
 
     switch (skill.id) {
       case "basic": {
-        // Same flow as the legacy "attack" message — picks nearest candidate
-        // (player or mob), applies damage, broadcasts. Lives in the skill
-        // system now so the HUD shows one unified action bar.
         const candidates: Combatant[] = [];
         this.state.players.forEach((pp, id) => {
           if (id === client.sessionId) return;
@@ -724,7 +708,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (stat !== "strength" && stat !== "dexterity" && stat !== "vitality" && stat !== "intellect")
       return;
     p.statPoints -= 1;
-    (p[stat] as number) = p[stat] + 1;
+    (p[stat] as number) = (p[stat] as number) + 1;
     if (stat === "vitality") {
       const newMax = maxHpFromStats(p.vitality);
       const delta = newMax - p.maxHp;
@@ -768,7 +752,6 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private recomputeDerivedStats(p: Player) {
-    // equipment can affect vitality/intellect → maxHp/maxMana
     const bonus = this.equipBonusFor(p);
     const newMaxHp = maxHpFromStats(p.vitality + bonus.vitality);
     const newMaxMana = maxManaFromStats(p.intellect + bonus.intellect);
@@ -822,7 +805,6 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     this.writeSlotsToPlayer(p, rem.slots);
-    // clear any slot-equipped ref if item gone
     for (const slot of EQUIP_SLOTS) {
       if (p.equipment.get(slot) === itemId && countItem(rem.slots, itemId) <= 0) {
         p.equipment.delete(slot);
@@ -864,7 +846,6 @@ export class GameRoom extends Room<GameRoomState> {
       const add = addItem(slots, def.itemReward.itemId, def.itemReward.qty, INVENTORY_SLOT_CAP);
       if (add.ok) this.writeSlotsToPlayer(p, add.slots);
     }
-    // offer next quest if available
     if (questId === FIRST_QUEST_ID && !p.quests.has("arena-initiate")) {
       this.grantQuest(p, "arena-initiate");
     }
@@ -925,7 +906,6 @@ export class GameRoom extends Room<GameRoomState> {
     if (!def || def.kind !== "weapon") return;
     if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) return;
     p.equippedItemId = itemId;
-    // also fill the weapon equipment slot if empty so bonuses apply consistently
     if (!p.equipment.has("weapon")) p.equipment.set("weapon", itemId);
   }
 
@@ -954,10 +934,6 @@ export class GameRoom extends Room<GameRoomState> {
     mobPos?: Vec3,
   ) {
     const baseXp = 10 + xpBonus;
-    // Share XP with party members standing within radius of the kill. Killer
-    // keeps the full award; other party members get a fraction (see
-    // PARTY_XP_SHARE_FRACTION). No sharing for quest progress or gold — this
-    // is tuned to reward grouping without inflating rewards too much.
     const party = this.partyManager.getPartyBySession(p.id);
     if (party && mobPos) {
       for (const memberSid of party.members) {
@@ -976,7 +952,6 @@ export class GameRoom extends Room<GameRoomState> {
       this.awardXp(p, baseXp);
     }
     p.gold += gold;
-    // quest progress: any kill-mobs quest ticks up — killer only, not party.
     for (const [, q] of p.quests) {
       const def = getQuest(q.id);
       if (!def) continue;
@@ -985,7 +960,6 @@ export class GameRoom extends Room<GameRoomState> {
       q.progress = Math.min(q.progress + 1, q.goal);
       if (q.progress >= q.goal) q.status = "complete";
     }
-    // boss always drops a soul on top of normal loot
     if (kind === "boss") {
       this.spawnDrop("soul", 1, { x: p.x, y: p.y, z: p.z });
     }
@@ -997,9 +971,6 @@ export class GameRoom extends Room<GameRoomState> {
     if (leaver) leaver.partyId = "";
     if (!result.partyId) return;
     if (result.dissolved) return;
-    // If leader was promoted, all remaining members' partyId schema fields
-    // are already correct (they didn't change); leader change is pure server
-    // state. Notify the new leader so the HUD can optionally flag it later.
     if (result.newLeader) {
       const promoted = this.clients.find((c) => c.sessionId === result.newLeader);
       promoted?.send("chat", {
@@ -1109,11 +1080,11 @@ export class GameRoom extends Room<GameRoomState> {
     for (const client of this.clients) {
       const typed = client as Client<unknown, SessionUser>;
       const p = this.state.players.get(typed.sessionId);
-      const userId = typed.auth?.id;
-      if (!p || !userId) continue;
+      const charId = this.playerCharacterId.get(typed.sessionId);
+      if (!p || !charId) continue;
       saves.push(
-        savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
-          log.warn({ err, userId, zoneId: this.zone.id }, "periodic save failed");
+        savePlayerLocation(charId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
+          log.warn({ err, characterId: charId, zoneId: this.zone.id }, "periodic save failed");
         }),
       );
     }
@@ -1125,18 +1096,18 @@ export class GameRoom extends Room<GameRoomState> {
     for (const client of this.clients) {
       const typed = client as Client<unknown, SessionUser>;
       const p = this.state.players.get(typed.sessionId);
-      const userId = typed.auth?.id;
-      if (!p || !userId) continue;
+      const charId = this.playerCharacterId.get(typed.sessionId);
+      if (!p || !charId) continue;
       saves.push(
-        this.persistProgress(userId, p).catch((err) => {
-          log.warn({ err, userId }, "periodic progress save failed");
+        this.persistProgress(charId, p).catch((err) => {
+          log.warn({ err, characterId: charId }, "periodic progress save failed");
         }),
       );
     }
     await Promise.all(saves);
   }
 
-  private async persistProgress(userId: string, p: Player) {
+  private async persistProgress(characterId: string, p: Player) {
     const equip: Record<string, string> = {};
     p.equipment.forEach((itemId, slot) => {
       equip[slot] = itemId;
@@ -1145,9 +1116,7 @@ export class GameRoom extends Room<GameRoomState> {
     p.quests.forEach((q, id) => {
       quests[id] = { status: q.status, progress: q.progress, goal: q.goal };
     });
-    // Persist skill cooldowns as remaining-ms so they restore correctly
-    // across zone swaps / reconnects, independent of wall-clock drift.
-    const sessionId = this.sessionIdFor(userId);
+    const sessionId = this.sessionIdForCharacter(characterId);
     const cdMs: Record<string, number> = {};
     if (sessionId) {
       const cds = this.skillCds.get(sessionId);
@@ -1157,8 +1126,8 @@ export class GameRoom extends Room<GameRoomState> {
         if (remaining > 0) cdMs[id] = remaining;
       });
     }
-    await saveProgress({
-      userId,
+    await saveCharacter({
+      characterId,
       level: p.level,
       xp: p.xp,
       equippedItemId: p.equippedItemId,
@@ -1177,9 +1146,9 @@ export class GameRoom extends Room<GameRoomState> {
     });
   }
 
-  private sessionIdFor(userId: string): string | undefined {
-    for (const [sid, uid] of this.playerUserId) {
-      if (uid === userId) return sid;
+  private sessionIdForCharacter(characterId: string): string | undefined {
+    for (const [sid, cid] of this.playerCharacterId) {
+      if (cid === characterId) return sid;
     }
     return undefined;
   }
@@ -1271,24 +1240,23 @@ export class GameRoom extends Room<GameRoomState> {
         portalState.rearmAt = now + PORTAL_REARM_MS;
         if (!client) return;
         const userId = this.playerUserId.get(sessionId);
+        const charId = this.playerCharacterId.get(sessionId);
         log.info(
           {
             sessionId,
             userId,
+            characterId: charId,
             fromZoneId: this.zone.id,
             toZoneId: portal.to,
             pos: { x: p.x, y: p.y, z: p.z },
           },
           "portal travel triggered",
         );
-        if (userId) {
-          savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
-            log.warn({ err, userId, zoneId: this.zone.id }, "portal save failed");
+        if (charId) {
+          savePlayerLocation(charId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
+            log.warn({ err, characterId: charId, zoneId: this.zone.id }, "portal save failed");
           });
         }
-        // Parties are zone-scoped — traveling out drops the travelling
-        // member so the rest of the party doesn't silently get share-XP from
-        // someone they can't see.
         this.removeFromParty(sessionId);
         client.send("zone-exit", { to: portal.to });
         return;
@@ -1305,10 +1273,6 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private fireCasterBolt(bolt: CasterBoltEvent): void {
-    // Visual bolt flies to clients immediately; damage resolves when the
-    // server-side flight timer expires, and only if the target is still
-    // close enough to the intended landing pos. Players who sprint out of
-    // the bolt's path won't take the hit, which makes casters kite-able.
     this.broadcast("caster-bolt", {
       id: bolt.id,
       mobId: bolt.mobId,
@@ -1401,14 +1365,10 @@ export class GameRoom extends Room<GameRoomState> {
     client.send("died", msg);
   }
 
-  // ---------- Chat ----------
-
   private handleChat(client: Client<unknown, SessionUser>, msg: ChatInbound) {
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
     if (!msg || typeof msg !== "object") return;
-    // Clients send chat on "zone" or "global". DMs are routed via the /w
-    // command, never by a direct channel: "dm" payload.
     if (!isChatChannel(msg.channel) || msg.channel === "dm") {
       this.sendChatError(client, "invalid_channel");
       return;
@@ -1498,7 +1458,6 @@ export class GameRoom extends Room<GameRoomState> {
         client.send("chat", systemEntry("You're not in a party."));
         return;
       }
-      // Notify remaining members before we clear state.
       const remaining: string[] = [];
       for (const memberSid of party.members) {
         if (memberSid !== sessionId) remaining.push(memberSid);
@@ -1527,7 +1486,6 @@ export class GameRoom extends Room<GameRoomState> {
         else client.send("chat", systemEntry(`Couldn't invite ${sub.target}: ${result.reason}.`));
         return;
       }
-      // Sender is now (or already was) a party leader — reflect via schema.
       self.partyId = result.partyId;
       client.send("chat", systemEntry(`Invited ${match.sessionId.slice(0, 6)} to your party.`));
       const inviteeClient = this.clients.find((c) => c.sessionId === match.sessionId);
@@ -1581,7 +1539,6 @@ export class GameRoom extends Room<GameRoomState> {
       text: clean,
       at: Date.now(),
     };
-    // Persist to chat_message so reconnecting players see recent history.
     if (userId) {
       insertChat({
         id: entry.id,
@@ -1589,7 +1546,6 @@ export class GameRoom extends Room<GameRoomState> {
         fromUserId: userId,
         fromName: entry.from,
         text: entry.text,
-        now: new Date(entry.at),
       }).catch((err) => log.warn({ err }, "chat persist failed"));
     }
     if (channel === "zone") {
@@ -1605,7 +1561,7 @@ export class GameRoom extends Room<GameRoomState> {
     cmd: Extract<ChatCommand, { kind: "whisper" }>,
   ) {
     const senderUserId = this.playerUserId.get(sender.sessionId);
-    if (!senderUserId) return; // unauth'd sockets can't DM
+    if (!senderUserId) return;
     const cleanText = filterProfanity(cmd.text);
     const fromName =
       senderPlayer.name && senderPlayer.name.length > 0
@@ -1620,8 +1576,6 @@ export class GameRoom extends Room<GameRoomState> {
       text: cleanText,
       at: Date.now(),
     };
-    // Try to deliver in-room first, then fan out to other zones. If no online
-    // recipient is found anywhere, notify the sender with "not_found".
     const localMatch = this.findPlayerByName(cmd.to, sender.sessionId);
     if (localMatch) {
       this.deliverDmLocal(entry, localMatch.sessionId, localMatch.userId, senderUserId);
@@ -1667,7 +1621,6 @@ export class GameRoom extends Room<GameRoomState> {
       return;
     }
     if (targetUserId === userId) {
-      // Silently ignore self-blocks; no sensible error reason to surface.
       return;
     }
     const action =
@@ -1694,9 +1647,6 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private deliverToRoom(entry: ChatEntry, senderUserId?: string) {
-    // Outbound block filter: skip clients whose viewer has blocked the sender.
-    // Fast-path when the sender has no user id (shouldn't happen post-auth)
-    // or when no client has any blocks — broadcast normally.
     if (!senderUserId) {
       this.broadcast("chat", entry);
       return;
@@ -1724,9 +1674,6 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private async sendFilteredByBlock(entry: ChatEntry, senderUserId: string): Promise<void> {
-    // Walk the current clients and send individually when we know any of them
-    // has blocked the sender. We only query blockers once per delivery
-    // (getBlockedBy isn't symmetric — we need "who has blocked the sender").
     const tasks: Promise<void>[] = [];
     for (const client of this.clients) {
       const typed = client as Client<unknown, SessionUser>;
@@ -1741,8 +1688,6 @@ export class GameRoom extends Room<GameRoomState> {
             if (!blocked) typed.send("chat", entry);
           })
           .catch((err) => {
-            // On a DB error fail-open (deliver) — moderation lag is better
-            // than silencing real chat if sqlite hiccups.
             log.warn({ err }, "chat block lookup failed");
             typed.send("chat", entry);
           }),
@@ -1770,8 +1715,6 @@ export class GameRoom extends Room<GameRoomState> {
   ) {
     const recipient = this.clients.find((c) => c.sessionId === recipientSessionId);
     if (!recipient) return;
-    // Respect blocks on inbound DMs — silently drop instead of surfacing an
-    // error, so blocked senders can't probe the block list.
     if (!recipientUserId) {
       recipient.send("chat", entry);
       return;
