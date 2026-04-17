@@ -46,3 +46,6 @@ The native `onChange` handler on a React-controlled `<select>` responds to the i
 
 ## Adding a Drizzle migration without drizzle-kit
 When the new sql file is added under `apps/server/drizzle/` **and** registered in `meta/_journal.json` (with a matching snapshot file), `runMigrations()` at startup applies it automatically. Pair with `generate-migrations.ts` so the migration ships inside the compiled binary — `bun run build:release` re-emits `migrations-embedded.ts` each build.
+
+## Claude Preview serves from one worktree; edits happen in another
+`preview_start` caches its cwd at first launch. If the overseer later edits files from a different worktree (e.g. you committed on `feat/foo` in the primary but the preview is running from `.claude/worktrees/laughing-*`), rsbuild HMR will serve stale bundles — you'll see the old class names + old components and think the edit didn't land. Fix: push the branch, then in the preview worktree `git fetch && git reset --hard origin/<branch>` and reload the page. Symptom to look for: DOM has old class strings that the repo no longer contains.
