@@ -162,7 +162,7 @@ export function HUD({
         transition={{ delay: 0.15, duration: 0.4 }}
         className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-2 sm:p-4"
       >
-        <div className="rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:text-xs">
+        <div className="hidden rounded-full border border-border/50 bg-background/40 px-4 py-1.5 text-[11px] text-muted-foreground backdrop-blur-md sm:block sm:text-xs">
           click ground to move · click enemy to attack · click loot to pick up
         </div>
       </motion.div>

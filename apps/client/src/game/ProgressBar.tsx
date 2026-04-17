@@ -18,7 +18,7 @@ export function ProgressBar({ player }: { player: PlayerSnapshot | undefined }) 
 
   return (
     <div
-      className="pointer-events-none absolute top-20 right-2 left-2 flex flex-col gap-2 rounded-lg border border-border/50 bg-background/70 px-3 py-2 backdrop-blur-md sm:top-4 sm:right-4 sm:left-auto sm:min-w-[260px]"
+      className="pointer-events-none absolute top-20 right-2 left-[136px] flex flex-col gap-1.5 rounded-lg border border-border/50 bg-background/70 px-3 py-2 backdrop-blur-md sm:top-4 sm:right-4 sm:left-auto sm:min-w-[260px] sm:gap-2"
       aria-label={`Level ${level}, ${hp} of ${maxHp} HP, ${mana} of ${maxMana} mana, ${gold} gold`}
     >
       <div className="flex items-center justify-between gap-2 text-xs">
