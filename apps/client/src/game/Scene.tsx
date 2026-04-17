@@ -28,11 +28,13 @@ import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
+import { SafeZoneRing } from "./SafeZoneRing";
 import { ZoneDecor } from "./ZoneDecor";
 import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
+type PickupIntentMap = Map<string, number>;
 
 /** Cam arm defaults. User can still rotate/zoom via OrbitControls. */
 const CAMERA_MIN_DIST = 6;
@@ -54,6 +56,7 @@ export function Scene({
   lastAttack,
   lastTelegraph,
   selfPosRef,
+  pickupIntentRef,
   cinematicActive = false,
   portalCinematicActive = false,
   onCinematicComplete,
@@ -74,6 +77,7 @@ export function Scene({
   lastAttack?: AttackEvent;
   lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
+  pickupIntentRef?: MutableRefObject<PickupIntentMap>;
   cinematicActive?: boolean;
   portalCinematicActive?: boolean;
   onCinematicComplete?: () => void;
@@ -169,11 +173,22 @@ export function Scene({
         lastAttack={lastAttack}
         selfPosRef={selfPosRef}
       />
-      <Drops drops={drops} onPickup={onPickup} />
+      <Drops
+        drops={drops}
+        selfPosRef={selfPosRef}
+        pickupIntentRef={pickupIntentRef}
+        onPickup={onPickup}
+      />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <HazardZones hazards={hazards} />
-      <Portals portals={zone.portals} />
+      <Portals
+        portals={zone.portals}
+        players={players}
+        sessionId={sessionId}
+        selfPosRef={selfPosRef}
+      />
+      {zoneId === "lobby" ? <SafeZoneRing center={zone.spawn} /> : null}
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
       <BossTelegraph event={lastTelegraph} />
       <CasterBolts bolts={bolts} />

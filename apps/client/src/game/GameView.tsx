@@ -117,7 +117,14 @@ function GameViewInner({
   }, []);
 
   const onMove = useCallback((pos: Vec3) => room.send("move", pos), [room.send]);
-  const onPickup = useCallback((dropId: string) => room.send("pickup", { dropId }), [room.send]);
+  const pickupIntentRef = useRef<Map<string, number>>(new Map());
+  const onPickup = useCallback(
+    (dropId: string) => {
+      pickupIntentRef.current.set(dropId, Date.now());
+      room.send("pickup", { dropId });
+    },
+    [room.send],
+  );
   const onUse = useCallback((itemId: string) => room.send("use", { itemId }), [room.send]);
   const onEquip = useCallback((itemId: string) => room.send("equip", { itemId }), [room.send]);
   const onEquipSlot = useCallback(
@@ -250,6 +257,7 @@ function GameViewInner({
             lastAttack={room.lastAttack}
             lastTelegraph={room.lastTelegraph}
             selfPosRef={selfPosRef}
+            pickupIntentRef={pickupIntentRef}
             cinematicActive={cinematicActive}
             portalCinematicActive={
               !skipCinematics && (room.status === "connecting" || room.status === "idle")
