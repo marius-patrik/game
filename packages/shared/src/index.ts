@@ -1,4 +1,5 @@
 export * from "./chat";
+export * from "./chat-profanity";
 export * from "./combat";
 export * from "./items";
 export * from "./loot";
