@@ -14,15 +14,17 @@ _Nothing in flight._ Three-PR post-alpha wave (migration reconciler, cinematic p
 
 ## Next
 
-_Pending maintenance sweep — overseer proposes next._
+- **#91** design: per-class skill trees ADR — architect agent drafts `docs/decisions/NNNN-per-class-skill-trees.md` + a follow-up implementation issue. Design-only, no code. Unblocks the biggest remaining backlog system.
 
 ## Backlog
 
-Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83.
+Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 **Larger post-alpha systems:**
-- [ ] **Per-class skill trees** — warrior/mage/rogue pick at first level-up; each class gets their own Cleave / Heal / Dash variants. Requires a design pass on stat curves — needs an ADR before implementation.
 - [ ] **Seasonal / daily quests** — rotating reset via a cron-style generator.
+
+**Maintenance chores:**
+- [ ] **#90** bump Biome 1.9.4 → 2.x — config-schema migration + autofix sweep, narrow chore PR.
 
 ## Done
 
