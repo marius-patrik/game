@@ -29,6 +29,7 @@ import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
+import { useNearestNpc } from "./useNearestNpc";
 
 type Vec3 = { x: number; y: number; z: number };
 type TierPref = QualityTier | "auto";
@@ -64,33 +65,29 @@ function findNearestInteractTarget(
   self: Vec3,
 ): InteractionTarget | undefined {
   const r2 = INTERACT_RADIUS * INTERACT_RADIUS;
-  let nearestDrop: InteractionTarget | undefined;
-  let dropDist = r2;
+  let nearest: InteractionTarget | undefined;
+  let nearestDist = r2;
   for (const d of drops.values()) {
     const dx = d.x - self.x;
     const dz = d.z - self.z;
     const dist = dx * dx + dz * dz;
     if (dist > r2) continue;
-    if (!nearestDrop || dist < dropDist) {
-      nearestDrop = { kind: "drop", drop: d, dist };
-      dropDist = dist;
+    if (!nearest || dist < nearestDist) {
+      nearest = { kind: "drop", drop: d, dist };
+      nearestDist = dist;
     }
   }
-  if (nearestDrop) return nearestDrop;
-
-  let nearestNpc: InteractionTarget | undefined;
-  let npcDist = r2;
   for (const n of npcs.values()) {
     const dx = n.x - self.x;
     const dz = n.z - self.z;
     const dist = dx * dx + dz * dz;
     if (dist > r2) continue;
-    if (!nearestNpc || dist < npcDist) {
-      nearestNpc = { kind: "npc", npc: n, dist };
-      npcDist = dist;
+    if (!nearest || dist < nearestDist) {
+      nearest = { kind: "npc", npc: n, dist };
+      nearestDist = dist;
     }
   }
-  return nearestNpc;
+  return nearest;
 }
 
 export function GameView() {
@@ -243,7 +240,8 @@ function GameViewInner({
   // Auto-pickup drops on proximity.
   useAutoPickup({ enabled: canAct, drops: room.drops, selfPosRef, onPickup });
 
-  // Track the nearest interactable so the HUD hint and world prompt agree.
+  // Track the nearest overall target so the HUD can suppress NPC copy when a
+  // drop is actually closer, without stealing keyboard interaction from NPCs.
   useEffect(() => {
     if (!canAct) {
       setInteractionTarget(undefined);
@@ -264,7 +262,7 @@ function GameViewInner({
     return () => window.clearInterval(id);
   }, [canAct, room.npcs, room.drops, selfPosRef]);
 
-  const nearestNpc = interactionTarget?.kind === "npc" ? interactionTarget.npc : undefined;
+  const nearestNpc = useNearestNpc({ enabled: canAct, npcs: room.npcs, selfPosRef });
   const onNpcInteract = useCallback(
     (npc: NpcSnapshot) => {
       if (npc.kind === "vendor") {
@@ -380,7 +378,7 @@ function GameViewInner({
             onEquipSlot={onEquipSlot}
             onDrop={onDropItem}
           />
-          {nearestNpc ? (
+          {nearestNpc && interactionTarget?.kind !== "drop" ? (
             <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md">
               Press <kbd className="rounded border border-border/60 bg-muted px-1">E</kbd> to{" "}
               {nearestNpc.kind === "vendor" ? "trade" : canTurnIn ? "turn in" : "talk"} with{" "}
