@@ -24,6 +24,7 @@ import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
+import { ZoneDecor } from "./ZoneDecor";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -116,25 +117,26 @@ export function Scene({
       />
       <Environment preset={palette.preset} />
 
+      {/* Decorative floating centerpiece — small, high up, out of the action. */}
       <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.6}>
-        <group ref={cubeGroup} position={[0, 3, 0]}>
+        <group ref={cubeGroup} position={[0, 6, 0]}>
           <TierAwareLOD
             tier={tier}
             high={
               <mesh castShadow>
-                <icosahedronGeometry args={[1, 3]} />
+                <icosahedronGeometry args={[0.7, 3]} />
                 {material}
               </mesh>
             }
             medium={
               <mesh castShadow>
-                <icosahedronGeometry args={[1, 1]} />
+                <icosahedronGeometry args={[0.7, 1]} />
                 {material}
               </mesh>
             }
             low={
               <mesh castShadow>
-                <boxGeometry args={[1.4, 1.4, 1.4]} />
+                <boxGeometry args={[0.9, 0.9, 0.9]} />
                 {material}
               </mesh>
             }
@@ -142,9 +144,11 @@ export function Scene({
         </group>
       </Float>
 
-      <group position={[0, 3, 0]}>
-        <SparkBurst baseCount={160} color="#f472b6" lifetime={1.2} speed={2.4} />
+      <group position={[0, 6, 0]}>
+        <SparkBurst baseCount={80} color="#f472b6" lifetime={1.2} speed={1.6} />
       </group>
+
+      <ZoneDecor zoneId={zoneId} />
 
       <Players
         players={players}

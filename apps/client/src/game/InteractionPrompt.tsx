@@ -60,7 +60,7 @@ export function InteractionPrompt({
   return (
     <group ref={root} visible={false}>
       <Billboard>
-        <sprite scale={[3.2, 0.8, 1]}>
+        <sprite scale={[1.8, 0.45, 1]}>
           <spriteMaterial attach="material" sizeAttenuation toneMapped={false} transparent>
             <canvasTexture attach="map" args={[labelCanvas]} />
           </spriteMaterial>
