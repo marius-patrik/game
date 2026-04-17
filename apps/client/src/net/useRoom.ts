@@ -112,6 +112,18 @@ export type BossTelegraphEvent = {
   at: number;
 };
 
+export type CasterBoltSnapshot = {
+  id: string;
+  mobId: string;
+  from: { x: number; y: number; z: number };
+  to: { x: number; y: number; z: number };
+  targetId: string;
+  durationMs: number;
+  spawnAt: number;
+  state: "flying" | "hit" | "miss";
+  damage: number;
+};
+
 export type RoomState = {
   status: "idle" | "connecting" | "connected" | "error";
   error?: string;
@@ -130,6 +142,7 @@ export type RoomState = {
   lastSkill?: SkillCastEvent;
   lastTelegraph?: BossTelegraphEvent;
   lastDied?: DiedEvent;
+  bolts: Map<string, CasterBoltSnapshot>;
   send: {
     (type: "move", payload: { x: number; y: number; z: number }): void;
     (type: "attack"): void;
@@ -232,6 +245,7 @@ export function useRoom(): RoomState {
     mobs: new Map(),
     npcs: new Map(),
     chat: [],
+    bolts: new Map(),
     zoneId: DEFAULT_ZONE,
     send: (() => {}) as RoomState["send"],
     travel: () => {},
@@ -265,6 +279,7 @@ export function useRoom(): RoomState {
         const mobs = new Map<string, MobSnapshot>();
         const npcs = new Map<string, NpcSnapshot>();
         const chat: ChatEntry[] = [];
+        const bolts = new Map<string, CasterBoltSnapshot>();
         let lastAttack: AttackEvent | undefined;
         let lastRespawn: RespawnEvent | undefined;
         let lastPickup: PickupEvent | undefined;
@@ -290,6 +305,7 @@ export function useRoom(): RoomState {
             mobs: new Map(mobs),
             npcs: new Map(npcs),
             chat: [...chat],
+            bolts: new Map(bolts),
             lastAttack,
             lastRespawn,
             lastPickup,
@@ -429,6 +445,43 @@ export function useRoom(): RoomState {
             commit();
           },
         );
+        room.onMessage(
+          "caster-bolt",
+          (msg: {
+            id: string;
+            mobId: string;
+            from: { x: number; y: number; z: number };
+            to: { x: number; y: number; z: number };
+            targetId: string;
+            durationMs: number;
+            damage: number;
+          }) => {
+            bolts.set(msg.id, {
+              id: msg.id,
+              mobId: msg.mobId,
+              from: msg.from,
+              to: msg.to,
+              targetId: msg.targetId,
+              durationMs: msg.durationMs,
+              spawnAt: Date.now(),
+              state: "flying",
+              damage: msg.damage,
+            });
+            commit();
+          },
+        );
+        const resolveBolt = (id: string, state: "hit" | "miss") => {
+          const existing = bolts.get(id);
+          if (existing) bolts.set(id, { ...existing, state });
+          // Give the animation a beat to finish before dropping the entry.
+          setTimeout(() => {
+            bolts.delete(id);
+            commit();
+          }, 200);
+          commit();
+        };
+        room.onMessage("caster-bolt-hit", (msg: { id: string }) => resolveBolt(msg.id, "hit"));
+        room.onMessage("caster-bolt-miss", (msg: { id: string }) => resolveBolt(msg.id, "miss"));
         room.onMessage("chat-error", (msg: ChatError) => {
           toast.error(chatErrorMessage(msg.reason));
         });
@@ -476,6 +529,7 @@ export function useRoom(): RoomState {
             mobs: new Map(),
             npcs: new Map(),
             chat: [],
+            bolts: new Map(),
           }));
         });
         room.onError((_code, message) => {
@@ -489,6 +543,7 @@ export function useRoom(): RoomState {
             mobs: new Map(),
             npcs: new Map(),
             chat: [],
+            bolts: new Map(),
           }));
         });
 

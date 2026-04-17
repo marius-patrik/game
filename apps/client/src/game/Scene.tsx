@@ -4,6 +4,7 @@ import { SparkBurst } from "@/fx";
 import type {
   AttackEvent,
   BossTelegraphEvent,
+  CasterBoltSnapshot,
   DropSnapshot,
   MobSnapshot,
   NpcSnapshot,
@@ -17,6 +18,7 @@ import { type MutableRefObject, useEffect, useRef } from "react";
 import { type Group, MathUtils, Vector3 } from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { BossTelegraph } from "./BossTelegraph";
+import { CasterBolts } from "./CasterBolts";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { InteractionPrompt } from "./InteractionPrompt";
@@ -41,6 +43,7 @@ export function Scene({
   drops,
   mobs,
   npcs,
+  bolts,
   sessionId,
   zoneId = DEFAULT_ZONE,
   moveTarget,
@@ -58,6 +61,7 @@ export function Scene({
   drops: Map<string, DropSnapshot>;
   mobs: Map<string, MobSnapshot>;
   npcs: Map<string, NpcSnapshot>;
+  bolts: Map<string, CasterBoltSnapshot>;
   sessionId?: string;
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
@@ -162,6 +166,7 @@ export function Scene({
       <Portals portals={zone.portals} />
       <DamageNumbers lastAttack={lastAttack} players={players} mobs={mobs} />
       <BossTelegraph event={lastTelegraph} />
+      <CasterBolts bolts={bolts} />
 
       <InteractionPrompt
         npcs={npcs}

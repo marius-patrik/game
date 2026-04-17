@@ -238,10 +238,12 @@ function GameViewInner({
             drops={room.drops}
             mobs={room.mobs}
             npcs={room.npcs}
+            bolts={room.bolts}
             sessionId={room.sessionId}
             zoneId={room.zoneId}
             moveTarget={moveTarget}
             lastAttack={room.lastAttack}
+            lastTelegraph={room.lastTelegraph}
             selfPosRef={selfPosRef}
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
