@@ -1,0 +1,10 @@
+ALTER TABLE `player_progress` ADD `gold` integer DEFAULT 0 NOT NULL;
+ALTER TABLE `player_progress` ADD `mana` integer DEFAULT 50 NOT NULL;
+ALTER TABLE `player_progress` ADD `max_mana` integer DEFAULT 50 NOT NULL;
+ALTER TABLE `player_progress` ADD `strength` integer DEFAULT 5 NOT NULL;
+ALTER TABLE `player_progress` ADD `dexterity` integer DEFAULT 5 NOT NULL;
+ALTER TABLE `player_progress` ADD `vitality` integer DEFAULT 5 NOT NULL;
+ALTER TABLE `player_progress` ADD `intellect` integer DEFAULT 5 NOT NULL;
+ALTER TABLE `player_progress` ADD `stat_points` integer DEFAULT 0 NOT NULL;
+ALTER TABLE `player_progress` ADD `equipment_json` text DEFAULT '{}' NOT NULL;
+ALTER TABLE `player_progress` ADD `quests_json` text DEFAULT '{}' NOT NULL;

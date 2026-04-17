@@ -1,0 +1,109 @@
+import type { NpcSnapshot } from "@/net/useRoom";
+import { Billboard, Sparkles } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { useRef } from "react";
+import { type Group, MathUtils, type Mesh } from "three";
+
+function NameTag({ name, color }: { name: string; color: string }) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.clearRect(0, 0, 256, 64);
+    ctx.font = "600 28px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(0,0,0,0.8)";
+    ctx.strokeText(name, 128, 32);
+    ctx.fillStyle = color;
+    ctx.fillText(name, 128, 32);
+  }
+  return (
+    <Billboard position={[0, 1.5, 0]}>
+      <sprite scale={[2.1, 0.55, 1]}>
+        <spriteMaterial attach="material" sizeAttenuation toneMapped={false}>
+          <canvasTexture attach="map" args={[canvas]} />
+        </spriteMaterial>
+      </sprite>
+    </Billboard>
+  );
+}
+
+function NpcModel({
+  npc,
+  onInteract,
+}: {
+  npc: NpcSnapshot;
+  onInteract: (npc: NpcSnapshot) => void;
+}) {
+  const root = useRef<Group>(null);
+  const body = useRef<Mesh>(null);
+  const isVendor = npc.kind === "vendor";
+  const color = isVendor ? "#8b5cf6" : "#22c55e";
+  const emissive = isVendor ? "#4c1d95" : "#14532d";
+
+  useFrame((state, dt) => {
+    const b = body.current;
+    if (!b) return;
+    const t = state.clock.getElapsedTime();
+    b.position.y = 0.3 + Math.sin(t * 2) * 0.06;
+    b.rotation.y = MathUtils.lerp(b.rotation.y, Math.sin(t * 0.5) * 0.3, 1 - Math.exp(-dt * 4));
+  });
+
+  return (
+    <group
+      ref={root}
+      position={[npc.x, npc.y, npc.z]}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onInteract(npc);
+      }}
+    >
+      <mesh ref={body} castShadow>
+        <boxGeometry args={[0.8, 0.8, 0.8]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={emissive}
+          emissiveIntensity={0.4}
+          metalness={0.2}
+          roughness={0.35}
+        />
+      </mesh>
+      {/* head gem */}
+      <mesh position={[0, 1.05, 0]}>
+        <octahedronGeometry args={[0.22, 0]} />
+        <meshStandardMaterial
+          color="#fde68a"
+          emissive="#fbbf24"
+          emissiveIntensity={0.7}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* base glow */}
+      <mesh position={[0, -0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.5, 0.6, 24]} />
+        <meshBasicMaterial color={color} transparent opacity={0.5} toneMapped={false} />
+      </mesh>
+      <Sparkles count={18} scale={[1.2, 1.6, 1.2]} size={2.2} speed={0.3} color={color} />
+      <NameTag name={npc.name} color={color} />
+    </group>
+  );
+}
+
+export function Npcs({
+  npcs,
+  onInteract,
+}: {
+  npcs: Map<string, NpcSnapshot>;
+  onInteract: (npc: NpcSnapshot) => void;
+}) {
+  return (
+    <>
+      {[...npcs.values()].map((n) => (
+        <NpcModel key={n.id} npc={n} onInteract={onInteract} />
+      ))}
+    </>
+  );
+}

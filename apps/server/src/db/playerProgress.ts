@@ -9,6 +9,16 @@ export type ProgressRow = {
   level: number;
   xp: number;
   equippedItemId: string;
+  gold: number;
+  mana: number;
+  maxMana: number;
+  strength: number;
+  dexterity: number;
+  vitality: number;
+  intellect: number;
+  statPoints: number;
+  equipmentJson: string;
+  questsJson: string;
   updatedAt: Date;
 };
 
@@ -42,12 +52,34 @@ export type SaveProgressInput = {
   level: number;
   xp: number;
   equippedItemId: string;
+  gold?: number;
+  mana?: number;
+  maxMana?: number;
+  strength?: number;
+  dexterity?: number;
+  vitality?: number;
+  intellect?: number;
+  statPoints?: number;
+  equipmentJson?: string;
+  questsJson?: string;
   inventory: readonly { itemId: string; qty: number }[];
   now?: Date;
 };
 
 export async function saveProgress(input: SaveProgressInput, db: DB = defaultDb): Promise<void> {
   const now = input.now ?? new Date();
+  const row = {
+    gold: input.gold ?? 0,
+    mana: input.mana ?? 50,
+    maxMana: input.maxMana ?? 50,
+    strength: input.strength ?? 5,
+    dexterity: input.dexterity ?? 5,
+    vitality: input.vitality ?? 5,
+    intellect: input.intellect ?? 5,
+    statPoints: input.statPoints ?? 0,
+    equipmentJson: input.equipmentJson ?? "{}",
+    questsJson: input.questsJson ?? "{}",
+  };
   await db
     .insert(playerProgress)
     .values({
@@ -55,6 +87,7 @@ export async function saveProgress(input: SaveProgressInput, db: DB = defaultDb)
       level: input.level,
       xp: input.xp,
       equippedItemId: input.equippedItemId,
+      ...row,
       updatedAt: now,
     })
     .onConflictDoUpdate({
@@ -63,6 +96,7 @@ export async function saveProgress(input: SaveProgressInput, db: DB = defaultDb)
         level: input.level,
         xp: input.xp,
         equippedItemId: input.equippedItemId,
+        ...row,
         updatedAt: now,
       },
     });

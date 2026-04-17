@@ -75,6 +75,16 @@ export const playerProgress = sqliteTable("player_progress", {
   level: integer("level").notNull().default(1),
   xp: integer("xp").notNull().default(0),
   equippedItemId: text("equipped_item_id").notNull().default(""),
+  gold: integer("gold").notNull().default(0),
+  mana: integer("mana").notNull().default(50),
+  maxMana: integer("max_mana").notNull().default(50),
+  strength: integer("strength").notNull().default(5),
+  dexterity: integer("dexterity").notNull().default(5),
+  vitality: integer("vitality").notNull().default(5),
+  intellect: integer("intellect").notNull().default(5),
+  statPoints: integer("stat_points").notNull().default(0),
+  equipmentJson: text("equipment_json").notNull().default("{}"),
+  questsJson: text("quests_json").notNull().default("{}"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 

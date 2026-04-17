@@ -4,10 +4,15 @@ import {
   type ChatEntry,
   type ChatError,
   DEFAULT_ZONE,
+  type EquipSlot,
   type GameRoomState,
   type InventorySlot,
   type Mob,
+  type Npc,
   type Player,
+  type QuestProgress,
+  type SkillId,
+  type StatKey,
   type WorldDrop,
   type ZoneId,
 } from "@game/shared";
@@ -17,6 +22,7 @@ import { toast } from "sonner";
 import { joinZone } from "./room";
 
 export type SlotSnapshot = { itemId: string; qty: number };
+export type QuestSnapshot = { id: string; status: string; progress: number; goal: number };
 
 export type PlayerSnapshot = {
   id: string;
@@ -26,12 +32,22 @@ export type PlayerSnapshot = {
   z: number;
   hp: number;
   maxHp: number;
+  mana: number;
+  maxMana: number;
   alive: boolean;
   level: number;
   xp: number;
   xpToNext: number;
+  gold: number;
+  strength: number;
+  dexterity: number;
+  vitality: number;
+  intellect: number;
+  statPoints: number;
   equippedItemId: string;
+  equipment: Record<string, string>;
   inventory: SlotSnapshot[];
+  quests: QuestSnapshot[];
 };
 
 export type DropSnapshot = {
@@ -54,13 +70,34 @@ export type MobSnapshot = {
   alive: boolean;
 };
 
-export type AttackEvent = { attackerId: string; targetId: string; killed: boolean };
+export type NpcSnapshot = {
+  id: string;
+  kind: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+};
+
+export type AttackEvent = {
+  attackerId: string;
+  targetId: string;
+  killed: boolean;
+  dmg?: number;
+};
 export type RespawnEvent = { x: number; y: number; z: number; at: number };
 export type PickupEvent = { itemId: string; qty: number; at: number };
-export type UsedEvent = { itemId: string; hp: number; at: number };
+export type UsedEvent = { itemId: string; hp: number; mana?: number; at: number };
 export type MobKilledEvent = {
   mobId: string;
   pos: { x: number; y: number; z: number };
+  at: number;
+};
+export type SkillCastEvent = {
+  casterId: string;
+  skillId: SkillId;
+  pos: { x: number; y: number; z: number };
+  hits: number;
   at: number;
 };
 
@@ -72,12 +109,14 @@ export type RoomState = {
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
   mobs: Map<string, MobSnapshot>;
+  npcs: Map<string, NpcSnapshot>;
   chat: ChatEntry[];
   lastAttack?: AttackEvent;
   lastRespawn?: RespawnEvent;
   lastPickup?: PickupEvent;
   lastUsed?: UsedEvent;
   lastMobKilled?: MobKilledEvent;
+  lastSkill?: SkillCastEvent;
   send: {
     (type: "move", payload: { x: number; y: number; z: number }): void;
     (type: "attack"): void;
@@ -86,6 +125,13 @@ export type RoomState = {
     (type: "equip", payload: { itemId: string }): void;
     (type: "drop", payload: { itemId: string; qty: number }): void;
     (type: "chat", payload: { channel: ChatChannel; text: string }): void;
+    (type: "allocateStat", payload: { stat: StatKey }): void;
+    (type: "cast", payload: { skillId: SkillId }): void;
+    (type: "equipSlot", payload: { slot: EquipSlot; itemId: string }): void;
+    (type: "unequipSlot", payload: { slot: EquipSlot }): void;
+    (type: "buy", payload: { itemId: string; qty?: number }): void;
+    (type: "sell", payload: { itemId: string; qty?: number }): void;
+    (type: "turnInQuest", payload: { questId: string }): void;
   };
   travel: (zoneId: ZoneId) => void;
 };
@@ -95,6 +141,14 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
   for (const s of p.inventory as Iterable<InventorySlot>) {
     inv.push({ itemId: s.itemId, qty: s.qty });
   }
+  const equipment: Record<string, string> = {};
+  p.equipment.forEach((itemId, slot) => {
+    equipment[slot] = itemId;
+  });
+  const quests: QuestSnapshot[] = [];
+  p.quests.forEach((q: QuestProgress, id: string) => {
+    quests.push({ id, status: q.status, progress: q.progress, goal: q.goal });
+  });
   return {
     id: key,
     name: p.name,
@@ -103,30 +157,27 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
     z: p.z,
     hp: p.hp,
     maxHp: p.maxHp,
+    mana: p.mana,
+    maxMana: p.maxMana,
     alive: p.alive,
     level: p.level,
     xp: p.xp,
     xpToNext: p.xpToNext,
+    gold: p.gold,
+    strength: p.strength,
+    dexterity: p.dexterity,
+    vitality: p.vitality,
+    intellect: p.intellect,
+    statPoints: p.statPoints,
     equippedItemId: p.equippedItemId,
+    equipment,
     inventory: inv,
+    quests,
   };
 }
 
 function snapDrop(d: WorldDrop, key: string): DropSnapshot {
   return { id: key, itemId: d.itemId, qty: d.qty, x: d.x, y: d.y, z: d.z };
-}
-
-function chatErrorMessage(reason: ChatError["reason"]): string {
-  switch (reason) {
-    case "rate_limit":
-      return "Chat: slow down";
-    case "too_long":
-      return "Chat: message too long";
-    case "empty":
-      return "Chat: message empty";
-    case "invalid_channel":
-      return "Chat: invalid channel";
-  }
 }
 
 function snapMob(m: Mob, key: string): MobSnapshot {
@@ -142,6 +193,23 @@ function snapMob(m: Mob, key: string): MobSnapshot {
   };
 }
 
+function snapNpc(n: Npc, key: string): NpcSnapshot {
+  return { id: key, kind: n.kind, name: n.name, x: n.x, y: n.y, z: n.z };
+}
+
+function chatErrorMessage(reason: ChatError["reason"]): string {
+  switch (reason) {
+    case "rate_limit":
+      return "Chat: slow down";
+    case "too_long":
+      return "Chat: message too long";
+    case "empty":
+      return "Chat: message empty";
+    case "invalid_channel":
+      return "Chat: invalid channel";
+  }
+}
+
 export function useRoom(): RoomState {
   const [zoneId, setZoneId] = useState<ZoneId>(DEFAULT_ZONE);
   const [state, setState] = useState<RoomState>(() => ({
@@ -149,6 +217,7 @@ export function useRoom(): RoomState {
     players: new Map(),
     drops: new Map(),
     mobs: new Map(),
+    npcs: new Map(),
     chat: [],
     zoneId: DEFAULT_ZONE,
     send: (() => {}) as RoomState["send"],
@@ -181,12 +250,14 @@ export function useRoom(): RoomState {
         const players = new Map<string, PlayerSnapshot>();
         const drops = new Map<string, DropSnapshot>();
         const mobs = new Map<string, MobSnapshot>();
+        const npcs = new Map<string, NpcSnapshot>();
         const chat: ChatEntry[] = [];
         let lastAttack: AttackEvent | undefined;
         let lastRespawn: RespawnEvent | undefined;
         let lastPickup: PickupEvent | undefined;
         let lastUsed: UsedEvent | undefined;
         let lastMobKilled: MobKilledEvent | undefined;
+        let lastSkill: SkillCastEvent | undefined;
 
         const send = ((type: string, payload?: unknown) => {
           if (!room) return;
@@ -202,12 +273,14 @@ export function useRoom(): RoomState {
             players: new Map(players),
             drops: new Map(drops),
             mobs: new Map(mobs),
+            npcs: new Map(npcs),
             chat: [...chat],
             lastAttack,
             lastRespawn,
             lastPickup,
             lastUsed,
             lastMobKilled,
+            lastSkill,
             send,
             travel,
           });
@@ -250,9 +323,21 @@ export function useRoom(): RoomState {
           mobs.delete(key);
           commit();
         });
+        $(room.state).npcs.onAdd((n: Npc, key: string) => {
+          npcs.set(key, snapNpc(n, key));
+          commit();
+          $(n).onChange(() => {
+            npcs.set(key, snapNpc(n, key));
+            commit();
+          });
+        });
+        $(room.state).npcs.onRemove((_n: Npc, key: string) => {
+          npcs.delete(key);
+          commit();
+        });
 
         room.onMessage("attack", (msg: AttackEvent) => {
-          lastAttack = msg;
+          lastAttack = { ...msg, attackerId: msg.attackerId };
           commit();
         });
         room.onMessage(
@@ -270,8 +355,8 @@ export function useRoom(): RoomState {
           lastPickup = { itemId: msg.itemId, qty: msg.qty, at: Date.now() };
           commit();
         });
-        room.onMessage("used", (msg: { itemId: string; hp: number }) => {
-          lastUsed = { itemId: msg.itemId, hp: msg.hp, at: Date.now() };
+        room.onMessage("used", (msg: { itemId: string; hp: number; mana?: number }) => {
+          lastUsed = { itemId: msg.itemId, hp: msg.hp, mana: msg.mana, at: Date.now() };
           commit();
         });
         room.onMessage("chat", (entry: ChatEntry) => {
@@ -285,6 +370,36 @@ export function useRoom(): RoomState {
         room.onMessage("zone-exit", (msg: { to: ZoneId }) => {
           travel(msg.to);
         });
+        room.onMessage(
+          "skill-cast",
+          (msg: {
+            casterId: string;
+            skillId: SkillId;
+            pos: { x: number; y: number; z: number };
+            hits: number;
+          }) => {
+            lastSkill = {
+              casterId: msg.casterId,
+              skillId: msg.skillId,
+              pos: msg.pos,
+              hits: msg.hits,
+              at: Date.now(),
+            };
+            commit();
+          },
+        );
+        room.onMessage("cast-error", (msg: { skillId: SkillId; reason: "cooldown" | "mana" }) => {
+          toast.error(`Cast failed: ${msg.reason}`);
+        });
+        room.onMessage("vendor-ok", (_msg: unknown) => {
+          toast.success("Deal done");
+        });
+        room.onMessage("vendor-error", (msg: { reason: string }) => {
+          toast.error(`Vendor: ${msg.reason}`);
+        });
+        room.onMessage("quest-complete", (_msg: unknown) => {
+          toast.success("Quest turned in!");
+        });
 
         room.onLeave(() => {
           if (cancelled) return;
@@ -294,6 +409,7 @@ export function useRoom(): RoomState {
             players: new Map(),
             drops: new Map(),
             mobs: new Map(),
+            npcs: new Map(),
             chat: [],
           }));
         });
@@ -306,6 +422,7 @@ export function useRoom(): RoomState {
             players: new Map(),
             drops: new Map(),
             mobs: new Map(),
+            npcs: new Map(),
             chat: [],
           }));
         });
@@ -320,6 +437,7 @@ export function useRoom(): RoomState {
           players: new Map(),
           drops: new Map(),
           mobs: new Map(),
+          npcs: new Map(),
         }));
       }
     })();
