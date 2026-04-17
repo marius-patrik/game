@@ -30,8 +30,12 @@ export function PortalTransition({
   const [frame, setFrame] = useState<PortalFrame | null>(null);
   const phaseRef = useRef<Phase>("idle");
   const cancelRef = useRef<() => void>(() => {});
+  const statusRef = useRef<CinematicStatus>(status);
   const prevZoneRef = useRef<string | null>(null);
   const prevStatusRef = useRef<CinematicStatus>(status);
+
+  // Keep a live ref to `status` so the RAF loop can react without restarting.
+  statusRef.current = status;
 
   useEffect(() => {
     const playback = getPortalPlayback();
@@ -40,7 +44,7 @@ export function PortalTransition({
     prevZoneRef.current = zoneId;
     prevStatusRef.current = status;
 
-    // Connection failed — abort cinematic so the Disconnected toast is visible.
+    // Hard failure — abort so the Disconnected toast is visible.
     if (status === "error") {
       cancelRef.current();
       phaseRef.current = "idle";
@@ -52,60 +56,51 @@ export function PortalTransition({
     const isReconnecting = status === "connecting" && prevStatus === "connected";
     const travelStarting = isNewZone || isReconnecting;
 
-    if (travelStarting || phaseRef.current === "playing") {
-      cancelRef.current();
-      phaseRef.current = "playing";
+    // Only restart from the top if this is a brand-new travel; otherwise let
+    // the already-running loop react to the updated statusRef.
+    if (!travelStarting) return undefined;
 
-      let cancelled = false;
-      cancelRef.current = () => {
-        cancelled = true;
-      };
+    cancelRef.current();
+    phaseRef.current = "playing";
 
-      const HOLD_AT = 0.9;
-      const startFromPosition = travelStarting ? 0 : playback.readPosition();
-      playback.setTime(startFromPosition);
-      const startWallMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+    let cancelled = false;
+    cancelRef.current = () => {
+      cancelled = true;
+    };
 
-      const step = () => {
-        if (cancelled) return;
-        const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+    playback.setTime(0);
+    const startWallMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+    let holdStartMs: number | null = null;
+    let revealStartMs: number | null = null;
+    const HOLD_AT = 0.9;
+
+    const loop = () => {
+      if (cancelled) return;
+      const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+
+      if (phaseRef.current === "playing") {
         const elapsedSec = (nowMs - startWallMs) / 1000;
-        const t = Math.min(HOLD_AT, startFromPosition + elapsedSec);
+        const t = Math.min(HOLD_AT, elapsedSec);
         playback.setTime(t);
         setFrame(playback.sample(t));
         if (t >= HOLD_AT) {
           phaseRef.current = "holding";
-          return;
+          holdStartMs = nowMs;
         }
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-      return () => {
-        cancelled = true;
-      };
-    }
+      }
 
-    // Reconnect complete — play the reveal phase.
-    if (status === "connected" && phaseRef.current === "holding") {
-      cancelRef.current();
-      let cancelled = false;
-      cancelRef.current = () => {
-        cancelled = true;
-      };
-      phaseRef.current = "reveal";
-
-      const startWallMs = typeof performance !== "undefined" ? performance.now() : Date.now();
-      const holdStart = startWallMs;
-
-      const step = () => {
-        if (cancelled) return;
-        const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const sinceHoldMs = nowMs - holdStart;
-        if (sinceHoldMs < MIN_HOLD_MS) {
-          requestAnimationFrame(step);
-          return;
+      if (phaseRef.current === "holding") {
+        if (statusRef.current === "connected" && holdStartMs !== null) {
+          const heldMs = nowMs - holdStartMs;
+          if (heldMs >= MIN_HOLD_MS) {
+            phaseRef.current = "reveal";
+            revealStartMs = nowMs;
+          }
         }
-        const revealElapsed = (sinceHoldMs - MIN_HOLD_MS) / 1000;
+      }
+
+      if (phaseRef.current === "reveal" && revealStartMs !== null) {
+        const revealElapsed = (nowMs - revealStartMs) / 1000;
         const t = Math.min(PORTAL_DURATION_SEC, 0.9 + revealElapsed);
         playback.setTime(t);
         setFrame(playback.sample(t));
@@ -114,15 +109,15 @@ export function PortalTransition({
           setFrame(null);
           return;
         }
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-      return () => {
-        cancelled = true;
-      };
-    }
+      }
 
-    return undefined;
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+
+    return () => {
+      cancelled = true;
+    };
   }, [status, zoneId]);
 
   return (
