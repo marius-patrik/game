@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { db } from "./client";
 import { embeddedMigrations } from "./migrations-embedded";
+import { reconcileSchema } from "./reconcile";
 
 const SOURCE_DIR = resolve(import.meta.dir, "../../drizzle");
 
@@ -21,4 +22,5 @@ export async function runMigrations(): Promise<void> {
   const journalOnDisk = await Bun.file(join(SOURCE_DIR, "meta/_journal.json")).exists();
   const folder = journalOnDisk ? SOURCE_DIR : await materializeEmbeddedMigrations();
   migrate(db, { migrationsFolder: folder });
+  reconcileSchema(db.$client);
 }

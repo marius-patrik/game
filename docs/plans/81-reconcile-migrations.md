@@ -1,7 +1,7 @@
 # Plan: #81 — Reconcile missing drizzle migrations 0003 + 0004
 
-**Status:** draft
-**Owner agent:** backend
+**Status:** shipped
+**Owner agent:** backend (aa04cdae — rate-limited mid-run; overseer finished ~20%)
 **Branch:** `fix/reconcile-migrations`
 
 ## Context
@@ -90,4 +90,13 @@ Also **fix the test** separately: update `playerProgress.test.ts` to hand-roll t
 - Drizzle-kit re-snapshot — not needed now; if done later, follow the mitigation noted in Risks.
 
 ## Retro
-_(filled after merge)_
+
+**Shipped as planned.** Procedural `reconcileSchema()` in `apps/server/src/db/reconcile.ts` runs after `migrate()`, PRAGMA-checks `player_progress`, and ALTERs in missing columns; `CREATE TABLE IF NOT EXISTS chat_message` idempotently creates the chat table. Test fix was the one-line-per-column extension as planned — no rewrite to the real migrator needed.
+
+**Diverged from plan:**
+- Agent hit the Anthropic account rate limit before committing. Files were uncommitted in the agent worktree (`.claude/worktrees/agent-aa04cdae`). Overseer finished from seat: dropped a scratch `scripts/smoke-reconcile.ts` the agent had written for manual verification (not in the plan's file impact; biome flagged it for formatting; its idempotency coverage is subsumed by a test we ran ephemerally and by the reconciler's own design), added a `_fresh-smoke.test.ts` one-shot to prove `migrate() + reconcileSchema()` against a real fresh DB (4/0 pass including idempotency assertion), deleted it after running. Committed the three production files only.
+- Idempotency verified two ways: (a) second `reconcileSchema()` call leaves column count unchanged, (b) running against a "legacy" DB that already has the columns is a no-op (no DDL emitted, no errors).
+
+**Lessons for pitfalls.md:** the existing "rate-limited agent recovery" entry already documents this pattern; this run confirms ~20% was left by the agent, with a truncated final tool call as the only surface signal (no explicit rate-limit message). Worth noting that a truncated result string mid-sentence ("Let me write a file-based smoke test:") is a tell.
+
+**Follow-ups:** after all environments have booted against the reconciler at least once, the 11-column helper in `reconcile.ts` + the orphaned `0003_stats_extras.sql` / `0004_cooldowns_chat.sql` files can be deleted in a cleanup PR. Not now.

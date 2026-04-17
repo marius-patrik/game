@@ -23,6 +23,17 @@ function makeDb() {
       level INTEGER NOT NULL DEFAULT 1,
       xp INTEGER NOT NULL DEFAULT 0,
       equipped_item_id TEXT NOT NULL DEFAULT '',
+      gold INTEGER NOT NULL DEFAULT 0,
+      mana INTEGER NOT NULL DEFAULT 50,
+      max_mana INTEGER NOT NULL DEFAULT 50,
+      strength INTEGER NOT NULL DEFAULT 5,
+      dexterity INTEGER NOT NULL DEFAULT 5,
+      vitality INTEGER NOT NULL DEFAULT 5,
+      intellect INTEGER NOT NULL DEFAULT 5,
+      stat_points INTEGER NOT NULL DEFAULT 0,
+      equipment_json TEXT NOT NULL DEFAULT '{}',
+      quests_json TEXT NOT NULL DEFAULT '{}',
+      skill_cooldowns_json TEXT NOT NULL DEFAULT '{}',
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
     );
