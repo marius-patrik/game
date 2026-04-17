@@ -11,27 +11,48 @@ type Phase = "idle" | "playing" | "holding" | "reveal";
 
 /**
  * Full-screen cinematic for zone swaps. Plays a 1.2s theatre.js-timed sequence
- * (camera push → radial wipe → white flash → fade-in). If the reconnect is
- * slower than the first 0.9s it holds on full black until status flips back
- * to `connected`, then finishes the last 0.3s reveal.
+ * (camera push → radial wipe → white flash → fade-in). Triggered by a zoneId
+ * change, then driven by `status`: holds on black while `connecting`, plays
+ * the reveal on `connected`, aborts on `error` so the user isn't stuck behind
+ * a black overlay when the zone fails to join.
  *
  * Rapid-swap safety: the active RAF loop carries a cancellation token; starting
  * a new travel during playback cancels the in-flight loop and restarts from
  * the current sequence position, so visuals never double up.
  */
-export function PortalTransition({ status }: { status: CinematicStatus }) {
+export function PortalTransition({
+  status,
+  zoneId,
+}: {
+  status: CinematicStatus;
+  zoneId: string;
+}) {
   const [frame, setFrame] = useState<PortalFrame | null>(null);
   const phaseRef = useRef<Phase>("idle");
   const cancelRef = useRef<() => void>(() => {});
+  const prevZoneRef = useRef<string | null>(null);
+  const prevStatusRef = useRef<CinematicStatus>(status);
 
   useEffect(() => {
     const playback = getPortalPlayback();
+    const prevZone = prevZoneRef.current;
+    const prevStatus = prevStatusRef.current;
+    prevZoneRef.current = zoneId;
+    prevStatusRef.current = status;
 
-    const isTravel = status === "connecting" || status === "idle";
+    // Connection failed — abort cinematic so the Disconnected toast is visible.
+    if (status === "error") {
+      cancelRef.current();
+      phaseRef.current = "idle";
+      setFrame(null);
+      return undefined;
+    }
 
-    if (isTravel) {
-      // Cancel any in-flight loop and (re)start from the current position so
-      // a rapid second travel keeps visuals continuous.
+    const isNewZone = prevZone !== null && prevZone !== zoneId;
+    const isReconnecting = status === "connecting" && prevStatus === "connected";
+    const travelStarting = isNewZone || isReconnecting;
+
+    if (travelStarting || phaseRef.current === "playing") {
       cancelRef.current();
       phaseRef.current = "playing";
 
@@ -40,10 +61,9 @@ export function PortalTransition({ status }: { status: CinematicStatus }) {
         cancelled = true;
       };
 
-      // Run phases 1-3 (cameraPush → wipe → flash) forward, then hold on
-      // black until reconnect finishes, then play the fadeIn phase.
       const HOLD_AT = 0.9;
-      const startFromPosition = playback.readPosition();
+      const startFromPosition = travelStarting ? 0 : playback.readPosition();
+      playback.setTime(startFromPosition);
       const startWallMs = typeof performance !== "undefined" ? performance.now() : Date.now();
 
       const step = () => {
@@ -65,8 +85,8 @@ export function PortalTransition({ status }: { status: CinematicStatus }) {
       };
     }
 
-    // Reconnected — finish the cinematic with the reveal phase.
-    if (phaseRef.current === "holding" || phaseRef.current === "playing") {
+    // Reconnect complete — play the reveal phase.
+    if (status === "connected" && phaseRef.current === "holding") {
       cancelRef.current();
       let cancelled = false;
       cancelRef.current = () => {
@@ -102,11 +122,8 @@ export function PortalTransition({ status }: { status: CinematicStatus }) {
       };
     }
 
-    // Idle → connected without a prior travel (cold boot, etc). No overlay.
-    phaseRef.current = "idle";
-    setFrame(null);
     return undefined;
-  }, [status]);
+  }, [status, zoneId]);
 
   return (
     <AnimatePresence>

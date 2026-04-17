@@ -11,13 +11,15 @@ type Status = "idle" | "connecting" | "connected" | "error";
  */
 export function ZoneTransition({
   status,
+  zoneId,
   skipCinematics,
 }: {
   status: Status;
+  zoneId: string;
   skipCinematics: boolean;
 }) {
   if (skipCinematics) return <PlainFade status={status} />;
-  return <PortalTransition status={status} />;
+  return <PortalTransition status={status} zoneId={zoneId} />;
 }
 
 function PlainFade({ status }: { status: Status }) {

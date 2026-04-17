@@ -350,7 +350,7 @@ function GameViewInner({
       <HitVignette self={self} />
       <LevelUpBanner self={self} />
       <QuestToast room={room} />
-      <ZoneTransition status={room.status} skipCinematics={skipCinematics} />
+      <ZoneTransition status={room.status} zoneId={room.zoneId} skipCinematics={skipCinematics} />
     </div>
   );
 }
