@@ -1,4 +1,4 @@
-export type SkillId = "cleave" | "heal" | "dash";
+export type SkillId = "basic" | "cleave" | "heal" | "dash";
 
 export type SkillDef = {
   id: SkillId;
@@ -11,6 +11,15 @@ export type SkillDef = {
 };
 
 export const SKILL_CATALOG: Record<SkillId, SkillDef> = {
+  basic: {
+    id: "basic",
+    name: "Strike",
+    description: "Hit the nearest hostile in range. No mana cost.",
+    manaCost: 0,
+    cooldownMs: 600,
+    range: 3,
+    color: "#fbbf24",
+  },
   cleave: {
     id: "cleave",
     name: "Cleave",
@@ -40,4 +49,4 @@ export const SKILL_CATALOG: Record<SkillId, SkillDef> = {
   },
 };
 
-export const SKILL_BAR: readonly SkillId[] = ["cleave", "heal", "dash"];
+export const SKILL_BAR: readonly SkillId[] = ["basic", "cleave", "heal", "dash"];

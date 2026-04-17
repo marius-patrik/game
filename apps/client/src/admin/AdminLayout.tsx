@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Activity, Home, Users } from "lucide-react";
+import { Activity, Home, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 
@@ -7,6 +7,7 @@ const nav = [
   { href: "/admin", label: "overview", icon: Home, exact: true },
   { href: "/admin/players", label: "players", icon: Users },
   { href: "/admin/rooms", label: "rooms", icon: Activity },
+  { href: "/admin/sessions", label: "live sessions", icon: Radio },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {

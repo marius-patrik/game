@@ -364,6 +364,15 @@ export function useRoom(): RoomState {
           while (chat.length > CHAT_MAX_HISTORY) chat.shift();
           commit();
         });
+        room.onMessage("chat-history", (rows: ChatEntry[]) => {
+          // Preload recent persisted messages ahead of live entries.
+          chat.unshift(...rows);
+          while (chat.length > CHAT_MAX_HISTORY) chat.shift();
+          commit();
+        });
+        room.onMessage("portal-locked", (msg: { to: ZoneId; minLevel: number }) => {
+          toast.error(`Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`);
+        });
         room.onMessage("chat-error", (msg: ChatError) => {
           toast.error(chatErrorMessage(msg.reason));
         });

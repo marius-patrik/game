@@ -6,12 +6,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import type { StatKey } from "@game/shared";
-import { Activity, Plus } from "lucide-react";
-import { useState } from "react";
+import { Plus } from "lucide-react";
 
 const STATS: { key: StatKey; label: string; desc: string }[] = [
   { key: "strength", label: "Strength", desc: "+1 damage per 2 STR" },
@@ -22,31 +20,18 @@ const STATS: { key: StatKey; label: string; desc: string }[] = [
 
 export function StatPanel({
   player,
+  open,
+  onOpenChange,
   onAllocate,
 }: {
   player: PlayerSnapshot | undefined;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
   onAllocate: (stat: StatKey) => void;
 }) {
-  const [open, setOpen] = useState(false);
   if (!player) return null;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="pointer-events-auto relative backdrop-blur-md bg-background/40"
-          aria-label="Stats"
-        >
-          <Activity />
-          <span className="hidden sm:inline">stats</span>
-          {player.statPoints > 0 ? (
-            <span className="-top-1 -right-1 absolute flex size-4 items-center justify-center rounded-full bg-primary font-semibold text-[10px] text-primary-foreground">
-              {player.statPoints}
-            </span>
-          ) : null}
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Character</DialogTitle>
@@ -81,7 +66,7 @@ export function StatPanel({
           ))}
         </div>
         <DialogFooter>
-          <Button onClick={() => setOpen(false)}>Close</Button>
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

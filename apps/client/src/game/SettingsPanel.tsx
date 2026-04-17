@@ -18,26 +18,36 @@ export function SettingsPanel({
   onTierChange,
   volume,
   onVolumeChange,
+  externalOpen,
+  onExternalOpenChange,
 }: {
   tier: QualityTier | "auto";
   onTierChange: (tier: QualityTier | "auto") => void;
   volume: number; // 0..1
   onVolumeChange: (v: number) => void;
+  /** Optional external open control for when the dialog trigger lives elsewhere. */
+  externalOpen?: boolean;
+  onExternalOpenChange?: (o: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen ?? internalOpen;
+  const setOpen = onExternalOpenChange ?? setInternalOpen;
+  const controlled = externalOpen !== undefined;
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="backdrop-blur-md bg-background/40"
-          aria-label="Settings"
-        >
-          <Settings />
-          <span className="hidden sm:inline">settings</span>
-        </Button>
-      </DialogTrigger>
+      {controlled ? null : (
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="backdrop-blur-md bg-background/40"
+            aria-label="Settings"
+          >
+            <Settings />
+            <span className="hidden sm:inline">settings</span>
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>

@@ -19,6 +19,7 @@ export type ProgressRow = {
   statPoints: number;
   equipmentJson: string;
   questsJson: string;
+  skillCooldownsJson: string;
   updatedAt: Date;
 };
 
@@ -62,6 +63,7 @@ export type SaveProgressInput = {
   statPoints?: number;
   equipmentJson?: string;
   questsJson?: string;
+  skillCooldownsJson?: string;
   inventory: readonly { itemId: string; qty: number }[];
   now?: Date;
 };
@@ -79,6 +81,7 @@ export async function saveProgress(input: SaveProgressInput, db: DB = defaultDb)
     statPoints: input.statPoints ?? 0,
     equipmentJson: input.equipmentJson ?? "{}",
     questsJson: input.questsJson ?? "{}",
+    skillCooldownsJson: input.skillCooldownsJson ?? "{}",
   };
   await db
     .insert(playerProgress)

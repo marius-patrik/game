@@ -27,15 +27,7 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   );
 }
 
-function MobModel({
-  mob,
-  onAttack,
-  lastAttack,
-}: {
-  mob: MobSnapshot;
-  onAttack: () => void;
-  lastAttack: AttackEvent | undefined;
-}) {
+function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEvent | undefined }) {
   const root = useRef<Group>(null);
   const spikes = useRef<Group>(null);
   const body = useRef<Mesh>(null);
@@ -52,7 +44,6 @@ function MobModel({
   const speed = useRef(0);
   const facing = useRef(0);
 
-  // hit flash ramp
   const lastAttackRef = useRef<AttackEvent | undefined>(undefined);
   const flashUntil = useRef(0);
   useEffect(() => {
@@ -67,8 +58,8 @@ function MobModel({
   useFrame((state, dt) => {
     const g = root.current;
     if (!g) return;
-    // Match the rendering smoothness of the new chase-arm camera: close the
-    // gap to server snapshot faster so mobs don't feel floaty.
+    // Match the rendering smoothness of the chase-arm camera: close the gap
+    // to server snapshot quickly so mobs don't feel floaty.
     const k = 1 - Math.exp(-dt * 22);
     g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
     g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.55, k);
@@ -83,7 +74,6 @@ function MobModel({
     prevPos.current.x = g.position.x;
     prevPos.current.z = g.position.z;
 
-    // idle eye pulse + spike spin
     const t = state.clock.getElapsedTime();
     if (spikes.current) spikes.current.rotation.y += dt * 2.4;
     const pulse = 0.6 + Math.abs(Math.sin(t * 3.2)) * 0.5;
@@ -99,10 +89,8 @@ function MobModel({
     ) {
       (eye2.current.material as MeshStandardMaterial).emissiveIntensity = pulse;
     }
-    // body bob when chasing
     if (body.current) body.current.position.y = Math.sin(t * 9) * 0.06 * (speed.current / 4);
 
-    // hit flash
     const now = performance.now();
     const flashing = now < flashUntil.current;
     if (bodyMat.current) {
@@ -110,24 +98,16 @@ function MobModel({
       bodyMat.current.emissiveIntensity = MathUtils.lerp(0.45, 2.4, f);
     }
     if (flashing && g) {
-      // small back-recoil in facing dir
       const f = (flashUntil.current - now) / 200;
       g.position.x -= Math.sin(facing.current) * 0.15 * f;
       g.position.z -= Math.cos(facing.current) * 0.15 * f;
     }
   });
 
+  // Note: no onPointerDown here — attacking is an ability now (Strike / key 1).
   return (
-    <group
-      ref={root}
-      position={[mob.x, mob.y + 0.55, mob.z]}
-      onPointerDown={(e) => {
-        e.stopPropagation();
-        onAttack();
-      }}
-    >
+    <group ref={root} position={[mob.x, mob.y + 0.55, mob.z]}>
       <Float speed={2.4} floatIntensity={0.18} rotationIntensity={0}>
-        {/* body cone */}
         <mesh ref={body} castShadow>
           <coneGeometry args={[0.4, 0.95, 10]} />
           <meshStandardMaterial
@@ -139,7 +119,6 @@ function MobModel({
             roughness={0.55}
           />
         </mesh>
-        {/* eyes */}
         <mesh ref={eye1} position={[-0.13, 0.18, 0.32]}>
           <sphereGeometry args={[0.07, 12, 12]} />
           <meshStandardMaterial
@@ -158,7 +137,6 @@ function MobModel({
             toneMapped={false}
           />
         </mesh>
-        {/* orbiting spikes */}
         <group ref={spikes} position={[0, 0.1, 0]}>
           {[0, 1, 2].map((i) => {
             const angle = (i / 3) * Math.PI * 2;
@@ -175,20 +153,17 @@ function MobModel({
             );
           })}
         </group>
-        {/* base glow ring */}
         <mesh position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.45, 0.55, 24]} />
           <meshBasicMaterial color="#ef4444" transparent opacity={0.35} toneMapped={false} />
         </mesh>
       </Float>
-      {/* movement trail */}
       <Trail width={0.5} length={1.8} color="#ef4444" attenuation={(t) => t * t}>
         <mesh ref={trailAnchor} visible={false}>
           <sphereGeometry args={[0.04, 6, 6]} />
           <meshBasicMaterial color="#ef4444" />
         </mesh>
       </Trail>
-      {/* ambient sparkle */}
       <Sparkles count={8} scale={[1, 1.2, 1]} size={1.2} speed={0.4} color="#fca5a5" />
       <HPBar hp={mob.hp} maxHp={mob.maxHp} />
     </group>
@@ -199,11 +174,9 @@ type DeathFx = { id: string; pos: { x: number; y: number; z: number }; until: nu
 
 export function Mobs({
   mobs,
-  onAttack,
   lastAttack,
 }: {
   mobs: Map<string, MobSnapshot>;
-  onAttack: () => void;
   lastAttack?: AttackEvent;
 }) {
   const lastRef = useRef(new Map<string, MobSnapshot>());
@@ -239,7 +212,7 @@ export function Mobs({
   return (
     <>
       {[...mobs.values()].map((m) => (
-        <MobModel key={m.id} mob={m} onAttack={onAttack} lastAttack={lastAttack} />
+        <MobModel key={m.id} mob={m} lastAttack={lastAttack} />
       ))}
       {deaths.map((d) => (
         <group key={d.id} position={[d.pos.x, d.pos.y + 0.6, d.pos.z]}>

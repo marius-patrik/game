@@ -41,6 +41,7 @@ import {
 } from "@game/shared";
 import { auth } from "../auth";
 import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
+import { insertChat, loadRecentChat } from "../db/chat";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
 import { loadProgress, saveProgress } from "../db/playerProgress";
 import {
@@ -235,6 +236,7 @@ export class GameRoom extends Room<GameRoomState> {
           p.mana = Math.min(progress.mana, p.maxMana);
           this.loadEquipment(p, progress.equipmentJson);
           this.loadQuests(p, progress.questsJson);
+          this.preloadSkillCooldowns(client.sessionId, progress.skillCooldownsJson);
         } else {
           p.xpToNext = xpToNextLevel(1);
           p.maxHp = maxHpFromStats(p.vitality);
@@ -286,7 +288,25 @@ export class GameRoom extends Room<GameRoomState> {
       lastAttackAt: 0,
     });
     this.playerPortal.set(client.sessionId, { rearmAt: Date.now() + PORTAL_REARM_MS });
-    this.skillCds.set(client.sessionId, new Map());
+    if (!this.skillCds.has(client.sessionId)) {
+      this.skillCds.set(client.sessionId, new Map());
+    }
+
+    // Stream recent chat history on join so the SidePanel chat tab isn't empty.
+    loadRecentChat()
+      .then((rows) => {
+        client.send(
+          "chat-history",
+          rows.map((r) => ({
+            id: r.id,
+            channel: r.channel,
+            from: r.fromName,
+            text: r.text,
+            at: r.createdAt.getTime(),
+          })),
+        );
+      })
+      .catch((err) => log.warn({ err }, "chat history load failed"));
   }
 
   override async onLeave(client: Client<unknown, SessionUser>) {
@@ -482,6 +502,65 @@ export class GameRoom extends Room<GameRoomState> {
     cds.set(skill.id, now + skill.cooldownMs);
 
     switch (skill.id) {
+      case "basic": {
+        // Same flow as the legacy "attack" message — picks nearest candidate
+        // (player or mob), applies damage, broadcasts. Lives in the skill
+        // system now so the HUD shows one unified action bar.
+        const candidates: Combatant[] = [];
+        this.state.players.forEach((pp, id) => {
+          if (id === client.sessionId) return;
+          candidates.push({ id, pos: { x: pp.x, y: pp.y, z: pp.z }, alive: pp.alive, hp: pp.hp });
+        });
+        this.state.mobs.forEach((m, id) => {
+          candidates.push({
+            id: `mob:${id}`,
+            pos: { x: m.x, y: m.y, z: m.z },
+            alive: m.alive,
+            hp: m.hp,
+          });
+        });
+        const attackerC: Combatant = {
+          id: client.sessionId,
+          pos: { x: p.x, y: p.y, z: p.z },
+          alive: p.alive,
+          hp: p.hp,
+        };
+        const dmg = this.computeDamage(p);
+        const cfg: CombatConfig = { ...this.combat, attackDamage: dmg, attackRange: skill.range };
+        const result = resolveAttack(attackerC, candidates, cfg);
+        if (!result.ok) return;
+        if (result.targetId.startsWith("mob:")) {
+          const mobId = result.targetId.slice(4);
+          const hit = this.mobSystem.applyDamage(mobId, dmg);
+          if (!hit.ok) return;
+          this.broadcast("attack", {
+            attackerId: client.sessionId,
+            targetId: result.targetId,
+            killed: hit.killed,
+            dmg,
+          });
+          if (hit.killed) this.onMobKilledByPlayer(p, hit.kind, hit.xpBonus, hit.gold);
+        } else {
+          const target = this.state.players.get(result.targetId);
+          const targetCombat = this.playerCombat.get(result.targetId);
+          if (!target || !targetCombat) return;
+          if (Date.now() < targetCombat.invulnerableUntil) return;
+          target.hp = result.newHp;
+          if (result.killed) {
+            target.alive = false;
+            this.spawnKillDrop(target);
+            const targetClient = this.clients.find((c) => c.sessionId === result.targetId);
+            this.scheduleRespawn(result.targetId, targetClient);
+          }
+          this.broadcast("attack", {
+            attackerId: client.sessionId,
+            targetId: result.targetId,
+            killed: result.killed,
+            dmg,
+          });
+        }
+        break;
+      }
       case "cleave": {
         const origin = { x: p.x, y: p.y, z: p.z };
         const hits = this.mobSystem.applyRadialDamage(origin, skill.range, this.computeDamage(p));
@@ -916,6 +995,18 @@ export class GameRoom extends Room<GameRoomState> {
     p.quests.forEach((q, id) => {
       quests[id] = { status: q.status, progress: q.progress, goal: q.goal };
     });
+    // Persist skill cooldowns as remaining-ms so they restore correctly
+    // across zone swaps / reconnects, independent of wall-clock drift.
+    const sessionId = this.sessionIdFor(userId);
+    const cdMs: Record<string, number> = {};
+    if (sessionId) {
+      const cds = this.skillCds.get(sessionId);
+      const now = Date.now();
+      cds?.forEach((readyAt, id) => {
+        const remaining = readyAt - now;
+        if (remaining > 0) cdMs[id] = remaining;
+      });
+    }
     await saveProgress({
       userId,
       level: p.level,
@@ -931,8 +1022,32 @@ export class GameRoom extends Room<GameRoomState> {
       statPoints: p.statPoints,
       equipmentJson: JSON.stringify(equip),
       questsJson: JSON.stringify(quests),
+      skillCooldownsJson: JSON.stringify(cdMs),
       inventory: this.slotsFromPlayer(p),
     });
+  }
+
+  private sessionIdFor(userId: string): string | undefined {
+    for (const [sid, uid] of this.playerUserId) {
+      if (uid === userId) return sid;
+    }
+    return undefined;
+  }
+
+  private preloadSkillCooldowns(sessionId: string, json: string) {
+    try {
+      const data = JSON.parse(json) as Record<string, number>;
+      const now = Date.now();
+      const cds = new Map<SkillId, number>();
+      for (const [id, remaining] of Object.entries(data)) {
+        if (!Number.isFinite(remaining) || remaining <= 0) continue;
+        if (id !== "basic" && id !== "cleave" && id !== "heal" && id !== "dash") continue;
+        cds.set(id as SkillId, now + remaining);
+      }
+      this.skillCds.set(sessionId, cds);
+    } catch {
+      this.skillCds.set(sessionId, new Map());
+    }
   }
 
   private loadEquipment(p: Player, json: string) {
@@ -997,8 +1112,13 @@ export class GameRoom extends Room<GameRoomState> {
         const dx = p.x - portal.pos.x;
         const dz = p.z - portal.pos.z;
         if (dx * dx + dz * dz > portal.radius * portal.radius) continue;
-        portalState.rearmAt = now + PORTAL_REARM_MS;
         const client = this.clients.find((c) => c.sessionId === sessionId);
+        if (portal.minLevel !== undefined && p.level < portal.minLevel) {
+          portalState.rearmAt = now + PORTAL_REARM_MS;
+          client?.send("portal-locked", { to: portal.to, minLevel: portal.minLevel });
+          return;
+        }
+        portalState.rearmAt = now + PORTAL_REARM_MS;
         if (!client) return;
         const userId = this.playerUserId.get(sessionId);
         if (userId) {
@@ -1065,12 +1185,24 @@ export class GameRoom extends Room<GameRoomState> {
     }
     this.chatCounter += 1;
     const entry: ChatEntry = {
-      id: `c${this.chatCounter.toString(36)}`,
+      id: `c${this.chatCounter.toString(36)}-${this.roomId.slice(-4)}`,
       channel: msg.channel,
       from: p.name && p.name.length > 0 ? p.name : client.sessionId.slice(0, 6),
       text: sanitized,
       at: Date.now(),
     };
+    // Persist to chat_message so reconnecting players see recent history.
+    const userId = this.playerUserId.get(client.sessionId);
+    if (userId) {
+      insertChat({
+        id: entry.id,
+        channel: entry.channel,
+        fromUserId: userId,
+        fromName: entry.from,
+        text: entry.text,
+        now: new Date(entry.at),
+      }).catch((err) => log.warn({ err }, "chat persist failed"));
+    }
     if (msg.channel === "zone") {
       this.broadcast("chat", entry);
       return;
