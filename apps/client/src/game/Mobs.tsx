@@ -67,7 +67,9 @@ function MobModel({
   useFrame((state, dt) => {
     const g = root.current;
     if (!g) return;
-    const k = 1 - Math.exp(-dt * 12);
+    // Match the rendering smoothness of the new chase-arm camera: close the
+    // gap to server snapshot faster so mobs don't feel floaty.
+    const k = 1 - Math.exp(-dt * 22);
     g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
     g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.55, k);
     g.position.z = MathUtils.lerp(g.position.z, target.current.z, k);

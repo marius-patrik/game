@@ -202,7 +202,7 @@ function GameViewInner({
     else if (npc.kind === "questgiver") setQuestOpen(true);
   }, []);
 
-  useClickControls({
+  const selfPosRef = useClickControls({
     enabled: canAct,
     initial: { x: self?.x ?? zone.spawn.x, y: 0, z: self?.z ?? zone.spawn.z },
     zone,
@@ -233,6 +233,7 @@ function GameViewInner({
             zoneId={room.zoneId}
             moveTarget={moveTarget}
             lastAttack={room.lastAttack}
+            selfPosRef={selfPosRef}
             cinematicActive={cinematicActive}
             onCinematicComplete={finishCinematic}
             onGroundClick={onGroundClick}

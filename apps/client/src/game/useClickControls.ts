@@ -1,5 +1,5 @@
 import { type Zone, clampToBounds } from "@game/shared";
-import { useEffect, useRef } from "react";
+import { type MutableRefObject, useEffect, useRef } from "react";
 
 type Vec3 = { x: number; y: number; z: number };
 type MoveFn = (pos: Vec3) => void;
@@ -20,6 +20,10 @@ const ARRIVE_EPSILON = 0.06;
  * `initial` is a snapshot of the authoritative spawn — whenever it
  * changes (zone swap, respawn) the local position resyncs to it and the
  * current move target is dropped.
+ *
+ * Returns a live ref to the client-authoritative position so the render
+ * layer can follow at 60Hz instead of the 20Hz server echo (which is what
+ * made both the self player and chase camera feel laggy).
  */
 export function useClickControls({
   enabled,
@@ -35,7 +39,7 @@ export function useClickControls({
   moveTarget: Vec3 | null;
   onArrive: () => void;
   onSend: MoveFn;
-}): void {
+}): MutableRefObject<Vec3> {
   const pos = useRef<Vec3>({ ...initial });
   const lastSent = useRef<Vec3>({ ...initial });
 
@@ -83,4 +87,6 @@ export function useClickControls({
     }, 1000 / TICK_HZ);
     return () => clearInterval(interval);
   }, [enabled, onSend, onArrive, zone, moveTarget]);
+
+  return pos;
 }
