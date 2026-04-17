@@ -85,7 +85,17 @@ export const playerProgress = sqliteTable("player_progress", {
   statPoints: integer("stat_points").notNull().default(0),
   equipmentJson: text("equipment_json").notNull().default("{}"),
   questsJson: text("quests_json").notNull().default("{}"),
+  skillCooldownsJson: text("skill_cooldowns_json").notNull().default("{}"),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
+export const chatMessage = sqliteTable("chat_message", {
+  id: text("id").primaryKey(),
+  channel: text("channel").notNull(),
+  fromUserId: text("from_user_id").notNull(),
+  fromName: text("from_name").notNull(),
+  text: text("text").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 export const playerInventory = sqliteTable(

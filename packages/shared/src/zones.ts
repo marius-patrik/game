@@ -16,6 +16,9 @@ export type Portal = {
   to: ZoneId;
   pos: Vec3;
   radius: number;
+  /** Minimum level required to travel. Portals below this threshold show
+   * as locked in the minimap and the server rejects the zone-exit. */
+  minLevel?: number;
 };
 
 export type Zone = {
@@ -35,7 +38,7 @@ export const ZONES = {
     spawn: { x: 0, y: 0.5, z: 0 },
     bounds: { min: { x: -18, y: 0, z: -18 }, max: { x: 18, y: 8, z: 18 } },
     maxClients: 64,
-    portals: [{ to: "arena", pos: { x: 15, y: 0.5, z: 0 }, radius: 1.5 }],
+    portals: [{ to: "arena", pos: { x: 15, y: 0.5, z: 0 }, radius: 1.5, minLevel: 2 }],
     theme: {
       preset: "city",
       ground: "#18181b",

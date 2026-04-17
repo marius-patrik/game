@@ -3,6 +3,7 @@ import { AdminLayout } from "./admin/AdminLayout";
 import { AdminOverview } from "./admin/routes/Overview";
 import { AdminPlayers } from "./admin/routes/Players";
 import { AdminRooms } from "./admin/routes/Rooms";
+import { AdminSessions } from "./admin/routes/Sessions";
 import { AudioProvider } from "./audio";
 import { AuthForm } from "./auth/AuthForm";
 import { RequireRole } from "./auth/RequireRole";
@@ -53,6 +54,13 @@ export function App() {
           <RequireRole allow="admin">
             <AdminLayout>
               <AdminRooms />
+            </AdminLayout>
+          </RequireRole>
+        </Route>
+        <Route path="/admin/sessions">
+          <RequireRole allow="admin">
+            <AdminLayout>
+              <AdminSessions />
             </AdminLayout>
           </RequireRole>
         </Route>

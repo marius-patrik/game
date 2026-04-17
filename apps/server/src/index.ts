@@ -103,6 +103,41 @@ app.get("/admin/api/rooms", requireAdmin(), async (_req, res) => {
   });
 });
 
+app.get("/admin/api/sessions", requireAdmin(), async (_req, res) => {
+  // Cross-reference live Colyseus rooms with the user table so admins see
+  // which registered accounts are actually connected right now.
+  const rooms = await matchMaker.query({ name: "zone" });
+  const users = await db
+    .select({
+      id: userTable.id,
+      name: userTable.name,
+      email: userTable.email,
+      role: userTable.role,
+    })
+    .from(userTable);
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const sessions = rooms.flatMap((r) => {
+    const meta = (r.metadata as { zoneId?: string; name?: string } | null) ?? {};
+    const clientIds = Array.isArray((r as unknown as { clientIds?: string[] }).clientIds)
+      ? ((r as unknown as { clientIds?: string[] }).clientIds ?? [])
+      : [];
+    return {
+      roomId: r.roomId,
+      zoneId: meta.zoneId ?? "unknown",
+      zoneName: meta.name ?? "",
+      clients: r.clients,
+      clientIds,
+    };
+  });
+  res.json({
+    totalRooms: rooms.length,
+    totalClients: rooms.reduce((s, r) => s + r.clients, 0),
+    registered: users.length,
+    sessions,
+    registeredById: Object.fromEntries(userById),
+  });
+});
+
 app.use("/colyseus", monitor());
 
 mountStatic(app);

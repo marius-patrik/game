@@ -12,7 +12,7 @@ export function QuestTracker({ player }: { player: PlayerSnapshot | undefined })
     .slice(0, MAX_TRACKED);
   if (active.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute top-[108px] right-2 flex max-w-[240px] flex-col gap-1.5 rounded-lg border border-border/40 bg-background/70 px-3 py-2 backdrop-blur-md sm:top-28 sm:right-4 sm:max-w-[260px]">
+    <div className="pointer-events-none absolute top-[140px] right-2 flex max-w-[220px] flex-col gap-1.5 rounded-lg border border-border/40 bg-background/70 px-3 py-2 backdrop-blur-md sm:top-[160px] sm:right-4 sm:max-w-[260px]">
       <div className="flex items-center gap-1.5 font-semibold text-[11px] uppercase tracking-wide text-muted-foreground">
         <ScrollText className="size-3" />
         <span>Quests</span>

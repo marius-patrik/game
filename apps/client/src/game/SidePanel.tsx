@@ -34,7 +34,7 @@ export function SidePanel({
   const [tab, setTab] = useState<Tab>("map");
 
   return (
-    <div className="pointer-events-auto absolute right-2 bottom-28 flex max-h-[56vh] flex-col overflow-hidden rounded-xl border border-border/40 bg-background/85 shadow-xl backdrop-blur-md sm:right-4 sm:bottom-28 sm:w-[320px]">
+    <div className="pointer-events-auto absolute right-2 bottom-32 flex max-h-[50vh] flex-col overflow-hidden rounded-xl border border-border/40 bg-background/85 shadow-xl backdrop-blur-md sm:right-4 sm:bottom-24 sm:w-[320px]">
       {collapsed ? (
         <Button
           variant="ghost"
