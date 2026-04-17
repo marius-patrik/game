@@ -235,6 +235,10 @@ function chatErrorMessage(reason: ChatError["reason"]): string {
       return "Chat: invalid channel";
     case "muted":
       return "Chat: you are muted";
+    case "blocked":
+      return "Chat: blocked";
+    case "not_found":
+      return "Chat: player not found";
   }
 }
 

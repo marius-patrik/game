@@ -3,6 +3,7 @@ import { ArraySchema, MapSchema } from "@colyseus/schema";
 import {
   CHAT_MAX_LEN,
   CRIT_MULTIPLIER,
+  type ChatCommand,
   type ChatEntry,
   type ChatError,
   type ChatInbound,
@@ -32,6 +33,7 @@ import {
   clampToBounds,
   damageBonusFromStats,
   equipBonus,
+  filterProfanity,
   getItem,
   getQuest,
   getZone,
@@ -40,12 +42,14 @@ import {
   manaRegenPerSec,
   maxHpFromStats,
   maxManaFromStats,
+  parseChatCommand,
   rollCrit,
   xpToNextLevel,
 } from "@game/shared";
 import { auth } from "../auth";
 import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
 import { insertChat, loadRecentChat } from "../db/chat";
+import { addBlock, isBlocked, removeBlock } from "../db/chatBlock";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
 import { loadProgress, saveProgress } from "../db/playerProgress";
 import {
@@ -1248,13 +1252,15 @@ export class GameRoom extends Room<GameRoomState> {
     client.send("died", msg);
   }
 
-  // ---------- Chat (unchanged) ----------
+  // ---------- Chat ----------
 
   private handleChat(client: Client<unknown, SessionUser>, msg: ChatInbound) {
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
     if (!msg || typeof msg !== "object") return;
-    if (!isChatChannel(msg.channel)) {
+    // Clients send chat on "zone" or "global". DMs are routed via the /w
+    // command, never by a direct channel: "dm" payload.
+    if (!isChatChannel(msg.channel) || msg.channel === "dm") {
       this.sendChatError(client, "invalid_channel");
       return;
     }
@@ -1281,16 +1287,39 @@ export class GameRoom extends Room<GameRoomState> {
       this.sendChatError(client, "rate_limit");
       return;
     }
+
+    const command = parseChatCommand(sanitized);
+    switch (command.kind) {
+      case "chat":
+        this.dispatchChatMessage(client, p, msg.channel, command.text);
+        return;
+      case "whisper":
+        this.dispatchWhisper(client, p, command);
+        return;
+      case "block":
+      case "unblock":
+        this.dispatchBlockCommand(client, command);
+        return;
+    }
+  }
+
+  private dispatchChatMessage(
+    client: Client<unknown, SessionUser>,
+    p: Player,
+    channel: "global" | "zone",
+    text: string,
+  ) {
+    const clean = filterProfanity(text);
+    const userId = this.playerUserId.get(client.sessionId);
     this.chatCounter += 1;
     const entry: ChatEntry = {
       id: `c${this.chatCounter.toString(36)}-${this.roomId.slice(-4)}`,
-      channel: msg.channel,
+      channel,
       from: p.name && p.name.length > 0 ? p.name : client.sessionId.slice(0, 6),
-      text: sanitized,
+      text: clean,
       at: Date.now(),
     };
     // Persist to chat_message so reconnecting players see recent history.
-    const userId = this.playerUserId.get(client.sessionId);
     if (userId) {
       insertChat({
         id: entry.id,
@@ -1301,23 +1330,130 @@ export class GameRoom extends Room<GameRoomState> {
         now: new Date(entry.at),
       }).catch((err) => log.warn({ err }, "chat persist failed"));
     }
-    if (msg.channel === "zone") {
+    if (channel === "zone") {
+      this.deliverToRoom(entry, userId);
+      return;
+    }
+    this.dispatchGlobalChat(entry, userId);
+  }
+
+  private dispatchWhisper(
+    sender: Client<unknown, SessionUser>,
+    senderPlayer: Player,
+    cmd: Extract<ChatCommand, { kind: "whisper" }>,
+  ) {
+    const senderUserId = this.playerUserId.get(sender.sessionId);
+    if (!senderUserId) return; // unauth'd sockets can't DM
+    const cleanText = filterProfanity(cmd.text);
+    const fromName =
+      senderPlayer.name && senderPlayer.name.length > 0
+        ? senderPlayer.name
+        : sender.sessionId.slice(0, 6);
+    this.chatCounter += 1;
+    const entry: ChatEntry = {
+      id: `c${this.chatCounter.toString(36)}-${this.roomId.slice(-4)}`,
+      channel: "dm",
+      from: fromName,
+      to: cmd.to,
+      text: cleanText,
+      at: Date.now(),
+    };
+    // Try to deliver in-room first, then fan out to other zones. If no online
+    // recipient is found anywhere, notify the sender with "not_found".
+    const localMatch = this.findPlayerByName(cmd.to, sender.sessionId);
+    if (localMatch) {
+      this.deliverDmLocal(entry, localMatch.sessionId, localMatch.userId, senderUserId);
+      sender.send("chat", entry);
+      return;
+    }
+    matchMaker
+      .query({ name: "zone" })
+      .then(async (rooms) => {
+        for (const room of rooms) {
+          if (room.roomId === this.roomId) continue;
+          try {
+            const found: boolean = await matchMaker.remoteRoomCall(room.roomId, "_deliverDm", [
+              entry,
+              cmd.to,
+              senderUserId,
+            ]);
+            if (found) {
+              sender.send("chat", entry);
+              return;
+            }
+          } catch (err) {
+            log.warn({ err, roomId: room.roomId }, "dm relay failed");
+          }
+        }
+        this.sendChatError(sender, "not_found");
+      })
+      .catch((err) => {
+        log.warn({ err }, "dm global query failed");
+        this.sendChatError(sender, "not_found");
+      });
+  }
+
+  private dispatchBlockCommand(
+    client: Client<unknown, SessionUser>,
+    cmd: Extract<ChatCommand, { kind: "block" | "unblock" }>,
+  ) {
+    const userId = this.playerUserId.get(client.sessionId);
+    if (!userId) return;
+    const targetUserId = this.findUserIdByName(cmd.target);
+    if (!targetUserId) {
+      this.sendChatError(client, "not_found");
+      return;
+    }
+    if (targetUserId === userId) {
+      // Silently ignore self-blocks; no sensible error reason to surface.
+      return;
+    }
+    const action =
+      cmd.kind === "block" ? addBlock(userId, targetUserId) : removeBlock(userId, targetUserId);
+    action
+      .then(() => {
+        this.chatCounter += 1;
+        const entry: ChatEntry = {
+          id: `c${this.chatCounter.toString(36)}-${this.roomId.slice(-4)}`,
+          channel: "dm",
+          from: "system",
+          to: cmd.target,
+          text:
+            cmd.kind === "block"
+              ? `Blocked ${cmd.target}. You won't see their messages.`
+              : `Unblocked ${cmd.target}.`,
+          at: Date.now(),
+        };
+        client.send("chat", entry);
+      })
+      .catch((err) => {
+        log.warn({ err, userId, targetUserId, kind: cmd.kind }, "chat block op failed");
+      });
+  }
+
+  private deliverToRoom(entry: ChatEntry, senderUserId?: string) {
+    // Outbound block filter: skip clients whose viewer has blocked the sender.
+    // Fast-path when the sender has no user id (shouldn't happen post-auth)
+    // or when no client has any blocks — broadcast normally.
+    if (!senderUserId) {
       this.broadcast("chat", entry);
       return;
     }
-    this.dispatchGlobalChat(entry);
+    this.sendFilteredByBlock(entry, senderUserId);
   }
 
-  private dispatchGlobalChat(entry: ChatEntry) {
-    this.broadcast("chat", entry);
+  private dispatchGlobalChat(entry: ChatEntry, senderUserId?: string) {
+    this.deliverToRoom(entry, senderUserId);
     matchMaker
       .query({ name: "zone" })
       .then((rooms) => {
         for (const room of rooms) {
           if (room.roomId === this.roomId) continue;
-          matchMaker.remoteRoomCall(room.roomId, "_relayChat", [entry]).catch((err) => {
-            log.warn({ err, roomId: room.roomId }, "chat global relay failed");
-          });
+          matchMaker
+            .remoteRoomCall(room.roomId, "_relayChat", [entry, senderUserId])
+            .catch((err) => {
+              log.warn({ err, roomId: room.roomId }, "chat global relay failed");
+            });
         }
       })
       .catch((err) => {
@@ -1325,8 +1461,86 @@ export class GameRoom extends Room<GameRoomState> {
       });
   }
 
-  _relayChat(entry: ChatEntry) {
-    this.broadcast("chat", entry);
+  private async sendFilteredByBlock(entry: ChatEntry, senderUserId: string): Promise<void> {
+    // Walk the current clients and send individually when we know any of them
+    // has blocked the sender. We only query blockers once per delivery
+    // (getBlockedBy isn't symmetric — we need "who has blocked the sender").
+    const tasks: Promise<void>[] = [];
+    for (const client of this.clients) {
+      const typed = client as Client<unknown, SessionUser>;
+      const viewerUserId = this.playerUserId.get(typed.sessionId);
+      if (!viewerUserId || viewerUserId === senderUserId) {
+        typed.send("chat", entry);
+        continue;
+      }
+      tasks.push(
+        isBlocked(viewerUserId, senderUserId)
+          .then((blocked) => {
+            if (!blocked) typed.send("chat", entry);
+          })
+          .catch((err) => {
+            // On a DB error fail-open (deliver) — moderation lag is better
+            // than silencing real chat if sqlite hiccups.
+            log.warn({ err }, "chat block lookup failed");
+            typed.send("chat", entry);
+          }),
+      );
+    }
+    await Promise.all(tasks);
+  }
+
+  _relayChat(entry: ChatEntry, senderUserId?: string) {
+    this.deliverToRoom(entry, senderUserId);
+  }
+
+  _deliverDm(entry: ChatEntry, toName: string, senderUserId: string): boolean {
+    const match = this.findPlayerByName(toName);
+    if (!match) return false;
+    this.deliverDmLocal(entry, match.sessionId, match.userId, senderUserId);
+    return true;
+  }
+
+  private deliverDmLocal(
+    entry: ChatEntry,
+    recipientSessionId: string,
+    recipientUserId: string | undefined,
+    senderUserId: string,
+  ) {
+    const recipient = this.clients.find((c) => c.sessionId === recipientSessionId);
+    if (!recipient) return;
+    // Respect blocks on inbound DMs — silently drop instead of surfacing an
+    // error, so blocked senders can't probe the block list.
+    if (!recipientUserId) {
+      recipient.send("chat", entry);
+      return;
+    }
+    isBlocked(recipientUserId, senderUserId)
+      .then((blocked) => {
+        if (!blocked) recipient.send("chat", entry);
+      })
+      .catch((err) => {
+        log.warn({ err }, "dm block lookup failed");
+        recipient.send("chat", entry);
+      });
+  }
+
+  private findPlayerByName(
+    name: string,
+    exceptSessionId?: string,
+  ): { sessionId: string; userId: string | undefined } | undefined {
+    const target = name.toLowerCase();
+    for (const [sessionId, p] of this.state.players) {
+      if (exceptSessionId && sessionId === exceptSessionId) continue;
+      if (p.name.toLowerCase() === target) {
+        return { sessionId, userId: this.playerUserId.get(sessionId) };
+      }
+    }
+    return undefined;
+  }
+
+  private findUserIdByName(name: string): string | undefined {
+    const match = this.findPlayerByName(name);
+    return match?.userId;
   }
 
   _adminKick(sessionId: string) {

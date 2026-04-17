@@ -1,6 +1,6 @@
 # Plan: #72 — Chat moderation (profanity, /block, DMs)
 
-**Status:** draft
+**Status:** in review (PR #80, CI green)
 **Owner agent:** backend (execution — cuts across shared + server + a small client patch)
 **Branch:** `feat/chat-moderation`
 
@@ -75,4 +75,9 @@ Ship all three as one PR since they share `handleChat` and the command-parser. P
 - Per-zone ignore lists.
 
 ## Retro
-_(filled after merge)_
+- **Landed as PR #80**, CI green (check: pass in 21s). Merge pending overseer review.
+- **What stayed faithful to plan:** `parseChatCommand`, `filterProfanity` + test (14 passes), `chat_block` migration 0005, `addBlock/removeBlock/isBlocked/getBlockedBy` db helpers, cross-room `_deliverDm`, per-recipient outbound filter, SidePanel DM rendering + hints.
+- **Two small adjustments:** (1) `getBlockedBy` stayed in the db module but isn't consumed by GameRoom — `isBlocked(viewer, sender)` per recipient is simpler than pre-computing a blocker set and the query cost is trivial at alpha scale. (2) Self-block is silently ignored (no error reason) rather than surfacing `not_found` — matches most chat clients' behavior.
+- **Block-filter policy:** blocked DMs are *silently dropped* for the recipient (block probing → no), whereas blocked zone/global messages are simply not delivered. No notification either way.
+- **Sender echo:** `/w` sends the sender a copy of the `ChatEntry` with `to=<name>` so their SidePanel can show `[dm to <name>]`. Recipients see `[dm from <name>]`. This is how the client distinguishes direction without needing any extra round-trip.
+- **Journal gap for 0003/0004:** those migrations were never registered in `_journal.json` — pre-existing issue, not in scope. Only 0005 registered to avoid breaking DBs that already ran 0003/0004 via `drizzle-kit push` or similar. Flagged below as a pitfall note.

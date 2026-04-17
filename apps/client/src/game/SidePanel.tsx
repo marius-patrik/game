@@ -124,7 +124,13 @@ export function SidePanel({
             {tab === "quests" ? (
               <QuestsTab quests={quests} onTurnIn={onTurnInQuest} canTurnIn={canTurnIn} />
             ) : null}
-            {tab === "chat" ? <ChatTab entries={chat} onSend={onSendChat} /> : null}
+            {tab === "chat" ? (
+              <ChatTab
+                entries={chat}
+                onSend={onSendChat}
+                selfName={sessionId ? (players.get(sessionId)?.name ?? "") : ""}
+              />
+            ) : null}
           </div>
         </>
       )}
@@ -237,11 +243,13 @@ function QuestsTab({
 function ChatTab({
   entries,
   onSend,
+  selfName,
 }: {
   entries: ChatEntry[];
   onSend: (channel: ChatChannel, text: string) => void;
+  selfName: string;
 }) {
-  const [channel, setChannel] = useState<ChatChannel>("zone");
+  const [channel, setChannel] = useState<Exclude<ChatChannel, "dm">>("zone");
   const [draft, setDraft] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -255,7 +263,7 @@ function ChatTab({
   const submit = () => {
     const raw = draft.trim();
     if (!raw) return;
-    let ch: ChatChannel = channel;
+    let ch: Exclude<ChatChannel, "dm"> = channel;
     let text = raw;
     if (raw.startsWith("/g ")) {
       ch = "global";
@@ -288,28 +296,33 @@ function ChatTab({
         {entries.length === 0 ? (
           <p className="py-6 text-center text-muted-foreground">no messages yet</p>
         ) : (
-          entries.map((e) => <ChatLine key={e.id} entry={e} />)
+          entries.map((e) => <ChatLine key={e.id} entry={e} selfName={selfName} />)
         )}
       </div>
       <form
-        className="flex items-center gap-1 border-border/40 border-t p-1.5"
+        className="flex flex-col gap-1 border-border/40 border-t p-1.5"
         onSubmit={(ev) => {
           ev.preventDefault();
           submit();
         }}
       >
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="say…"
-          aria-label="Chat message"
-          maxLength={200}
-          style={{ fontSize: "14px" }}
-          className="flex-1 rounded bg-muted px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
-        />
-        <Button type="submit" size="sm" className="h-8" disabled={draft.trim().length === 0}>
-          Send
-        </Button>
+        <div className="flex items-center gap-1">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="say…"
+            aria-label="Chat message"
+            maxLength={200}
+            style={{ fontSize: "14px" }}
+            className="flex-1 rounded bg-muted px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
+          />
+          <Button type="submit" size="sm" className="h-8" disabled={draft.trim().length === 0}>
+            Send
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-tight">
+          /w &lt;name&gt; msg · /block &lt;name&gt; · /unblock &lt;name&gt;
+        </p>
       </form>
     </div>
   );
@@ -321,9 +334,9 @@ function ChannelChip({
   onChange,
   label,
 }: {
-  current: ChatChannel;
-  value: ChatChannel;
-  onChange: (v: ChatChannel) => void;
+  current: Exclude<ChatChannel, "dm">;
+  value: Exclude<ChatChannel, "dm">;
+  onChange: (v: Exclude<ChatChannel, "dm">) => void;
   label: string;
 }) {
   const active = current === value;
@@ -343,7 +356,19 @@ function ChannelChip({
   );
 }
 
-function ChatLine({ entry }: { entry: ChatEntry }) {
+function ChatLine({ entry, selfName }: { entry: ChatEntry; selfName: string }) {
+  if (entry.channel === "dm") {
+    const outgoing = entry.from === selfName;
+    const peer = outgoing ? (entry.to ?? "?") : entry.from;
+    const prefix = outgoing ? `[dm to ${peer}]` : `[dm from ${peer}]`;
+    return (
+      <div className="break-words font-mono text-[11px] italic leading-5">
+        <span className="mr-1 text-violet-400">{prefix}</span>
+        <span className="text-muted-foreground">: </span>
+        <span className="text-foreground">{entry.text}</span>
+      </div>
+    );
+  }
   const channelColor = entry.channel === "global" ? "text-amber-500" : "text-sky-500";
   const channelLabel = entry.channel === "global" ? "[g]" : "[z]";
   return (

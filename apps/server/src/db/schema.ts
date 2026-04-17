@@ -113,3 +113,15 @@ export const playerInventory = sqliteTable(
     pk: primaryKey({ columns: [t.userId, t.slotIndex] }),
   }),
 );
+
+export const chatBlock = sqliteTable(
+  "chat_block",
+  {
+    userId: text("user_id").notNull(),
+    blockedUserId: text("blocked_user_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.blockedUserId] }),
+  }),
+);
