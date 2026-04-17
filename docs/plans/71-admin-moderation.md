@@ -1,6 +1,6 @@
 # Plan: #71 — Admin moderation tools (kick / mute / revoke)
 
-**Status:** in-review
+**Status:** shipped
 **Owner agent:** backend
 **Branch:** `feat/admin-moderation`
 

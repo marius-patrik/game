@@ -1,6 +1,6 @@
 # Plan: #47 — Visible portals + zone polish
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** execution (mixed frontend + backend, frontend-leaning)
 **Branch:** `feat/portals`
 

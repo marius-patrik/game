@@ -1,6 +1,6 @@
 # Plan: #72 — Chat moderation (profanity, /block, DMs)
 
-**Status:** in review (PR #80, CI green)
+**Status:** shipped
 **Owner agent:** backend (execution — cuts across shared + server + a small client patch)
 **Branch:** `feat/chat-moderation`
 

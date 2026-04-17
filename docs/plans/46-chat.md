@@ -1,6 +1,6 @@
 # Plan: #46 — Chat — global + zone channels
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** execution (mixed frontend + backend)
 **Branch:** `feat/chat`
 

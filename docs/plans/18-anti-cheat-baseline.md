@@ -1,6 +1,6 @@
 # Plan: #18 — Anti-cheat baseline
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** backend
 **Branch:** `feat/anti-cheat-baseline`
 

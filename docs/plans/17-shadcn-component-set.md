@@ -1,6 +1,6 @@
 # Plan: #17 — Shadcn component set
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** frontend
 **Branch:** `feat/shadcn-ui`
 

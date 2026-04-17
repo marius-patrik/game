@@ -1,6 +1,6 @@
 # Plan: #16 — Server-side log rotation
 
-**Status:** in-progress
+**Status:** shipped
 **Owner agent:** backend
 **Branch:** `feat/log-rotation`
 

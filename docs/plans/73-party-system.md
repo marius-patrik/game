@@ -1,6 +1,6 @@
 # Plan: #73 — Party / group system
 
-**Status:** in review (PR open). Agent #73 completed backend scaffolding (PartyManager + schema + parser) then hit the shared Anthropic account rate limit mid-run; overseer finished remaining ~60% (/party command dispatch, XP share, zone-exit hook, client HUD) from the overseer seat.
+**Status:** shipped. Agent #73 completed backend scaffolding (PartyManager + schema + parser) then hit the shared Anthropic account rate limit mid-run; overseer finished remaining ~60% (/party command dispatch, XP share, zone-exit hook, client HUD) from the overseer seat.
 **Owner agent:** backend (execution — cuts shared + server + client HUD)
 **Branch:** `feat/party-system`
 

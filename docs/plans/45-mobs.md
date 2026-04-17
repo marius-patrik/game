@@ -1,6 +1,6 @@
 # Plan: #45 — Hostile mobs + loot drops
 
-**Status:** draft
+**Status:** shipped
 **Owner agent:** execution (mixed frontend + backend)
 **Branch:** `feat/mobs`
 
