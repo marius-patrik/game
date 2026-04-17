@@ -55,3 +55,9 @@ When the new sql file is added under `apps/server/drizzle/` **and** registered i
 
 ## PR CI sometimes never triggers on first push
 On rare occasions `gh pr create` followed by the initial workflow run just… doesn't fire (empty `statusCheckRollup`, no run visible in the Actions API). Unrelated to workflow config — CI triggers on PR events normally. Unblock: `git commit --allow-empty -m "chore: retrigger CI"` + push, or force-push after a rebase. Both re-trigger the `pull_request` event reliably. Don't panic if the PR sits for 5+ min with no checks — just re-trigger.
+
+## Express 5 `req.params.x` is `string | string[] | undefined`
+Different from Express 4 where path params were always `string`. New REST handlers need explicit narrowing before passing params to helpers, or `tsc --noEmit` fails. Fix: a small helper like `pickSessionId(raw: string | string[] | undefined): string | undefined` that returns the string if `typeof === "string" && length > 0`, else undefined; route handler 400s on missing. Landed in #76 admin routes.
+
+## Biome `useExhaustiveDependencies` hates refresh-counter state
+A pattern of `const [refreshTick, setRefreshTick] = useState(0); useEffect(..., [refreshTick])` trips the rule even though it's the classic "bump this to force a reload" idiom. Cleanest fix is to hoist the fetch into a `useCallback` and call it directly after the triggering action — drops a piece of state and keeps biome happy. Surfaced in #76 Sessions.tsx polling.
