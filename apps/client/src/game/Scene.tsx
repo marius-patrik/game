@@ -12,8 +12,8 @@ import { useTheme } from "@/theme/theme-provider";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useRef } from "react";
-import { type Group, MathUtils, Vector3 } from "three";
+import { type MutableRefObject, useEffect, useRef } from "react";
+import { type Group, Vector3 } from "three";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { Mobs } from "./Mobs";
@@ -40,6 +40,7 @@ export function Scene({
   zoneId = DEFAULT_ZONE,
   moveTarget,
   lastAttack,
+  selfPosRef,
   cinematicActive = false,
   onCinematicComplete,
   onGroundClick,
@@ -55,6 +56,7 @@ export function Scene({
   zoneId?: ZoneId;
   moveTarget: Vec3 | null;
   lastAttack?: AttackEvent;
+  selfPosRef?: MutableRefObject<Vec3>;
   cinematicActive?: boolean;
   onCinematicComplete?: () => void;
   onGroundClick: (pos: Vec3) => void;
@@ -137,7 +139,12 @@ export function Scene({
         <SparkBurst baseCount={160} color="#f472b6" lifetime={1.2} speed={2.4} />
       </group>
 
-      <Players players={players} sessionId={sessionId} lastAttack={lastAttack} />
+      <Players
+        players={players}
+        sessionId={sessionId}
+        lastAttack={lastAttack}
+        selfPosRef={selfPosRef}
+      />
       <Drops drops={drops} onPickup={onPickup} />
       <Mobs mobs={mobs} onAttack={onAttack} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcClick} />
@@ -160,16 +167,18 @@ export function Scene({
 
       <gridHelper args={[gridSize, gridSize, palette.gridMajor, palette.gridMinor]} />
 
-      <ChaseArm self={self} cinematicActive={cinematicActive} />
+      <ChaseArm self={self} selfPosRef={selfPosRef} cinematicActive={cinematicActive} />
     </>
   );
 }
 
 function ChaseArm({
   self,
+  selfPosRef,
   cinematicActive,
 }: {
   self: PlayerSnapshot | undefined;
+  selfPosRef?: MutableRefObject<Vec3>;
   cinematicActive: boolean;
 }) {
   const camera = useThree((s) => s.camera);
@@ -182,26 +191,25 @@ function ChaseArm({
     snapped.current = false;
   }, [self?.id]);
 
-  useFrame((_, dt) => {
+  useFrame(() => {
     if (cinematicActive || !self) return;
+    // Prefer the client-authoritative position for the local player so the
+    // camera tracks at 60Hz instead of the 20Hz server echo. Y is fixed to
+    // the player's nominal stand height so animations on sub-meshes don't
+    // jostle the look target.
+    const src = selfPosRef?.current ?? self;
+    const fixedY = 0.5;
     desiredPos.current.set(
-      self.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
-      self.y + CAMERA_HEIGHT,
-      self.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
+      src.x + Math.sin(CAMERA_YAW) * CAMERA_DISTANCE,
+      fixedY + CAMERA_HEIGHT,
+      src.z + Math.cos(CAMERA_YAW) * CAMERA_DISTANCE,
     );
-    lookAtTarget.current.set(self.x, self.y + 0.6, self.z);
+    lookAtTarget.current.set(src.x, fixedY + 0.6, src.z);
 
-    if (!snapped.current) {
-      camera.position.copy(desiredPos.current);
-      camera.lookAt(lookAtTarget.current);
-      snapped.current = true;
-    } else {
-      const k = 1 - Math.exp(-dt * 10);
-      camera.position.x = MathUtils.lerp(camera.position.x, desiredPos.current.x, k);
-      camera.position.y = MathUtils.lerp(camera.position.y, desiredPos.current.y, k);
-      camera.position.z = MathUtils.lerp(camera.position.z, desiredPos.current.z, k);
-      camera.lookAt(lookAtTarget.current);
-    }
+    // Rigid arm: snap every frame. No lerp lag.
+    camera.position.copy(desiredPos.current);
+    camera.lookAt(lookAtTarget.current);
+    if (!snapped.current) snapped.current = true;
   });
   return null;
 }

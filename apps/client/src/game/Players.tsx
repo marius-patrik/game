@@ -1,8 +1,10 @@
 import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
 import { Billboard, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
+
+type Vec3 = { x: number; y: number; z: number };
 
 function hashHue(id: string): number {
   let h = 0;
@@ -35,10 +37,12 @@ function PlayerModel({
   player,
   isSelf,
   lastAttack,
+  selfPosRef,
 }: {
   player: PlayerSnapshot;
   isSelf: boolean;
   lastAttack: AttackEvent | undefined;
+  selfPosRef?: MutableRefObject<Vec3>;
 }) {
   const root = useRef<Group>(null);
   const body = useRef<Mesh>(null);
@@ -49,8 +53,7 @@ function PlayerModel({
   const swing = useRef<Group>(null);
   const swingMat = useRef<MeshStandardMaterial>(null);
 
-  // latch position target + velocity estimate
-  const target = useRef({ x: player.x, y: player.y, z: player.z });
+  const target = useRef<Vec3>({ x: player.x, y: player.y, z: player.z });
   target.current.x = player.x;
   target.current.y = player.y;
   target.current.z = player.z;
@@ -74,30 +77,43 @@ function PlayerModel({
   useFrame((state, dt) => {
     const g = root.current;
     if (!g) return;
-    const k = 1 - Math.exp(-dt * 14);
-    g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
-    g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.5, k);
-    g.position.z = MathUtils.lerp(g.position.z, target.current.z, k);
 
-    // estimate speed from interpolated position
+    // Self = client-authoritative pos (60Hz), snap directly — removes
+    // the 20Hz server-echo phase lag that made the camera/player feel jelly.
+    // Others = lerp toward the latest snapshot at a brisk constant so they
+    // catch up in ~120ms between 50ms snapshots.
+    if (isSelf && selfPosRef) {
+      const s = selfPosRef.current;
+      g.position.x = s.x;
+      g.position.y = 0.5;
+      g.position.z = s.z;
+    } else {
+      const k = 1 - Math.exp(-dt * 22);
+      g.position.x = MathUtils.lerp(g.position.x, target.current.x, k);
+      g.position.y = MathUtils.lerp(g.position.y, target.current.y + 0.5, k);
+      g.position.z = MathUtils.lerp(g.position.z, target.current.z, k);
+    }
+
+    // estimate speed from actual rendered position
     const dx = g.position.x - prevPos.current.x;
     const dz = g.position.z - prevPos.current.z;
     const inst = Math.hypot(dx, dz) / Math.max(dt, 0.0001);
     speed.current = MathUtils.lerp(speed.current, Math.min(inst, 6), 1 - Math.exp(-dt * 8));
     if (inst > 0.05) facing.current = Math.atan2(dx, dz);
-    g.rotation.y = MathUtils.lerp(g.rotation.y, facing.current, 1 - Math.exp(-dt * 10));
+    g.rotation.y = MathUtils.lerp(g.rotation.y, facing.current, 1 - Math.exp(-dt * 14));
     prevPos.current.x = g.position.x;
     prevPos.current.z = g.position.z;
 
-    // body bob when moving, gentle idle
+    // body bob when moving, gentle idle — kept local to the body mesh so
+    // the group root (which the camera targets) stays stable.
     const t = state.clock.getElapsedTime();
-    const moving = speed.current / 6;
+    const moving = Math.min(1, speed.current / 4);
     if (body.current) {
-      const bob = moving * Math.sin(t * 14) * 0.09 + (1 - moving) * Math.sin(t * 2) * 0.02;
+      const bob = moving * Math.sin(t * 14) * 0.07 + (1 - moving) * Math.sin(t * 2) * 0.02;
       body.current.position.y = 0.15 + bob;
     }
     if (head.current) {
-      head.current.position.y = 0.88 + moving * Math.sin(t * 14) * 0.05;
+      head.current.position.y = 0.88 + moving * Math.sin(t * 14) * 0.04;
       head.current.rotation.y = Math.sin(t * 1.4) * 0.25;
     }
     if (leftArm.current) {
@@ -155,7 +171,6 @@ function PlayerModel({
 
   return (
     <group ref={root} position={[player.x, player.y + 0.5, player.z]}>
-      {/* body */}
       <mesh ref={body} castShadow>
         <boxGeometry args={[0.7, 0.7, 0.7]} />
         <meshStandardMaterial
@@ -166,7 +181,6 @@ function PlayerModel({
           roughness={0.35}
         />
       </mesh>
-      {/* head */}
       <mesh ref={head} position={[0, 0.88, 0]} castShadow>
         <octahedronGeometry args={[0.28, 0]} />
         <meshStandardMaterial
@@ -177,7 +191,6 @@ function PlayerModel({
           roughness={0.25}
         />
       </mesh>
-      {/* arms — thin boxes that swing with stride */}
       <group ref={leftArm} position={[-0.48, 0.32, 0]}>
         <mesh position={[0, -0.18, 0]} castShadow>
           <boxGeometry args={[0.18, 0.5, 0.18]} />
@@ -190,9 +203,7 @@ function PlayerModel({
           <meshStandardMaterial color={bodyColor} roughness={0.45} />
         </mesh>
       </group>
-      {/* self marker — spinning halo ring */}
       {isSelf ? <SelfHalo emissive={emissive} /> : null}
-      {/* swing arc — only on self when attacking */}
       {isSelf ? (
         <group ref={swing} position={[0, 0.3, 0]}>
           <mesh rotation={[0, 0, 0]}>
@@ -209,14 +220,12 @@ function PlayerModel({
           </mesh>
         </group>
       ) : null}
-      {/* trail — short trail when moving */}
       <Trail width={0.6} length={2.2} color={headColor} attenuation={(t) => t * t}>
         <mesh ref={trailAnchor} position={[0, 0.1, 0]} visible={false}>
           <sphereGeometry args={[0.05, 8, 8]} />
           <meshBasicMaterial color={headColor} />
         </mesh>
       </Trail>
-      {/* sparkle aura */}
       <Sparkles
         count={isSelf ? 24 : 12}
         scale={[1.3, 1.6, 1.3]}
@@ -246,15 +255,23 @@ export function Players({
   players,
   sessionId,
   lastAttack,
+  selfPosRef,
 }: {
   players: Map<string, PlayerSnapshot>;
   sessionId?: string;
   lastAttack?: AttackEvent;
+  selfPosRef?: MutableRefObject<Vec3>;
 }) {
   return (
     <>
       {[...players.values()].map((p) => (
-        <PlayerModel key={p.id} player={p} isSelf={p.id === sessionId} lastAttack={lastAttack} />
+        <PlayerModel
+          key={p.id}
+          player={p}
+          isSelf={p.id === sessionId}
+          lastAttack={lastAttack}
+          selfPosRef={p.id === sessionId ? selfPosRef : undefined}
+        />
       ))}
     </>
   );
