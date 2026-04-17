@@ -6,6 +6,15 @@ type: project
 
 # Pitfalls
 
+## R3F `e.point` is stale while Pointer Lock is active
+When `document.pointerLockElement === document.body`, native cursor coordinates are frozen at the lock entry, so R3F's raycaster resolves every mesh `onPointerDown` to the same world point. Any ground-click or raycast-driven ability binding breaks. Fix pattern from #114: a shared cursor store (`apps/client/src/game/cursor/cursorStore.ts`) that `Cursor3D` writes each frame; consumers branch on `peekLocked()` and prefer the store over `e.point`. Any future ability that binds to ground clicks must follow the same pattern.
+
+## SWC silently parses `.ts` files as non-JSX
+A module with JSX syntax MUST have a `.tsx` extension. `.ts` files compile non-JSX, emitting a confusing parse error pointing at the JSX fragment. Typecheck catches it fast. Gotcha: after renaming a file `.ts → .tsx`, the HMR bundle in the browser may lag behind disk state — hard reload is needed.
+
+## shadcn disabled buttons don't fire onClick
+Can't use `disabled={isActive}` to re-press a button for a "toggle off" action (e.g. cancel a targeter by pressing its trigger again). The button fires no events while disabled, so the re-press never reaches its handler. Fix pattern from #114: keep the button enabled while the active state is present and branch on `activeTargetingSource === thisSource` inside the handler to decide confirm vs. cancel.
+
 ## Client: Colyseus schema crashes at mount
 SWC does NOT apply TypeScript experimental decorators by default. `@type(...)` in `packages/shared/src/schema.ts` produces `Cannot read properties of undefined (reading 'constructor')`.
 **Fix:** `source.decorators.version: "legacy"` in `apps/client/rsbuild.config.ts` (landed in PR #15).

@@ -10,8 +10,7 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#108** 3D cursor + ground targeting system (reusable for cast-in-space abilities) — depends on #107. Claude Agent dispatched.
-- **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Schema foundation for downstream.
+- **#96** character system — customizer (renders sphere from #107), persistence, multi-char. Gemini dispatched; working through schema import-cycle.
 
 ## Next
 
@@ -45,6 +44,7 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89.
 
 ## Done
 
+- [x] **#108** 3D cursor + reusable ground targeting (#114) — system cursor hidden on canvas, `Cursor3D` + `ClickBurst` ground overlay, `useTargeting` hook with `CircleTargeter` live (Cone/Rect stubs ready for #98 meteor/blink), dash migrated to targeter (Esc/right-click/re-press cancels, left-click confirms, out-of-range snaps red). Server `cast` accepts target + clamps. Surfaced 3 pitfalls: R3F `e.point` stale under PointerLock, `.ts`-parses-as-non-JSX silent breakage, shadcn disabled-button onClick swallowing.
 - [x] **#107** game-feel (#113) — floating sphere players, dynamic `cameraProfile`-driven chase cam (combat/dialog/wide, smooth transitions, no model-bob coupling), FOV slider 60–100 in Settings, Ctrl cursor-lock toggle via Pointer Lock API. Cursor-lock keybind hardcoded pending #95 keybinds-store migration.
 - [x] **#106** sell dialog grid (#112) — vendor sell tab uses `SellItemSlot` grid with icons, count badges, and price tooltips; shift-click sells stacks.
 - [x] **#92** bug sweep (#104) — fixed the interaction prompt/drop leak, hardened the level-up banner dismissal, isolated the 3D scene palette from app dark mode, tightened viewport overflow, moved Mercer + Elder Cubius out of their stalls, stabilized player color, and added travel/leave diagnostics.
