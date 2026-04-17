@@ -18,7 +18,9 @@ type Phase = "idle" | "playing" | "holding" | "reveal";
  *
  * Rapid-swap safety: the active RAF loop carries a cancellation token; starting
  * a new travel during playback cancels the in-flight loop and restarts from
- * the current sequence position, so visuals never double up.
+ * the top. The loop itself reads `statusRef` every frame, so reconnect
+ * completion is observed without needing to restart the loop on every status
+ * transition.
  */
 export function PortalTransition({
   status,
@@ -32,33 +34,32 @@ export function PortalTransition({
   const cancelRef = useRef<() => void>(() => {});
   const statusRef = useRef<CinematicStatus>(status);
   const prevZoneRef = useRef<string | null>(null);
-  const prevStatusRef = useRef<CinematicStatus>(status);
 
   // Keep a live ref to `status` so the RAF loop can react without restarting.
   statusRef.current = status;
 
+  // Cinematic abort on hard failure — separate effect so it runs synchronously
+  // with status changes and doesn't race the travel-restart effect.
   useEffect(() => {
-    const playback = getPortalPlayback();
-    const prevZone = prevZoneRef.current;
-    const prevStatus = prevStatusRef.current;
-    prevZoneRef.current = zoneId;
-    prevStatusRef.current = status;
-
-    // Hard failure — abort so the Disconnected toast is visible.
     if (status === "error") {
       cancelRef.current();
       phaseRef.current = "idle";
       setFrame(null);
-      return undefined;
     }
+  }, [status]);
 
-    const isNewZone = prevZone !== null && prevZone !== zoneId;
-    const isReconnecting = status === "connecting" && prevStatus === "connected";
-    const travelStarting = isNewZone || isReconnecting;
+  // Start a new cinematic run when zoneId changes. The loop itself watches
+  // `statusRef` for the transition from holding → reveal.
+  useEffect(() => {
+    const playback = getPortalPlayback();
+    const prevZone = prevZoneRef.current;
+    prevZoneRef.current = zoneId;
 
-    // Only restart from the top if this is a brand-new travel; otherwise let
-    // the already-running loop react to the updated statusRef.
-    if (!travelStarting) return undefined;
+    // Initial mount has no "from" zone — don't play a cinematic on first
+    // connect. Re-runs during the same zone's lifecycle (shouldn't happen
+    // since deps are [zoneId] only, but guard anyway) are also skipped.
+    if (prevZone === null || prevZone === zoneId) return undefined;
+    if (statusRef.current === "error") return undefined;
 
     cancelRef.current();
     phaseRef.current = "playing";
@@ -76,6 +77,11 @@ export function PortalTransition({
 
     const loop = () => {
       if (cancelled) return;
+      if (statusRef.current === "error") {
+        phaseRef.current = "idle";
+        setFrame(null);
+        return;
+      }
       const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
 
       if (phaseRef.current === "playing") {
@@ -118,7 +124,7 @@ export function PortalTransition({
     return () => {
       cancelled = true;
     };
-  }, [status, zoneId]);
+  }, [zoneId]);
 
   return (
     <AnimatePresence>
