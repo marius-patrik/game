@@ -6,6 +6,7 @@ import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useStat
 import { Color, type Group } from "three";
 
 type Vec3 = { x: number; y: number; z: number };
+type PickupIntentMap = Map<string, number>;
 
 const ITEM_COLOR: Record<string, string> = {
   heal_potion: "#ef4444",
@@ -20,6 +21,7 @@ const ITEM_COLOR: Record<string, string> = {
 
 const FLY_DURATION_MS = 350;
 const TARGET_Y_OFFSET = 1.2;
+const PICKUP_INTENT_TTL_MS = 2000;
 
 /** Single flight instance — springs position toward the moving player, scales
  * down + fades over FLY_DURATION_MS, then asks the parent to drop it. */
@@ -136,7 +138,10 @@ export function PickupFly({
 /** Track drops that vanished from the server snapshot and schedule a fly
  * animation for each one — the drop disappears server-side on pickup, but we
  * want the visual to play *after* that. */
-export function useFlyingDrops(drops: Map<string, DropSnapshot>): {
+export function useFlyingDrops(
+  drops: Map<string, DropSnapshot>,
+  pickupIntentRef?: MutableRefObject<PickupIntentMap>,
+): {
   flying: DropSnapshot[];
   complete: (id: string) => void;
 } {
@@ -148,13 +153,22 @@ export function useFlyingDrops(drops: Map<string, DropSnapshot>): {
   useEffect(() => {
     const prev = seen.current;
     const next = new Map<string, DropSnapshot>();
+    const now = Date.now();
     for (const [id, d] of drops) {
       next.set(id, d);
+    }
+    if (pickupIntentRef) {
+      for (const [id, at] of pickupIntentRef.current) {
+        if (now - at > PICKUP_INTENT_TTL_MS) pickupIntentRef.current.delete(id);
+      }
     }
     // Drops in prev that are absent from next → just despawned; queue flight.
     const toFly: DropSnapshot[] = [];
     for (const [id, d] of prev) {
-      if (!next.has(id)) toFly.push(d);
+      if (!next.has(id) && pickupIntentRef?.current.has(id)) {
+        toFly.push(d);
+        pickupIntentRef.current.delete(id);
+      }
     }
     seen.current = next;
     if (toFly.length > 0) {
@@ -165,7 +179,7 @@ export function useFlyingDrops(drops: Map<string, DropSnapshot>): {
         return [...list, ...additions];
       });
     }
-  }, [drops]);
+  }, [drops, pickupIntentRef]);
 
   const complete = useCallback((id: string) => {
     setFlying((list) => list.filter((f) => f.id !== id));

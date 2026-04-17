@@ -7,6 +7,7 @@ import { Color, type Mesh } from "three";
 import { PickupFly, useFlyingDrops } from "./PickupFly";
 
 type Vec3 = { x: number; y: number; z: number };
+type PickupIntentMap = Map<string, number>;
 
 const ITEM_COLOR: Record<string, string> = {
   heal_potion: "#ef4444",
@@ -71,15 +72,17 @@ function DropMarker({
 export function Drops({
   drops,
   selfPosRef,
+  pickupIntentRef,
   onPickup,
 }: {
   drops: Map<string, DropSnapshot>;
   selfPosRef?: MutableRefObject<Vec3>;
+  pickupIntentRef?: MutableRefObject<PickupIntentMap>;
   onPickup: (dropId: string) => void;
 }) {
   // Ghost entries for drops that despawned server-side — kept alive locally
   // for the fly-to-player animation duration so the item never just "pops".
-  const { flying, complete } = useFlyingDrops(drops);
+  const { flying, complete } = useFlyingDrops(drops, pickupIntentRef);
 
   return (
     <>

@@ -34,6 +34,7 @@ import { usePortalCameraPush } from "./cinematics";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };
+type PickupIntentMap = Map<string, number>;
 
 /** Cam arm defaults. User can still rotate/zoom via OrbitControls. */
 const CAMERA_MIN_DIST = 6;
@@ -55,6 +56,7 @@ export function Scene({
   lastAttack,
   lastTelegraph,
   selfPosRef,
+  pickupIntentRef,
   cinematicActive = false,
   portalCinematicActive = false,
   onCinematicComplete,
@@ -75,6 +77,7 @@ export function Scene({
   lastAttack?: AttackEvent;
   lastTelegraph?: BossTelegraphEvent;
   selfPosRef?: MutableRefObject<Vec3>;
+  pickupIntentRef?: MutableRefObject<PickupIntentMap>;
   cinematicActive?: boolean;
   portalCinematicActive?: boolean;
   onCinematicComplete?: () => void;
@@ -170,7 +173,12 @@ export function Scene({
         lastAttack={lastAttack}
         selfPosRef={selfPosRef}
       />
-      <Drops drops={drops} selfPosRef={selfPosRef} onPickup={onPickup} />
+      <Drops
+        drops={drops}
+        selfPosRef={selfPosRef}
+        pickupIntentRef={pickupIntentRef}
+        onPickup={onPickup}
+      />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <HazardZones hazards={hazards} />
