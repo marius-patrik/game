@@ -10,26 +10,28 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-_Nothing in flight._ Pick the top of **Next**.
+_Nothing in flight._ Alpha-playable milestone shipped.
 
 ## Next
 
-_Next is empty — Wave 1 (#45/#46/#47) all landed. Demoable MVP achieved. Pick from Backlog or run `maintenance`._
-
-- [ ] ~~[#46](../../issues/46) — Chat (global + zone channels)~~ ✅ merged (#49).
-- [ ] ~~[#47](../../issues/47) — Visible portals + zone polish~~ ✅ merged (#50).
-- [ ] ~~[#45](../../issues/45) — Hostile mobs + loot drops~~ ✅ merged (#51).
+_Next is empty — pick from Backlog or run `maintenance`._
 
 ## Backlog
 
-- [ ] Admin live-sessions view — cross-reference DB users with live Colyseus clients (currently `/admin/players` shows registered accounts only; `/admin/rooms` and overview already show live counts).
-- [ ] Mob variety — types beyond default (ranged, boss), aggro tables, pathfinding. Follow-up to #45.
-- [ ] Chat persistence + moderation — DB-backed history, profanity filter, DMs. Follow-up to #46.
-- [ ] Gated portals + cinematic transition + minimap. Follow-up to #47.
+- [ ] Admin live-sessions view — cross-reference DB users with live Colyseus clients.
+- [ ] Persisted skill cooldowns across zone swap (currently in-memory per-room).
+- [ ] More skills + per-class skill trees (warrior/mage/rogue).
+- [ ] Boss mob mechanics — phases, telegraphed AOEs, enrage timer.
+- [ ] Chat persistence + moderation — DB-backed history, profanity filter, DMs.
+- [ ] Gated portals + cinematic transition.
+- [ ] Tooltips on item icons (show bonuses on hover).
+- [ ] Mobile-specific equip/use tap UX polish.
+- [ ] Guild/party system.
 
 ## Done
 
-- [x] Demoable MVP block (Wave 1): chat [#46](../../pull/49), portals [#47](../../pull/50), mobs [#45](../../pull/51). `bun run build:release` → 70 MB Linux/arm64 binary with embedded client + migrations. Two-browser smoke passed.
+- [x] **Alpha-playable milestone** — click-only controls [#53](../../pull/53), camera + compositional models + minimap + settings + SFX + tutorial [#54](../../pull/54), stats/mana/skills/equipment/gold/vendor/quests/mob variety [#55](../../pull/55). 70 MB single-binary (arm64) built from `bun run build:release`; preview smoke confirmed HP/Mana/XP/Gold HUD, chase-arm camera, skill hotbar, NPCs in lobby, portal to arena with caster + boss mobs.
+- [x] Demoable MVP block (Wave 1): chat [#46](../../pull/49), portals [#47](../../pull/50), mobs [#45](../../pull/51).
 - [x] Client legacy decorators for Colyseus schema. [#14](../../issues/14)
 - [x] Wire client ↔ server Colyseus connection. [#3](../../issues/3)
 - [x] Better Auth + SQLite gating the GameRoom. [#4](../../issues/4)
