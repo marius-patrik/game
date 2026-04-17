@@ -24,6 +24,7 @@ export function useGameSfx(room: RoomState): void {
       // Hit resolved on server. Attacker-local will also have heard their own
       // "attack" swing when they clicked — this is the "thud" that lands.
       playSfx("hit");
+      if (room.lastAttack.crit) playSfx("crit");
       if (room.lastAttack.killed && room.lastAttack.targetId.startsWith("mob:")) {
         playSfx("death");
       }

@@ -1,13 +1,16 @@
+import { type DeathCause, describeDeathCause } from "@game/shared";
 import { useEffect, useState } from "react";
 
 export function DeathOverlay({
   dead,
   respawnDelayMs,
   deathAt,
+  cause,
 }: {
   dead: boolean;
   respawnDelayMs: number;
   deathAt?: number;
+  cause?: DeathCause;
 }) {
   const [remaining, setRemaining] = useState(respawnDelayMs);
 
@@ -23,13 +26,14 @@ export function DeathOverlay({
   }, [dead, deathAt, respawnDelayMs]);
 
   if (!dead) return null;
+  const title = cause ? describeDeathCause(cause) : "You died";
   return (
     <div
       className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/70 backdrop-blur-sm"
       aria-live="polite"
     >
       <div className="flex flex-col items-center gap-2 rounded-xl border border-rose-500/40 bg-background/80 px-8 py-6 shadow-xl">
-        <div className="font-bold text-2xl text-rose-400">You died</div>
+        <div className="font-bold text-2xl text-rose-400">{title}</div>
         <div className="text-muted-foreground text-sm">
           Respawning in {(remaining / 1000).toFixed(1)}s
         </div>

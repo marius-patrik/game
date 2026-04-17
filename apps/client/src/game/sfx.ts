@@ -4,7 +4,7 @@
  * when the Howler-backed AudioEngine has no registered sound for an event.
  */
 
-type SfxName = "attack" | "hit" | "pickup" | "portal" | "levelup" | "death";
+type SfxName = "attack" | "hit" | "pickup" | "portal" | "levelup" | "death" | "crit";
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -125,6 +125,11 @@ export function playSfx(name: SfxName): void {
     case "death":
       blip(440, 420, "sawtooth", 0.35, 0.001, 80);
       noise(380, 0.18, 900);
+      break;
+    case "crit":
+      // Bright layered ping on top of the normal hit so the ear picks out crits.
+      blip(1760, 150, "triangle", 0.3, 0.001, 2640);
+      blip(880, 90, "square", 0.18, 0.001, 1320);
       break;
   }
 }
