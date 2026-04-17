@@ -53,6 +53,7 @@ export type SessionUser = { id: string; name: string; role: string };
 
 type PlayerSecurityState = { lastPos: Vec3; lastMoveAt: number };
 type PlayerCombatState = { invulnerableUntil: number };
+type PlayerPortalState = { rearmAt: number };
 
 const SAVE_INTERVAL_MS = 10_000;
 const LOOT_SPAWN_INTERVAL_MS = 5_000;
@@ -65,6 +66,7 @@ function stripControlChars(input: string): string {
   }
   return out;
 }
+const PORTAL_REARM_MS = 2_000;
 
 export class GameRoom extends Room<GameRoomState> {
   override maxClients = 64;
@@ -77,6 +79,7 @@ export class GameRoom extends Room<GameRoomState> {
   private violations = new ViolationTracker(this.security.violations);
   private playerSec = new Map<string, PlayerSecurityState>();
   private playerCombat = new Map<string, PlayerCombatState>();
+  private playerPortal = new Map<string, PlayerPortalState>();
   private playerUserId = new Map<string, string>();
   private saveInterval?: ReturnType<typeof setInterval>;
   private lootInterval?: ReturnType<typeof setInterval>;
@@ -187,6 +190,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.playerCombat.set(client.sessionId, {
       invulnerableUntil: Date.now() + this.combat.invulnerableAfterRespawnMs,
     });
+    this.playerPortal.set(client.sessionId, { rearmAt: Date.now() + PORTAL_REARM_MS });
   }
 
   override async onLeave(client: Client<unknown, SessionUser>) {
@@ -207,6 +211,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.state.players.delete(client.sessionId);
     this.playerSec.delete(client.sessionId);
     this.playerCombat.delete(client.sessionId);
+    this.playerPortal.delete(client.sessionId);
     this.playerUserId.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
@@ -522,7 +527,38 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   private tick(_dt: number) {
-    // 20Hz server tick
+    this.handleZoneTick();
+  }
+
+  private handleZoneTick() {
+    const portals = this.zone.portals;
+    if (portals.length === 0) return;
+    const now = Date.now();
+
+    this.state.players.forEach((p, sessionId) => {
+      if (!p.alive) return;
+      const portalState = this.playerPortal.get(sessionId);
+      if (!portalState) return;
+      if (now < portalState.rearmAt) return;
+
+      for (const portal of portals) {
+        const dx = p.x - portal.pos.x;
+        const dz = p.z - portal.pos.z;
+        if (dx * dx + dz * dz > portal.radius * portal.radius) continue;
+
+        portalState.rearmAt = now + PORTAL_REARM_MS;
+        const client = this.clients.find((c) => c.sessionId === sessionId);
+        if (!client) return;
+        const userId = this.playerUserId.get(sessionId);
+        if (userId) {
+          savePlayerLocation(userId, this.zone.id, { x: p.x, y: p.y, z: p.z }).catch((err) => {
+            log.warn({ err, userId, zoneId: this.zone.id }, "portal save failed");
+          });
+        }
+        client.send("zone-exit", { to: portal.to });
+        return;
+      }
+    });
   }
 
   private handleChat(client: Client<unknown, SessionUser>, msg: ChatInbound) {

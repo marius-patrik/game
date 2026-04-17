@@ -224,6 +224,9 @@ export function useRoom(): RoomState {
         room.onMessage("chat-error", (msg: ChatError) => {
           toast.error(chatErrorMessage(msg.reason));
         });
+        room.onMessage("zone-exit", (msg: { to: ZoneId }) => {
+          travel(msg.to);
+        });
 
         room.onLeave(() => {
           if (cancelled) return;
