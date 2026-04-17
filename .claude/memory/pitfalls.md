@@ -25,3 +25,12 @@ Use `bun run --filter <pkg-name> <script>` instead.
 
 ## Express multi-Set-Cookie
 `response.headers.getSetCookie()` must be forwarded — not `response.headers.get("set-cookie")` — when bridging better-auth responses through Express.
+
+## Fresh git worktree has no node_modules
+`git worktree add` gives a clean checkout but skips `bun install`. Typecheck, lint, and dev-server all fail until you run `bun install` inside the worktree. Applies to overseer-isolated agent worktrees under `.claude/worktrees/`.
+
+## Adding `types` to tsconfig requires re-install in sibling worktrees
+When a change adds `"types": ["bun"]` (or any new ambient types) to `packages/shared/tsconfig.json`, sibling worktrees that were already `bun install`ed before the change need another `bun install` so `@types/bun` shows up in their `node_modules`. Symptom: `TS2688: Cannot find type definition file for 'bun'` in one worktree while another is green.
+
+## Dispatching many agents hitting a shared rate-limit
+Parallel dispatch via `Agent({ isolation: "worktree", run_in_background: true })` shares one Anthropic account. When the rate limit kicks in mid-commit, agents exit cleanly but their branches sit at the old base with uncommitted files in the worktree. Recovery: inspect `git status` in each worktree, commit/rebase manually, or roll forward in the overseer seat. For the one agent that got no worktree allocated (e.g. the third-in-queue), its uncommitted work lands in the **primary** checkout — look there before assuming the work is lost.
