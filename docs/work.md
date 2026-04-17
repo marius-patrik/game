@@ -10,24 +10,20 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-_Nothing in flight._ Alpha social + ops wave complete — admin moderation, chat moderation, mobile touch polish, party system all landed.
+- **#81** reconcile missing drizzle migrations 0003/0004 via a procedural TS reconciler in `migrate.ts` (fixes `playerProgress.test.ts` regressions; plan: [docs/plans/81-reconcile-migrations.md](plans/81-reconcile-migrations.md)).
 
 ## Next
 
-- **#81** register missing drizzle migrations 0003/0004 via an idempotent 0006_reconcile.sql (fixes `playerProgress.test.ts` regressions; tracks the chip spawned earlier in-session).
+_Empty — pick from backlog after #81 merges._
 
 ## Backlog
 
-Post-alpha ship targets. Previous backlog blocks closed in #58/#59/#60/#62/#64-68.
+Post-alpha ship targets. Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83.
 
 **Larger post-alpha systems:**
-- [ ] **Party / group system** — partyId on Player schema, `/party invite` + `/party accept` chat commands, shared XP when members are within 10m of a kill, party-member HP pips in the HUD.
 - [ ] **Per-class skill trees** — warrior/mage/rogue pick at first level-up; each class gets their own Cleave / Heal / Dash variants. Requires a design pass on stat curves.
 - [ ] **Cinematic portal transition** — theatre.js-scripted zone swap (camera pan + particle wipe) to replace the plain fade added in #60.
-- [ ] **Mob variety beyond the three archetypes** — ranged caster with actual projectiles, a "healer" mob that buffs nearby allies, an environment hazard zone.
-- [ ] **Admin moderation tools** — kick/ban from the admin/sessions page, mute a chat user, revoke a session token.
-- [ ] **Mobile touch polish** — double-tap to equip/use, long-press to open an item tooltip, equipment-slot drawer that fits 390×844 without crowding the ActionBar.
-- [ ] **Chat moderation** — profanity filter, DMs, /block <name> list.
+- [ ] **Mob variety beyond the three archetypes** — "healer" mob that buffs nearby allies, an environment hazard zone (caster + boss charge already shipped in #67/#68).
 - [ ] **Seasonal / daily quests** — rotating reset via a cron-style generator.
 
 ## Done
