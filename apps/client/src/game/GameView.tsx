@@ -2,6 +2,7 @@ import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
+import { useLayoutStore } from "@/state/layoutStore";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import { useTheme } from "@/theme/theme-provider";
 import {
@@ -24,7 +25,7 @@ import { PartyPanel } from "./PartyPanel";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
 import { StatPanel } from "./StatPanel";
-import { TopLeftPane } from "./TopLeftPane";
+import { TOP_LEFT_LAYOUT_ID, TOP_LEFT_TABS, TopLeftPane } from "./TopLeftPane";
 import { TopMenu } from "./TopMenu";
 import { TopRightSidebar } from "./TopRightSidebar";
 import { Tutorial } from "./Tutorial";
@@ -338,6 +339,14 @@ function GameViewInner({
 
   const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
   const canTurnIn = nearestNpc?.kind === "questgiver" && readyToTurnIn;
+  const hiddenTabIds = useLayoutStore(
+    (state) => state.layouts[TOP_LEFT_LAYOUT_ID]?.hiddenTabs ?? [],
+  );
+  const restoreHiddenTab = useLayoutStore((state) => state.restoreTab);
+  const hiddenPanels = hiddenTabIds.flatMap((tabId) => {
+    const match = TOP_LEFT_TABS.find((tab) => tab.id === tabId);
+    return match ? [{ id: match.id, label: match.label }] : [];
+  });
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -416,6 +425,8 @@ function GameViewInner({
               zoneId={room.zoneId}
               onTravel={room.travel}
               onOpenSettings={() => setSettingsOpen(true)}
+              hiddenPanels={hiddenPanels}
+              onRestorePanel={(tabId) => restoreHiddenTab(TOP_LEFT_LAYOUT_ID, tabId)}
             />
           </div>
           <PartyPanel players={room.players} sessionId={room.sessionId} />
