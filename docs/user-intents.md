@@ -69,12 +69,12 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-33 | Custom 3D cursor + ground targeting system (movement circle, dash two-step, cast-in-space reusable) | #108 | done-untested |
 | ui-34 | Skyrim-style NPC dialog system | #109 | verified-preview (2026-04-18: #109/PR #131 — DialogUI with portrait + typewriter + numbered choices; Elder Cubius quest-start + level-3-gated trial verified; Mercer vendor entry via `openVendor` action; camera profile switches to dialog; HUD hidden while open; mobile bottom-sheet with 44px tap targets) |
 | ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | done-untested (2026-04-18: #110/PR #126 — Compass.tsx with cardinal ticks + POI dots shipped via Gemini dispatch; visual preview confirmation pending) |
-| ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | pending |
+| ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | done-untested (2026-04-18: #111/PR #132 — tokens.css, glass variant, three-point lighting, EffectComposer (Bloom+Vignette+ChromaticAberration), useScreenShake, 5 particle presets, +3.9KB gzipped; live verification blocked by host disclaimer helper — overseer to verify post-merge) |
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
 | ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/skills/multi-cli-dispatch/SKILL.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
 | ui-39 | Overseer drives Preview after every feature merge; add intents to this file | CLAUDE.md + .claude/commands/spawn-*-agent.md | in-flight (this file is the implementation) |
 | ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | verified-preview (2026-04-18: signup → char create → lobby "online · 1" reached, click-to-move works, HP bar renders, NPC stand visible) |
-| ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | pending |
+| ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | done-untested (2026-04-18: #111/PR #132 — three-point lighting profile per zone, warm lobby / cool arena palette; overseer to visually verify post-merge) |
 | ui-42 | Playwright script for end-to-end player flow; kept up to date on every merge; visual confirmation while running | #120 | pending |
 | ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | pending |
 
