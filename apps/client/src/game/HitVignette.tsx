@@ -1,6 +1,6 @@
-import type { PlayerSnapshot } from "@/net/useRoom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import type { PlayerSnapshot } from "@/net/useRoom";
 
 /** Pulses a red vignette for ~220ms whenever the local player's HP drops.
  * Combined with a small CSS viewport nudge so heavy hits feel heavier. */

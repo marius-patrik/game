@@ -1,4 +1,4 @@
-import { type ItemDef, getItem } from "@game/shared/items";
+import { getItem, type ItemDef } from "@game/shared/items";
 
 export type Slot = { itemId: string; qty: number };
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type EquipmentView, checkAbilityReady, resolveWeaponAbility } from "./abilityDispatch";
+import { checkAbilityReady, type EquipmentView, resolveWeaponAbility } from "./abilityDispatch";
 
 function equip(weapon?: string): EquipmentView {
   return {

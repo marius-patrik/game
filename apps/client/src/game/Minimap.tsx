@@ -1,6 +1,6 @@
-import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { ZONES, type ZoneId } from "@game/shared";
 import { useEffect, useRef, useState } from "react";
+import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 
 /**
  * Top-down HUD minimap. Renders zone bounds, portals as gold rings, mobs as

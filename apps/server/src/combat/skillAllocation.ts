@@ -1,4 +1,4 @@
-import { type SkillDef, type SkillSlot, type SkillSlotKind, getSkill } from "@game/shared/skills";
+import { getSkill, type SkillDef, type SkillSlot, type SkillSlotKind } from "@game/shared/skills";
 
 export const SKILLS_EQUIPPED_SIZE = 2;
 

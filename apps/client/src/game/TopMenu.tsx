@@ -1,16 +1,3 @@
-import { signOut, tokenStore, useSession } from "@/auth/client";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useTheme } from "@/theme/theme-provider";
 import { ZONES, type ZoneId } from "@game/shared";
 import {
   LogOut,
@@ -26,6 +13,19 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { signOut, tokenStore, useSession } from "@/auth/client";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/theme/theme-provider";
 
 type Status = "idle" | "connecting" | "connected" | "error";
 

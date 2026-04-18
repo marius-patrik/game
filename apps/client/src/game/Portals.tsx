@@ -1,5 +1,3 @@
-import { useQuality } from "@/assets";
-import type { PlayerSnapshot } from "@/net/useRoom";
 import type { Portal } from "@game/shared";
 import { Float, Sparkles } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
@@ -12,6 +10,8 @@ import {
   type Mesh,
   type MeshBasicMaterial,
 } from "three";
+import { useQuality } from "@/assets";
+import type { PlayerSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 

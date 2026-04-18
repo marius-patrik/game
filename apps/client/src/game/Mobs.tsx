@@ -1,9 +1,9 @@
-import { SparkBurst } from "@/fx";
-import type { AttackEvent, MobSnapshot } from "@/net/useRoom";
 import { Billboard, Float, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
+import { SparkBurst } from "@/fx";
+import type { AttackEvent, MobSnapshot } from "@/net/useRoom";
 
 const DEATH_FX_MS = 900;
 

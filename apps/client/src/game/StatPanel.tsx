@@ -1,3 +1,5 @@
+import { EQUIP_SLOTS, type EquipSlot, getAbility, getItem, type StatKey } from "@game/shared";
+import { Minus, Plus, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,8 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
-import { EQUIP_SLOTS, type EquipSlot, type StatKey, getAbility, getItem } from "@game/shared";
-import { Minus, Plus, Shield } from "lucide-react";
 
 const STATS: { key: StatKey; label: string; desc: string }[] = [
   { key: "strength", label: "Strength", desc: "+1 damage per 2 STR" },

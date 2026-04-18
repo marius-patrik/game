@@ -1,8 +1,8 @@
-import type { NpcSnapshot } from "@/net/useRoom";
 import { Billboard, Sparkles } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { type Group, MathUtils, type Mesh } from "three";
+import type { NpcSnapshot } from "@/net/useRoom";
 
 function NameTag({ name, color }: { name: string; color: string }) {
   const canvas = document.createElement("canvas");

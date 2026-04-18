@@ -1,8 +1,8 @@
-import { setCameraYaw } from "@/state/cameraStore";
-import { usePreferencesStore } from "@/state/preferencesStore";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useRef } from "react";
 import { MathUtils, PerspectiveCamera, Vector3 } from "three";
+import { setCameraYaw } from "@/state/cameraStore";
+import { usePreferencesStore } from "@/state/preferencesStore";
 import {
   CAMERA_PROFILES,
   type CameraProfile,

@@ -1,3 +1,5 @@
+import { getItem, VENDOR_STOCK } from "@game/shared";
+import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,8 +11,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
-import { VENDOR_STOCK, getItem } from "@game/shared";
-import { Coins } from "lucide-react";
 
 function itemColor(item: ReturnType<typeof getItem>): string {
   if (!item) return "#71717a";

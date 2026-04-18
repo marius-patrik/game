@@ -1,4 +1,4 @@
-import { type AuthContext, type Client, Room, matchMaker } from "@colyseus/core";
+import { type AuthContext, type Client, matchMaker, Room } from "@colyseus/core";
 import { ArraySchema, MapSchema } from "@colyseus/schema";
 import type { AbilityDef, WeaponSlotKey } from "@game/shared/abilities";
 import { getAbility } from "@game/shared/abilities";
@@ -13,9 +13,9 @@ import {
 } from "@game/shared/chat";
 import { filterProfanity } from "@game/shared/chat-profanity";
 import type { DeathCause, DiedMessage } from "@game/shared/combat";
-import { type EquipSlot, type ItemId, VENDOR_STOCK, getItem, isItemId } from "@game/shared/items";
+import { type EquipSlot, getItem, type ItemId, isItemId, VENDOR_STOCK } from "@game/shared/items";
 import { applyXp, xpToNextLevel } from "@game/shared/progression";
-import { FIRST_QUEST_ID, QUEST_CATALOG, getQuest } from "@game/shared/quests";
+import { FIRST_QUEST_ID, getQuest, QUEST_CATALOG } from "@game/shared/quests";
 import {
   GameRoomState,
   InventorySlot,
@@ -25,35 +25,35 @@ import {
   WorldDrop,
 } from "@game/shared/schema";
 import {
-  type SkillSlot,
   getSkill,
   isSkillId,
   resolveSkillAbility,
+  type SkillSlot,
   skillEffectiveCooldownMs,
 } from "@game/shared/skills";
 import {
-  CRIT_MULTIPLIER,
-  EQUIP_SLOTS,
-  STAT_POINTS_PER_LEVEL,
-  type StatKey,
   attackCooldownMs,
+  CRIT_MULTIPLIER,
   damageBonusFromStats,
+  EQUIP_SLOTS,
   equipBonus,
   manaRegenPerSec,
   maxHpFromStats,
   maxManaFromStats,
   rollCrit,
+  STAT_POINTS_PER_LEVEL,
+  type StatKey,
 } from "@game/shared/stats";
-import { DEFAULT_ZONE, type Vec3, type Zone, clampToBounds, getZone } from "@game/shared/zones";
+import { clampToBounds, DEFAULT_ZONE, getZone, type Vec3, type Zone } from "@game/shared/zones";
 import { auth } from "../auth";
 import {
-  type CombatConfig,
   type Combatant,
-  DEFAULT_COMBAT,
-  SKILLS_EQUIPPED_SIZE,
+  type CombatConfig,
   checkAbilityReady,
+  DEFAULT_COMBAT,
   resolveAttack,
   resolveWeaponAbility,
+  SKILLS_EQUIPPED_SIZE,
   validateAllocation,
   validateUnbind,
 } from "../combat";
@@ -62,14 +62,14 @@ import { insertChat, loadRecentChat } from "../db/chat";
 import { addBlock, isBlocked, removeBlock } from "../db/chatBlock";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
 import {
-  DEFAULT_LOOT,
-  INVENTORY_SLOT_CAP,
-  type LootConfig,
-  type Slot,
   addItem,
   countItem,
+  DEFAULT_LOOT,
   findSlotIndex,
+  INVENTORY_SLOT_CAP,
+  type LootConfig,
   removeItem,
+  type Slot,
 } from "../inventory";
 import { log } from "../logger";
 import { PartyManager } from "../party";

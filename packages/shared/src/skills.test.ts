@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { isAbilityId } from "./abilities";
 import {
   ALL_SKILL_IDS,
-  SKILL_CATALOG,
-  ULTIMATE_COOLDOWN_MULTIPLIER,
   getSkill,
   isSkillId,
   resolveSkillAbility,
+  SKILL_CATALOG,
   skillEffectiveCooldownMs,
+  ULTIMATE_COOLDOWN_MULTIPLIER,
 } from "./skills";
 
 describe("skills catalog", () => {

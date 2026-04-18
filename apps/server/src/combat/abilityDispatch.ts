@@ -1,10 +1,10 @@
 import {
   type AbilityDef,
   type AbilityId,
+  getAbility,
   UNARMED_PRIMARY,
   UNARMED_SECONDARY,
   type WeaponSlotKey,
-  getAbility,
 } from "@game/shared/abilities";
 import { getItem } from "@game/shared/items";
 

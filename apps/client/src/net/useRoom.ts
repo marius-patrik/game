@@ -1,5 +1,3 @@
-import { notify } from "@/components/ui/unified-toast";
-import { useCharacterStore } from "@/state/characterStore";
 import {
   type AbilityId,
   CHAT_MAX_HISTORY,
@@ -24,8 +22,10 @@ import {
   type WorldDrop,
   type ZoneId,
 } from "@game/shared";
-import { type Room, getStateCallbacks } from "colyseus.js";
+import { getStateCallbacks, type Room } from "colyseus.js";
 import { useEffect, useRef, useState } from "react";
+import { notify } from "@/components/ui/unified-toast";
+import { useCharacterStore } from "@/state/characterStore";
 import { joinZone } from "./room";
 
 export type SlotSnapshot = { itemId: string; qty: number };
@@ -482,10 +482,7 @@ export function useRoom(): RoomState {
         let lastPickupErrorAt = 0;
         room.onMessage(
           "pickup-error",
-          (msg: {
-            reason: "inventory_full" | "unknown_item" | "invalid_qty";
-            itemId?: string;
-          }) => {
+          (msg: { reason: "inventory_full" | "unknown_item" | "invalid_qty"; itemId?: string }) => {
             // Auto-pickup fires on every drop in range, so throttle toasts so
             // a full bag doesn't flood the notification stack.
             const now = Date.now();

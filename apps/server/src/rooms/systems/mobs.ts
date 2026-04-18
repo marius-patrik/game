@@ -1,12 +1,12 @@
 import type { MapSchema } from "@colyseus/schema";
 import {
+  clampToBounds,
   type ItemId,
   Mob,
+  pickWeighted,
   type Vec3,
   type WeightedEntry,
   type Zone,
-  clampToBounds,
-  pickWeighted,
 } from "@game/shared";
 
 export type MobKind = "grunt" | "caster" | "boss" | "healer";

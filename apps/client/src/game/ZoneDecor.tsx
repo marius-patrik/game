@@ -101,13 +101,7 @@ function StonePillar({
   );
 }
 
-function MarketStall({
-  pos,
-  canopy,
-}: {
-  pos: [number, number, number];
-  canopy: string;
-}) {
+function MarketStall({ pos, canopy }: { pos: [number, number, number]; canopy: string }) {
   return (
     <group position={pos}>
       {/* Counter */}

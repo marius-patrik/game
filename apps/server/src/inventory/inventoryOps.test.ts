@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ITEM_CATALOG } from "@game/shared/items";
-import { INVENTORY_SLOT_CAP, addItem, countItem, findSlotIndex, removeItem } from "./inventoryOps";
+import { addItem, countItem, findSlotIndex, INVENTORY_SLOT_CAP, removeItem } from "./inventoryOps";
 
 describe("addItem", () => {
   test("rejects unknown item", () => {

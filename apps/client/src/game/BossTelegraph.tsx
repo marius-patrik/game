@@ -1,7 +1,7 @@
-import type { BossTelegraphEvent } from "@/net/useRoom";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils } from "three";
+import type { BossTelegraphEvent } from "@/net/useRoom";
 
 type Active = {
   id: string;

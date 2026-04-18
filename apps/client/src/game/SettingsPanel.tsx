@@ -1,3 +1,5 @@
+import { Settings } from "lucide-react";
+import { useState } from "react";
 import type { QualityTier } from "@/assets";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
 import { FOV_MAX, FOV_MIN } from "@/state/preferencesStore";
-import { Settings } from "lucide-react";
-import { useState } from "react";
 
 export function SettingsPanel({
   tier,

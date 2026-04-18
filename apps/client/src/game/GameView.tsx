@@ -1,9 +1,3 @@
-import { QualityProvider, type QualityTier, useQuality } from "@/assets";
-import { CinematicGate } from "@/cinematic";
-import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
-import { useRoom } from "@/net/useRoom";
-import { usePreferencesStore } from "@/state/preferencesStore";
-import { useTheme } from "@/theme/theme-provider";
 import {
   type ChatChannel,
   type EquipSlot,
@@ -16,28 +10,34 @@ import {
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { QualityProvider, type QualityTier, useQuality } from "@/assets";
+import { CinematicGate } from "@/cinematic";
+import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
+import { useRoom } from "@/net/useRoom";
+import { usePreferencesStore } from "@/state/preferencesStore";
+import { useTheme } from "@/theme/theme-provider";
 import { ActionBar } from "./ActionBar";
 import { BottomBars } from "./BottomBars";
 import { Compass } from "./Compass";
+import { useCursorLockToggleKey } from "./camera/useCursorLock";
 import { DeathOverlay } from "./DeathOverlay";
 import { HitVignette } from "./HitVignette";
 import { PartyPanel } from "./PartyPanel";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
 import { StatPanel } from "./StatPanel";
+import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { TopLeftPane } from "./TopLeftPane";
 import { TopMenu } from "./TopMenu";
 import { TopRightSidebar } from "./TopRightSidebar";
 import { Tutorial } from "./Tutorial";
-import { VendorPanel } from "./VendorPanel";
-import { ZoneTransition } from "./ZoneTransition";
-import { useCursorLockToggleKey } from "./camera/useCursorLock";
-import { getSfxVolume, playSfx, setSfxVolume } from "./sfx";
 import { useTargetingInputHandlers } from "./targeting";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
 import { useNearestNpc } from "./useNearestNpc";
+import { VendorPanel } from "./VendorPanel";
+import { ZoneTransition } from "./ZoneTransition";
 
 type Vec3 = { x: number; y: number; z: number };
 type TierPref = QualityTier | "auto";

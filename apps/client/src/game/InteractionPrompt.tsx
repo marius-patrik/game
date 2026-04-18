@@ -1,8 +1,8 @@
-import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { Billboard } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useMemo, useRef } from "react";
 import { type Group, MathUtils } from "three";
+import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 

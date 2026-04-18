@@ -1,3 +1,5 @@
+import { AnimatePresence, motion } from "framer-motion";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,8 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "framer-motion";
-import { Monitor, Moon, Sun } from "lucide-react";
 import { type Theme, useTheme } from "./theme-provider";
 
 const icons: Record<Theme, typeof Sun> = {

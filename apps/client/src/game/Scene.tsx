@@ -1,3 +1,8 @@
+import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
+import { Environment, Float } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { type MutableRefObject, useRef } from "react";
+import type { Group } from "three";
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
 import { SparkBurst } from "@/fx";
@@ -12,13 +17,13 @@ import type {
   NpcSnapshot,
   PlayerSnapshot,
 } from "@/net/useRoom";
-import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
-import { Environment, Float } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { type MutableRefObject, useRef } from "react";
-import type { Group } from "three";
 import { BossTelegraph } from "./BossTelegraph";
 import { CasterBolts } from "./CasterBolts";
+import { ChaseCamera } from "./camera/ChaseCamera";
+import { usePortalCameraPush } from "./cinematics";
+import { ClickBurst } from "./cursor/ClickBurst";
+import { Cursor3D } from "./cursor/Cursor3D";
+import { peekGround, peekLocked } from "./cursor/cursorStore";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { HazardZones } from "./HazardZones";
@@ -29,13 +34,8 @@ import { PlayerLabels } from "./PlayerLabel";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { SafeZoneRing } from "./SafeZoneRing";
-import { ZoneDecor } from "./ZoneDecor";
-import { ChaseCamera } from "./camera/ChaseCamera";
-import { usePortalCameraPush } from "./cinematics";
-import { ClickBurst } from "./cursor/ClickBurst";
-import { Cursor3D } from "./cursor/Cursor3D";
-import { peekGround, peekLocked } from "./cursor/cursorStore";
 import { MoveCircle, Targeter, useActiveTargetingSource } from "./targeting";
+import { ZoneDecor } from "./ZoneDecor";
 import { resolveZonePalette } from "./zonePalette";
 
 type Vec3 = { x: number; y: number; z: number };

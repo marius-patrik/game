@@ -1,16 +1,16 @@
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { PlayerSnapshot } from "@/net/useRoom";
 import {
   ALL_SKILL_IDS,
+  getAbility,
   SKILL_CATALOG,
   type SkillDef,
   type SkillId,
   type SkillSlot,
   ULTIMATE_COOLDOWN_MULTIPLIER,
-  getAbility,
 } from "@game/shared";
 import { Sparkles, Star, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { PlayerSnapshot } from "@/net/useRoom";
 
 export function SkillsTab({
   player,
