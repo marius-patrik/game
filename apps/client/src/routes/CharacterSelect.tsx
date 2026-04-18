@@ -7,11 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { notify } from "@/components/ui/unified-toast";
 import { type Character, charactersApi } from "@/lib/charactersApi";
 import { useCharacterStore } from "@/state/characterStore";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 export function CharacterSelect() {
@@ -24,7 +24,7 @@ export function CharacterSelect() {
     charactersApi
       .list()
       .then(setCharacters)
-      .catch((err) => toast.error("Failed to load characters"))
+      .catch((err) => notify.error("Failed to load characters"))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -41,9 +41,9 @@ export function CharacterSelect() {
       if (selectedCharacterId === charId) {
         setSelectedCharacterId(null);
       }
-      toast.success("Character deleted");
+      notify.success("Character deleted");
     } catch (err) {
-      toast.error("Failed to delete character");
+      notify.error("Failed to delete character");
     }
   };
 

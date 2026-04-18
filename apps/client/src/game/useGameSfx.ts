@@ -13,6 +13,7 @@ export function useGameSfx(room: RoomState): void {
   const pickupRef = useRef(room.lastPickup);
   const zoneRef = useRef(room.zoneId);
   const levelRef = useRef<number | undefined>(undefined);
+  const questStatusRef = useRef<Map<string, string>>(new Map());
   const mobsSeenRef = useRef(new Set<string>());
 
   // self level -> init
@@ -65,6 +66,14 @@ export function useGameSfx(room: RoomState): void {
     levelRef.current = self.level;
     if (prev !== undefined && self.level > prev) {
       playSfx("levelup");
+    }
+    const known = questStatusRef.current;
+    for (const q of self.quests) {
+      const prevStatus = known.get(q.id);
+      if (prevStatus !== q.status && q.status === "complete") {
+        playSfx("questFanfare");
+      }
+      known.set(q.id, q.status);
     }
   }, [self]);
 

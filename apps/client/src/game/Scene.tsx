@@ -25,6 +25,7 @@ import { HazardZones } from "./HazardZones";
 import { InteractionPrompt } from "./InteractionPrompt";
 import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
+import { PlayerLabels } from "./PlayerLabel";
 import { Players } from "./Players";
 import { Portals } from "./Portals";
 import { SafeZoneRing } from "./SafeZoneRing";
@@ -170,6 +171,7 @@ export function Scene({
         lastAttack={lastAttack}
         selfPosRef={selfPosRef}
       />
+      <PlayerLabels players={players} sessionId={sessionId} />
       <Drops drops={drops} selfPosRef={selfPosRef} onPickup={onPickup} />
       <Mobs mobs={mobs} lastAttack={lastAttack} />
       <Npcs npcs={npcs} onInteract={onNpcInteract} />

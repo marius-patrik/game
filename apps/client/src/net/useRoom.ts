@@ -1,3 +1,4 @@
+import { notify } from "@/components/ui/unified-toast";
 import { useCharacterStore } from "@/state/characterStore";
 import {
   type AbilityId,
@@ -15,6 +16,7 @@ import {
   type Mob,
   type Npc,
   type Player,
+  QUEST_CATALOG,
   type QuestProgress,
   type SkillSlot,
   type StatKey,
@@ -24,7 +26,6 @@ import {
 } from "@game/shared";
 import { type Room, getStateCallbacks } from "colyseus.js";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { joinZone } from "./room";
 
 export type SlotSnapshot = { itemId: string; qty: number };
@@ -490,8 +491,8 @@ export function useRoom(): RoomState {
             const now = Date.now();
             if (now - lastPickupErrorAt < 2000) return;
             lastPickupErrorAt = now;
-            if (msg.reason === "inventory_full") toast.error("Inventory full");
-            else toast.error(`Pickup failed: ${msg.reason}`);
+            if (msg.reason === "inventory_full") notify.error("Inventory full");
+            else notify.error(`Pickup failed: ${msg.reason}`);
           },
         );
         room.onMessage("used", (msg: { itemId: string; hp: number; mana?: number }) => {
@@ -510,7 +511,7 @@ export function useRoom(): RoomState {
           commit();
         });
         room.onMessage("portal-locked", (msg: { to: ZoneId; minLevel: number }) => {
-          toast.error(`Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`);
+          notify.error(`Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`);
         });
         room.onMessage(
           "boss-telegraph",
@@ -568,7 +569,7 @@ export function useRoom(): RoomState {
         room.onMessage("caster-bolt-hit", (msg: { id: string }) => resolveBolt(msg.id, "hit"));
         room.onMessage("caster-bolt-miss", (msg: { id: string }) => resolveBolt(msg.id, "miss"));
         room.onMessage("chat-error", (msg: ChatError) => {
-          toast.error(chatErrorMessage(msg.reason));
+          notify.error(chatErrorMessage(msg.reason));
         });
         room.onMessage("zone-exit", (msg: { to: ZoneId }) => {
           travel(msg.to);
@@ -585,7 +586,7 @@ export function useRoom(): RoomState {
               | "slot_kind_mismatch"
               | "empty_slot";
           }) => {
-            toast.error(`Skill: ${msg.reason.replace(/_/g, " ")}`);
+            notify.error(`Skill: ${msg.reason.replace(/_/g, " ")}`);
           },
         );
         room.onMessage(
@@ -622,7 +623,7 @@ export function useRoom(): RoomState {
             reason: "cooldown" | "mana" | "dead" | "invalid_slot" | "unknown_ability";
           }) => {
             if (msg.reason === "cooldown") return; // silent — cooldown visualized on button
-            toast.error(`Ability failed: ${msg.reason}`);
+            notify.error(`Ability failed: ${msg.reason}`);
           },
         );
         room.onMessage(
@@ -632,20 +633,20 @@ export function useRoom(): RoomState {
             itemId?: string;
             reason: "invalid_slot" | "slot_mismatch" | "unknown_item" | "not_in_inventory";
           }) => {
-            toast.error(`Equip failed: ${msg.reason.replace(/_/g, " ")}`);
+            notify.error(`Equip failed: ${msg.reason.replace(/_/g, " ")}`);
           },
         );
         room.onMessage("equip-ok", (_msg: { slot: string; itemId: string }) => {
           // Schema update drives the UI; no toast needed on success.
         });
         room.onMessage("vendor-ok", (_msg: unknown) => {
-          toast.success("Deal done");
+          notify.success("Deal done");
         });
         room.onMessage("vendor-error", (msg: { reason: string }) => {
-          toast.error(`Vendor: ${msg.reason}`);
+          notify.error(`Vendor: ${msg.reason}`);
         });
         room.onMessage("quest-complete", (_msg: unknown) => {
-          toast.success("Quest turned in!");
+          notify.success("Quest turned in!");
         });
 
         room.onLeave(() => {
@@ -711,17 +712,43 @@ export function useRoom(): RoomState {
     const transitioning = zoneSwitchingRef.current;
     if (prev === "connected" && (state.status === "idle" || state.status === "error")) {
       if (!transitioning) {
-        toast.error("Disconnected", {
+        notify.error("Disconnected", {
           description: state.error ?? "Lost connection to the zone.",
         });
       }
     } else if (prev === "error" && state.status === "connected") {
-      toast.success("Reconnected");
+      notify.success("Reconnected");
     } else if (prev === "idle" && state.status === "connected") {
-      if (!transitioning) toast.success(`Joined ${state.zoneId}`);
+      if (!transitioning) notify.success(`Joined ${state.zoneId}`);
       zoneSwitchingRef.current = false;
     }
   }, [state.status, state.error, state.zoneId]);
+
+  const lastLevelRef = useRef<number | undefined>(undefined);
+  const knownQuestStatusRef = useRef<Map<string, string>>(new Map());
+  const self = state.sessionId ? state.players.get(state.sessionId) : undefined;
+  useEffect(() => {
+    if (!self) return;
+    if (lastLevelRef.current === undefined) {
+      lastLevelRef.current = self.level;
+    } else if (self.level > lastLevelRef.current) {
+      notify.levelUp({ level: self.level });
+      lastLevelRef.current = self.level;
+    } else {
+      lastLevelRef.current = self.level;
+    }
+    const known = knownQuestStatusRef.current;
+    for (const q of self.quests) {
+      const prev = known.get(q.id);
+      if (prev !== q.status && q.status === "complete") {
+        const def = QUEST_CATALOG[q.id];
+        if (def) {
+          notify.questReady({ title: def.title, xp: def.xpReward, gold: def.goldReward });
+        }
+      }
+      known.set(q.id, q.status);
+    }
+  }, [self]);
 
   return state;
 }

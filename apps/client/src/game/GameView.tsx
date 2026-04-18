@@ -17,19 +17,16 @@ import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ActionBar } from "./ActionBar";
+import { BottomBars } from "./BottomBars";
 import { DeathOverlay } from "./DeathOverlay";
-import { HUD } from "./HUD";
 import { HitVignette } from "./HitVignette";
-import { LevelUpBanner } from "./LevelUpBanner";
 import { PartyPanel } from "./PartyPanel";
-import { ProgressBar } from "./ProgressBar";
-import { QuestToast } from "./QuestToast";
-import { QuestTracker } from "./QuestTracker";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
-import { SidePanel } from "./SidePanel";
 import { StatPanel } from "./StatPanel";
+import { TopLeftPane } from "./TopLeftPane";
 import { TopMenu } from "./TopMenu";
+import { TopRightSidebar } from "./TopRightSidebar";
 import { Tutorial } from "./Tutorial";
 import { VendorPanel } from "./VendorPanel";
 import { ZoneTransition } from "./ZoneTransition";
@@ -386,23 +383,9 @@ function GameViewInner({
         </Canvas>
       </div>
 
-      <HUD status={room.status} playerCount={room.players.size} zoneId={room.zoneId} />
-
       {!cinematicActive && room.sessionId ? (
         <>
-          <ProgressBar player={self} onClick={() => setStatOpen(true)} />
-          <div className="pointer-events-auto absolute top-2 right-[220px] sm:top-4 sm:right-[260px]">
-            <TopMenu
-              status={room.status}
-              playerCount={room.players.size}
-              zoneId={room.zoneId}
-              onTravel={room.travel}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
-          </div>
-          <QuestTracker player={self} />
-          <PartyPanel players={room.players} sessionId={room.sessionId} />
-          <SidePanel
+          <TopLeftPane
             zoneId={room.zoneId}
             players={room.players}
             mobs={room.mobs}
@@ -416,9 +399,27 @@ function GameViewInner({
             onTurnInQuest={onTurnInQuest}
             canTurnIn={canTurnIn}
             self={self}
+            onAllocateStat={onAllocateStat}
+            onUnequipSlot={onUnequipSlot}
+            onUse={onUse}
+            onEquip={onEquip}
+            onEquipSlot={onEquipSlot}
+            onDrop={onDropItem}
             onAllocateSkill={onAllocateSkill}
             onUnbindSkill={onUnbindSkill}
           />
+          <TopRightSidebar player={self} zoneId={room.zoneId} />
+          <div className="pointer-events-auto absolute top-2 right-2 z-20 sm:top-4 sm:right-4">
+            <TopMenu
+              status={room.status}
+              playerCount={room.players.size}
+              zoneId={room.zoneId}
+              onTravel={room.travel}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          </div>
+          <PartyPanel players={room.players} sessionId={room.sessionId} />
+          <BottomBars player={self} />
           <ActionBar
             player={self}
             enabled={canAct}
@@ -430,7 +431,7 @@ function GameViewInner({
             onDrop={onDropItem}
           />
           {nearestNpc && interactionTarget?.kind !== "drop" ? (
-            <div className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md">
+            <div className="pointer-events-none absolute bottom-[168px] left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md sm:bottom-[184px]">
               Press <kbd className="rounded border border-border/60 bg-muted px-1">E</kbd> to{" "}
               {nearestNpc.kind === "vendor" ? "trade" : canTurnIn ? "turn in" : "talk"} with{" "}
               <strong>{nearestNpc.name}</strong>
@@ -475,8 +476,6 @@ function GameViewInner({
         cause={room.lastDied?.cause}
       />
       <HitVignette self={self} />
-      <LevelUpBanner self={self} />
-      <QuestToast room={room} />
       <ZoneTransition status={room.status} zoneId={room.zoneId} skipCinematics={skipCinematics} />
     </div>
   );

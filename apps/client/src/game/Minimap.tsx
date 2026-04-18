@@ -3,15 +3,11 @@ import { ZONES, type ZoneId } from "@game/shared";
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Top-down HUD minimap. Renders zone bounds, portals as gold rings,
- * mobs as red dots, other players as hue-coded dots, and self as a larger
- * white dot with a facing indicator. Scales down on narrow viewports so
- * it doesn't collide with the HP/mana/XP panel.
+ * Top-down HUD minimap. Renders zone bounds, portals as gold rings, mobs as
+ * red dots, other players as cyan dots, self as a larger white dot. The canvas
+ * resizes to fill whichever container it's mounted in — the Map tab uses that
+ * to fill the full pane height.
  */
-function pickSize(): number {
-  if (typeof window === "undefined") return 160;
-  return window.innerWidth < 640 ? 120 : 160;
-}
 
 export function Minimap({
   zoneId,
@@ -28,13 +24,22 @@ export function Minimap({
   hazards: Map<string, HazardSnapshot>;
   sessionId?: string;
 }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLCanvasElement>(null);
-  const [size, setSize] = useState<number>(() => pickSize());
+  const [size, setSize] = useState<number>(160);
 
   useEffect(() => {
-    const onResize = () => setSize(pickSize());
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    const el = wrapperRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        const next = Math.max(96, Math.floor(Math.min(width, height)));
+        setSize((s) => (Math.abs(s - next) > 1 ? next : s));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
@@ -204,8 +209,8 @@ export function Minimap({
 
   return (
     <div
-      className="pointer-events-none absolute top-20 left-2 overflow-hidden rounded-lg border border-border/50 shadow-md backdrop-blur-md sm:top-4 sm:left-4"
-      style={{ width: size, height: size }}
+      ref={wrapperRef}
+      className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-lg border border-border/50"
     >
       <canvas ref={ref} style={{ width: size, height: size, display: "block" }} />
     </div>
