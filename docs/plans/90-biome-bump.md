@@ -1,6 +1,6 @@
 # Plan: #90 — Biome 1.9.4 → 2.x bump
 
-**Status:** in_progress
+**Status:** pr_open_ci_green
 **Owner agent:** execution
 **Branch:** `chore/biome-2x-bump`
 
