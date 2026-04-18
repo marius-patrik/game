@@ -50,6 +50,9 @@ function makeDb() {
       equipment_json TEXT NOT NULL DEFAULT '{}',
       quests_json TEXT NOT NULL DEFAULT '{}',
       skill_cooldowns_json TEXT NOT NULL DEFAULT '{}',
+      skills_equipped_json TEXT NOT NULL DEFAULT '[]',
+      ultimate_skill TEXT NOT NULL DEFAULT '',
+      skill_points INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (character_id) REFERENCES character(id) ON DELETE CASCADE
     );

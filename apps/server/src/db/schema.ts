@@ -98,6 +98,9 @@ export const characterProgress = sqliteTable("character_progress", {
   equipmentJson: text("equipment_json").notNull().default("{}"),
   questsJson: text("quests_json").notNull().default("{}"),
   skillCooldownsJson: text("skill_cooldowns_json").notNull().default("{}"),
+  skillsEquippedJson: text("skills_equipped_json").notNull().default("[]"),
+  ultimateSkill: text("ultimate_skill").notNull().default(""),
+  skillPoints: integer("skill_points").notNull().default(0),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
@@ -151,6 +154,9 @@ export const playerProgress = sqliteTable("player_progress", {
   equipmentJson: text("equipment_json").notNull().default("{}"),
   questsJson: text("quests_json").notNull().default("{}"),
   skillCooldownsJson: text("skill_cooldowns_json").notNull().default("{}"),
+  skillsEquippedJson: text("skills_equipped_json").notNull().default("[]"),
+  ultimateSkill: text("ultimate_skill").notNull().default(""),
+  skillPoints: integer("skill_points").notNull().default(0),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 

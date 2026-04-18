@@ -2,13 +2,28 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
-import { type ChatChannel, type ChatEntry, QUEST_CATALOG, type ZoneId } from "@game/shared";
-import { ChevronsRight, Coins, Map as MapIcon, MessageSquare, ScrollText } from "lucide-react";
+import {
+  type ChatChannel,
+  type ChatEntry,
+  QUEST_CATALOG,
+  type SkillId,
+  type SkillSlot,
+  type ZoneId,
+} from "@game/shared";
+import {
+  ChevronsRight,
+  Coins,
+  Map as MapIcon,
+  MessageSquare,
+  ScrollText,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { DailyQuestsHeader } from "./DailyQuestsHeader";
 import { Minimap } from "./Minimap";
+import { SkillsTab } from "./SkillsTab";
 
-type Tab = "map" | "quests" | "chat";
+type Tab = "map" | "quests" | "chat" | "skills";
 
 export function SidePanel({
   zoneId,
@@ -23,6 +38,9 @@ export function SidePanel({
   dailyQuests,
   onTurnInQuest,
   canTurnIn,
+  self,
+  onAllocateSkill,
+  onUnbindSkill,
 }: {
   zoneId: ZoneId;
   players: Map<string, PlayerSnapshot>;
@@ -36,6 +54,9 @@ export function SidePanel({
   dailyQuests: PlayerSnapshot["dailyQuests"];
   onTurnInQuest: (id: string) => void;
   canTurnIn: boolean;
+  self: PlayerSnapshot | undefined;
+  onAllocateSkill: (skillId: SkillId, slot: SkillSlot) => void;
+  onUnbindSkill: (slot: SkillSlot) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [tab, setTab] = useState<Tab>("map");
@@ -97,6 +118,14 @@ export function SidePanel({
               </TabBtn>
               <TabBtn
                 current={tab}
+                value="skills"
+                onChange={setTab}
+                icon={<Sparkles className="size-3.5" />}
+              >
+                Skills
+              </TabBtn>
+              <TabBtn
+                current={tab}
                 value="chat"
                 onChange={setTab}
                 icon={<MessageSquare className="size-3.5" />}
@@ -134,6 +163,9 @@ export function SidePanel({
                 onTurnIn={onTurnInQuest}
                 canTurnIn={canTurnIn}
               />
+            ) : null}
+            {tab === "skills" ? (
+              <SkillsTab player={self} onAllocate={onAllocateSkill} onUnbind={onUnbindSkill} />
             ) : null}
             {tab === "chat" ? (
               <ChatTab

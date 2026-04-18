@@ -30,6 +30,9 @@ export type CharacterProgressRow = {
   equipmentJson: string;
   questsJson: string;
   skillCooldownsJson: string;
+  skillsEquippedJson: string;
+  ultimateSkill: string;
+  skillPoints: number;
   updatedAt: Date;
 };
 
@@ -199,6 +202,9 @@ export type SaveCharacterInput = {
   equipmentJson?: string;
   questsJson?: string;
   skillCooldownsJson?: string;
+  skillsEquippedJson?: string;
+  ultimateSkill?: string;
+  skillPoints?: number;
   inventory: readonly { itemId: string; qty: number }[];
   now?: Date;
 };
@@ -217,6 +223,9 @@ export async function saveCharacter(input: SaveCharacterInput, db: DB = defaultD
     equipmentJson: input.equipmentJson ?? "{}",
     questsJson: input.questsJson ?? "{}",
     skillCooldownsJson: input.skillCooldownsJson ?? "{}",
+    skillsEquippedJson: input.skillsEquippedJson ?? "[]",
+    ultimateSkill: input.ultimateSkill ?? "",
+    skillPoints: input.skillPoints ?? 0,
   };
 
   await db.transaction(async (tx) => {
