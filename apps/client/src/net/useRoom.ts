@@ -60,6 +60,7 @@ export type PlayerSnapshot = {
   equipment: Record<string, string>;
   inventory: SlotSnapshot[];
   quests: QuestSnapshot[];
+  dailyQuests: QuestSnapshot[];
 };
 
 export type DropSnapshot = {
@@ -210,6 +211,10 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
   p.quests.forEach((q: QuestProgress, id: string) => {
     quests.push({ id, status: q.status, progress: q.progress, goal: q.goal });
   });
+  const dailyQuests: QuestSnapshot[] = [];
+  p.dailyQuests.forEach((q: QuestProgress, id: string) => {
+    dailyQuests.push({ id, status: q.status, progress: q.progress, goal: q.goal });
+  });
   return {
     id: key,
     name: p.name,
@@ -240,6 +245,7 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
     equipment,
     inventory: inv,
     quests,
+    dailyQuests,
   };
 }
 

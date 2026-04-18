@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { MapSchema } from "@colyseus/schema";
-import type { HazardZone } from "@game/shared";
+import type { HazardZone } from "@game/shared/schema";
 import { type HazardPlayerRef, HazardSystem } from "./hazards";
 
 type Harness = {

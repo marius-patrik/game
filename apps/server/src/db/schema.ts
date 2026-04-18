@@ -117,6 +117,22 @@ export const characterInventory = sqliteTable(
   }),
 );
 
+export const characterDailyProgress = sqliteTable(
+  "character_daily_progress",
+  {
+    characterId: text("character_id")
+      .notNull()
+      .references(() => character.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // YYYY-MM-DD
+    questId: text("quest_id").notNull(),
+    progress: integer("progress").notNull().default(0),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.characterId, t.date, t.questId] }),
+  }),
+);
+
 export const playerProgress = sqliteTable("player_progress", {
   userId: text("user_id")
     .primaryKey()

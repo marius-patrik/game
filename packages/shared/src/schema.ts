@@ -44,6 +44,7 @@ export class Player extends Schema {
   @type({ map: "string" }) equipment = new MapSchema<string>();
   @type([InventorySlot]) inventory = new ArraySchema<InventorySlot>();
   @type({ map: QuestProgress }) quests = new MapSchema<QuestProgress>();
+  @type({ map: QuestProgress }) dailyQuests = new MapSchema<QuestProgress>();
 }
 
 export class WorldDrop extends Schema {

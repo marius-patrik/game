@@ -5,6 +5,7 @@ import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@
 import { type ChatChannel, type ChatEntry, QUEST_CATALOG, type ZoneId } from "@game/shared";
 import { ChevronsRight, Coins, Map as MapIcon, MessageSquare, ScrollText } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { DailyQuestsHeader } from "./DailyQuestsHeader";
 import { Minimap } from "./Minimap";
 
 type Tab = "map" | "quests" | "chat";
@@ -19,6 +20,7 @@ export function SidePanel({
   chat,
   onSendChat,
   quests,
+  dailyQuests,
   onTurnInQuest,
   canTurnIn,
 }: {
@@ -31,6 +33,7 @@ export function SidePanel({
   chat: ChatEntry[];
   onSendChat: (channel: ChatChannel, text: string) => void;
   quests: PlayerSnapshot["quests"];
+  dailyQuests: PlayerSnapshot["dailyQuests"];
   onTurnInQuest: (id: string) => void;
   canTurnIn: boolean;
 }) {
@@ -125,7 +128,12 @@ export function SidePanel({
               </div>
             ) : null}
             {tab === "quests" ? (
-              <QuestsTab quests={quests} onTurnIn={onTurnInQuest} canTurnIn={canTurnIn} />
+              <QuestsTab
+                quests={quests}
+                dailyQuests={dailyQuests}
+                onTurnIn={onTurnInQuest}
+                canTurnIn={canTurnIn}
+              />
             ) : null}
             {tab === "chat" ? (
               <ChatTab
@@ -174,71 +182,82 @@ function TabBtn({
 
 function QuestsTab({
   quests,
+  dailyQuests,
   onTurnIn,
   canTurnIn,
 }: {
   quests: PlayerSnapshot["quests"];
+  dailyQuests: PlayerSnapshot["dailyQuests"];
   onTurnIn: (id: string) => void;
   canTurnIn: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 p-3">
-      {quests.length === 0 ? (
-        <p className="py-6 text-center text-muted-foreground text-xs">
-          No quests yet. Talk to Elder Cubius.
-        </p>
-      ) : (
-        Object.values(QUEST_CATALOG).map((def) => {
-          const q = quests.find((x) => x.id === def.id);
-          if (!q) return null;
-          const frac = q.goal > 0 ? Math.min(100, (q.progress / q.goal) * 100) : 0;
-          const turnedIn = q.status === "turned_in";
-          const complete = q.status === "complete";
-          return (
-            <div
-              key={def.id}
-              className="flex flex-col gap-1.5 rounded-md border border-border/40 bg-muted/30 p-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-semibold text-sm">{def.title}</div>
-                <div className="text-[10px] text-muted-foreground uppercase">
-                  {turnedIn ? "done" : complete ? "ready" : "active"}
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground">{def.summary}</div>
-              <Progress
-                value={frac}
-                indicatorClassName={
-                  turnedIn ? "bg-muted-foreground" : complete ? "bg-emerald-500" : "bg-sky-500"
-                }
-                className="h-1.5"
-              />
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="tabular-nums">
-                  {q.progress}/{q.goal}
-                </span>
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <span>+{def.xpReward} XP</span>
-                  <span className="flex items-center gap-1 text-amber-400">
-                    <Coins className="size-3" />
-                    {def.goldReward}
-                  </span>
-                </span>
-              </div>
-              {complete && !turnedIn ? (
-                <Button
-                  size="sm"
-                  disabled={!canTurnIn}
-                  onClick={() => onTurnIn(def.id)}
-                  title={canTurnIn ? "Turn in" : "Talk to Elder Cubius in the lobby"}
+    <div className="flex flex-col gap-3 p-3">
+      <DailyQuestsHeader dailyQuests={dailyQuests} />
+
+      <div className="flex flex-col gap-2">
+        <h3 className="px-1 font-bold text-muted-foreground text-xs uppercase tracking-wider">
+          Side Quests
+        </h3>
+        {quests.length === 0 ? (
+          <p className="py-6 text-center text-muted-foreground text-xs">
+            No quests yet. Talk to Elder Cubius.
+          </p>
+        ) : (
+          Object.values(QUEST_CATALOG)
+            .filter((def) => !def.isDaily)
+            .map((def) => {
+              const q = quests.find((x) => x.id === def.id);
+              if (!q) return null;
+              const frac = q.goal > 0 ? Math.min(100, (q.progress / q.goal) * 100) : 0;
+              const turnedIn = q.status === "turned_in";
+              const complete = q.status === "complete";
+              return (
+                <div
+                  key={def.id}
+                  className="flex flex-col gap-1.5 rounded-md border border-border/40 bg-muted/30 p-2"
                 >
-                  {canTurnIn ? "Turn in" : "Visit Elder Cubius"}
-                </Button>
-              ) : null}
-            </div>
-          );
-        })
-      )}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-semibold text-sm">{def.title}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase">
+                      {turnedIn ? "done" : complete ? "ready" : "active"}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{def.summary}</div>
+                  <Progress
+                    value={frac}
+                    indicatorClassName={
+                      turnedIn ? "bg-muted-foreground" : complete ? "bg-emerald-500" : "bg-sky-500"
+                    }
+                    className="h-1.5"
+                  />
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="tabular-nums">
+                      {q.progress}/{q.goal}
+                    </span>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <span>+{def.xpReward} XP</span>
+                      <span className="flex items-center gap-1 text-amber-400">
+                        <Coins className="size-3" />
+                        {def.goldReward}
+                      </span>
+                    </span>
+                  </div>
+                  {complete && !turnedIn ? (
+                    <Button
+                      size="sm"
+                      disabled={!canTurnIn}
+                      onClick={() => onTurnIn(def.id)}
+                      title={canTurnIn ? "Turn in" : "Talk to Elder Cubius in the lobby"}
+                    >
+                      {canTurnIn ? "Turn in" : "Visit Elder Cubius"}
+                    </Button>
+                  ) : null}
+                </div>
+              );
+            })
+        )}
+      </div>
     </div>
   );
 }

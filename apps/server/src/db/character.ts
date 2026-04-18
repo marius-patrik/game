@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db as defaultDb } from "./client";
-import { character, characterInventory, characterProgress } from "./schema";
+import { character, characterDailyProgress, characterInventory, characterProgress } from "./schema";
 
 type DB = typeof defaultDb;
 
@@ -35,11 +35,64 @@ export type CharacterProgressRow = {
 
 export type CharacterInventoryRow = { slotIndex: number; itemId: string; qty: number };
 
+export type DailyProgressRow = {
+  characterId: string;
+  date: string;
+  questId: string;
+  progress: number;
+  completedAt: Date | null;
+};
+
 export type LoadedCharacter = {
   character: CharacterRow | undefined;
   progress: CharacterProgressRow | undefined;
   inventory: CharacterInventoryRow[];
 };
+
+export async function loadDailyProgress(
+  characterId: string,
+  date: string,
+  db: DB = defaultDb,
+): Promise<DailyProgressRow[]> {
+  return db
+    .select()
+    .from(characterDailyProgress)
+    .where(
+      and(
+        eq(characterDailyProgress.characterId, characterId),
+        eq(characterDailyProgress.date, date),
+      ),
+    );
+}
+
+export async function saveDailyProgress(
+  row: {
+    characterId: string;
+    date: string;
+    questId: string;
+    progress: number;
+    completedAt?: Date | null;
+  },
+  db: DB = defaultDb,
+): Promise<void> {
+  await db
+    .insert(characterDailyProgress)
+    .values({
+      ...row,
+      completedAt: row.completedAt ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [
+        characterDailyProgress.characterId,
+        characterDailyProgress.date,
+        characterDailyProgress.questId,
+      ],
+      set: {
+        progress: row.progress,
+        completedAt: row.completedAt ?? null,
+      },
+    });
+}
 
 export async function listCharacters(
   userId: string,
