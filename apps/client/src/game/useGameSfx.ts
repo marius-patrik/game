@@ -9,6 +9,7 @@ import { playSfx } from "./sfx";
  */
 export function useGameSfx(room: RoomState): void {
   const attackRef = useRef(room.lastAttack);
+  const abilityRef = useRef(room.lastAbility);
   const pickupRef = useRef(room.lastPickup);
   const zoneRef = useRef(room.zoneId);
   const levelRef = useRef<number | undefined>(undefined);
@@ -30,6 +31,19 @@ export function useGameSfx(room: RoomState): void {
       }
     }
   }, [room.lastAttack]);
+
+  useEffect(() => {
+    if (room.lastAbility && room.lastAbility !== abilityRef.current) {
+      abilityRef.current = room.lastAbility;
+      if (room.lastAbility.hits > 0) {
+        playSfx("hit");
+        if (room.lastAbility.crit) playSfx("crit");
+        if (room.lastAbility.killed && room.lastAbility.targetId?.startsWith("mob:")) {
+          playSfx("death");
+        }
+      }
+    }
+  }, [room.lastAbility]);
 
   useEffect(() => {
     if (room.lastPickup && room.lastPickup !== pickupRef.current) {

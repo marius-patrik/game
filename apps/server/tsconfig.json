@@ -17,7 +17,8 @@
       "@game/shared/chat": ["../../packages/shared/src/chat.ts"],
       "@game/shared/chat-profanity": ["../../packages/shared/src/chat-profanity.ts"],
       "@game/shared/skills": ["../../packages/shared/src/skills.ts"],
-      "@game/shared/quests": ["../../packages/shared/src/quests.ts"]
+      "@game/shared/quests": ["../../packages/shared/src/quests.ts"],
+      "@game/shared/abilities": ["../../packages/shared/src/abilities.ts"]
     }
   },
   "include": ["src"]

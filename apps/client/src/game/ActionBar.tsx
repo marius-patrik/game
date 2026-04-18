@@ -2,21 +2,30 @@ import { useLongPress } from "@/lib/useLongPress";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
 import {
+  type AbilityDef,
+  type AbilityId,
   type EquipSlot,
   type ItemId,
-  SKILL_BAR,
   SKILL_CATALOG,
   type SkillId,
+  UNARMED_PRIMARY,
+  UNARMED_SECONDARY,
+  type WeaponSlotKey,
+  getAbility,
   getItem,
   isItemId,
+  resolveWeaponAbilityId,
 } from "@game/shared";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
 import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./targeting";
 
 type Vec3 = { x: number; y: number; z: number };
 
 type Cd = Partial<Record<SkillId, number>>;
+type AbilityCd = Partial<Record<AbilityId, number>>;
+
+const HOTBAR_SKILLS: readonly SkillId[] = ["heal", "dash"];
 
 /** Combined abilities + inventory bar — the "main UI section" at the bottom. */
 export function ActionBar({
@@ -24,6 +33,8 @@ export function ActionBar({
   enabled,
   onCast,
   onCastAt,
+  onUseAbility,
+  onUseAbilityAt,
   onUse,
   onEquip,
   onEquipSlot,
@@ -33,6 +44,8 @@ export function ActionBar({
   enabled: boolean;
   onCast: (id: SkillId) => void;
   onCastAt?: (id: SkillId, target: Vec3) => void;
+  onUseAbility: (slot: WeaponSlotKey) => void;
+  onUseAbilityAt?: (slot: WeaponSlotKey, target: Vec3) => void;
   onUse: (itemId: string) => void;
   onEquip: (itemId: string) => void;
   onEquipSlot: (slot: EquipSlot, itemId: string) => void;
@@ -40,11 +53,31 @@ export function ActionBar({
 }) {
   const [, force] = useState(0);
   const cdRef = useRef<Cd>({});
+  const abilityCdRef = useRef<AbilityCd>({});
   const manaRef = useRef(player?.mana ?? 0);
   manaRef.current = Math.floor(player?.mana ?? 0);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const activeTargetingSource = useActiveTargetingSource();
+
+  const weaponId = player?.equipment?.weapon ?? "";
+
+  const abilities = useMemo(() => {
+    const lookup = (id: string) => {
+      const def = getItem(id);
+      if (!def || def.kind !== "weapon") return undefined;
+      return {
+        primaryAbilityId: def.primaryAbilityId,
+        secondaryAbilityId: def.secondaryAbilityId,
+      };
+    };
+    const w1Id = resolveWeaponAbilityId(weaponId || undefined, "W1", lookup);
+    const w2Id = resolveWeaponAbilityId(weaponId || undefined, "W2", lookup);
+    return {
+      W1: getAbility(w1Id) ?? getAbility(UNARMED_PRIMARY),
+      W2: getAbility(w2Id) ?? getAbility(UNARMED_SECONDARY),
+    } as Record<WeaponSlotKey, AbilityDef | undefined>;
+  }, [weaponId]);
 
   const beginTargetedDash = useCallback(() => {
     if (!enabledRef.current) return;
@@ -76,8 +109,6 @@ export function ActionBar({
     (id: SkillId) => {
       if (!enabledRef.current) return;
       if (id === "dash") {
-        // Toggle: second press while aiming cancels. Avoids a "can't escape"
-        // feeling if the player triggered the targeter by mistake.
         if (activeTargetingSource === "skill:dash") {
           cancelTargeting();
           return;
@@ -97,6 +128,51 @@ export function ActionBar({
     [activeTargetingSource, beginTargetedDash, onCast],
   );
 
+  const useAbility = useCallback(
+    (slot: WeaponSlotKey) => {
+      if (!enabledRef.current) return;
+      const def = abilities[slot];
+      if (!def) return;
+      const now = Date.now();
+      const ready = abilityCdRef.current[def.id] ?? 0;
+      if (now < ready) return;
+      if (manaRef.current < def.manaCost) return;
+      // Ranged / aoe / movement abilities go through the targeter for precision;
+      // melee single-target abilities just fire on the nearest hostile.
+      if (def.kind === "aoe" || def.kind === "movement" || def.kind === "ranged") {
+        if (activeTargetingSource === `ability:${slot}`) {
+          cancelTargeting();
+          return;
+        }
+        startTargeting({
+          source: `ability:${slot}`,
+          shape: "circle",
+          rangeMax: def.range,
+          color: def.color,
+          outOfRangeColor: "#ef4444",
+          onConfirm: (pos) => {
+            abilityCdRef.current = {
+              ...abilityCdRef.current,
+              [def.id]: Date.now() + def.cooldownMs,
+            };
+            force((v) => v + 1);
+            if (onUseAbilityAt) onUseAbilityAt(slot, pos);
+            else onUseAbility(slot);
+          },
+          onCancel: () => {
+            force((v) => v + 1);
+          },
+        });
+        force((v) => v + 1);
+        return;
+      }
+      abilityCdRef.current = { ...abilityCdRef.current, [def.id]: now + def.cooldownMs };
+      force((v) => v + 1);
+      onUseAbility(slot);
+    },
+    [abilities, activeTargetingSource, onUseAbility, onUseAbilityAt],
+  );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
@@ -104,14 +180,18 @@ export function ActionBar({
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       const idx = Number.parseInt(e.key, 10);
       if (!Number.isFinite(idx)) return;
-      const id = SKILL_BAR[idx - 1];
-      if (!id) return;
       e.preventDefault();
-      cast(id);
+      // Hotbar layout: 1=W1, 2=W2, 3=heal, 4=dash
+      if (idx === 1) useAbility("W1");
+      else if (idx === 2) useAbility("W2");
+      else {
+        const skillId = HOTBAR_SKILLS[idx - 3];
+        if (skillId) cast(skillId);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cast]);
+  }, [cast, useAbility]);
 
   useEffect(() => {
     const id = setInterval(() => force((v) => v + 1), 100);
@@ -129,10 +209,81 @@ export function ActionBar({
   const openDrawer = useCallback((slotIdx: number) => setDrawerSlot(slotIdx), []);
   const closeDrawer = useCallback(() => setDrawerSlot(null), []);
 
+  const equippedItemIds = useMemo(() => {
+    const out = new Set<string>();
+    if (player?.equippedItemId) out.add(player.equippedItemId);
+    if (player?.equipment) {
+      for (const id of Object.values(player.equipment)) {
+        if (id) out.add(id);
+      }
+    }
+    return out;
+  }, [player?.equippedItemId, player?.equipment]);
+
   return (
     <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex max-w-[96vw] -translate-x-1/2 flex-wrap items-end justify-center gap-2 sm:bottom-4 sm:flex-nowrap sm:gap-3">
       <div className="flex gap-1.5 rounded-xl border border-border/40 bg-background/70 px-2 py-2 shadow-md backdrop-blur-md">
-        {SKILL_BAR.map((id, idx) => {
+        {(["W1", "W2"] as const).map((slot, idx) => {
+          const def = abilities[slot];
+          if (!def) return null;
+          const ready = abilityCdRef.current[def.id] ?? 0;
+          const now = Date.now();
+          const cd = Math.max(0, ready - now);
+          const cdFrac = cd > 0 ? cd / def.cooldownMs : 0;
+          const canAfford = def.manaCost === 0 || mana >= def.manaCost;
+          const aimingThis = activeTargetingSource === `ability:${slot}`;
+          const disabled = !enabled || cd > 0 || !canAfford;
+          return (
+            <button
+              key={slot}
+              type="button"
+              onClick={() => useAbility(slot)}
+              disabled={disabled && !aimingThis}
+              aria-label={`${def.name} (key ${idx + 1}) — ${slot}`}
+              title={`${def.name} — ${def.description}${
+                def.manaCost > 0 ? ` (${def.manaCost} mana)` : ""
+              }${aimingThis ? " — click again to cancel" : ""}`}
+              className={cn(
+                "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
+                disabled && !aimingThis ? "opacity-70" : "hover:scale-105",
+                aimingThis && "ring-2 ring-offset-1 ring-offset-background",
+              )}
+              style={{
+                borderColor: def.color,
+                ...(aimingThis ? { boxShadow: `0 0 0 2px ${def.color}` } : {}),
+              }}
+              data-slot={slot}
+              data-ability={def.id}
+            >
+              <span
+                className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
+                style={{ color: def.color }}
+              >
+                {def.name}
+              </span>
+              <span className="absolute right-1 bottom-1 rounded bg-background/60 px-1 font-mono text-[10px] text-muted-foreground">
+                {idx + 1}
+              </span>
+              {def.manaCost > 0 ? (
+                <span className="-translate-x-1/2 absolute bottom-1 left-1/2 text-[10px] text-sky-400 tabular-nums">
+                  {def.manaCost}
+                </span>
+              ) : null}
+              {cd > 0 ? (
+                <span
+                  className="absolute inset-x-0 bottom-0 bg-background/70"
+                  style={{ height: `${cdFrac * 100}%` }}
+                />
+              ) : null}
+              {cd > 0 ? (
+                <span className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 font-mono font-semibold text-white text-xs">
+                  {(cd / 1000).toFixed(1)}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+        {HOTBAR_SKILLS.map((id, idx) => {
           const skill = SKILL_CATALOG[id];
           const ready = cdRef.current[id] ?? 0;
           const now = Date.now();
@@ -146,10 +297,8 @@ export function ActionBar({
               key={id}
               type="button"
               onClick={() => cast(id)}
-              // While aiming, allow a second click on the ability to cancel
-              // without the browser's disabled-blocking consuming the event.
               disabled={disabled && !aimingThis}
-              aria-label={`${skill.name} (key ${idx + 1})`}
+              aria-label={`${skill.name} (key ${idx + 3})`}
               title={`${skill.name} — ${skill.description}${
                 skill.manaCost > 0 ? ` (${skill.manaCost} mana)` : ""
               }${aimingThis ? " — click again to cancel" : ""}`}
@@ -162,6 +311,8 @@ export function ActionBar({
                 borderColor: skill.color,
                 ...(aimingThis ? { boxShadow: `0 0 0 2px ${skill.color}` } : {}),
               }}
+              data-slot={`S${idx + 1}`}
+              data-skill={id}
             >
               <span
                 className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
@@ -170,7 +321,7 @@ export function ActionBar({
                 {skill.name}
               </span>
               <span className="absolute right-1 bottom-1 rounded bg-background/60 px-1 font-mono text-[10px] text-muted-foreground">
-                {idx + 1}
+                {idx + 3}
               </span>
               {skill.manaCost > 0 ? (
                 <span className="-translate-x-1/2 absolute bottom-1 left-1/2 text-[10px] text-sky-400 tabular-nums">
@@ -207,18 +358,19 @@ export function ActionBar({
               />
             );
           }
+          const isEquipped = equippedItemIds.has(slot.itemId);
           return (
             <ItemSlot
               key={`slot-${i}-${slot.itemId}`}
               slotIdx={i}
               itemId={slot.itemId as ItemId}
               qty={slot.qty}
-              equipped={player?.equippedItemId === slot.itemId}
+              equipped={isEquipped}
               onUse={() => onUse(slot.itemId)}
               onEquip={() => {
-                onEquip(slot.itemId);
                 const def = getItem(slot.itemId);
                 if (def?.slot) onEquipSlot(def.slot, slot.itemId);
+                else onEquip(slot.itemId);
               }}
               onDrop={() => onDrop(slot.itemId, 1)}
               onLongPress={() => openDrawer(i)}
@@ -229,7 +381,7 @@ export function ActionBar({
       <ItemTooltipDrawer
         itemId={drawerItemId}
         qty={drawerEntry?.qty ?? 0}
-        equipped={drawerEntry ? player?.equippedItemId === drawerEntry.itemId : false}
+        equipped={drawerEntry ? equippedItemIds.has(drawerEntry.itemId) : false}
         open={drawerSlot !== null && drawerItemId !== undefined}
         onOpenChange={(o) => {
           if (!o) closeDrawer();
@@ -237,9 +389,9 @@ export function ActionBar({
         onUse={() => drawerEntry && onUse(drawerEntry.itemId)}
         onEquip={() => {
           if (!drawerEntry) return;
-          onEquip(drawerEntry.itemId);
           const def = getItem(drawerEntry.itemId);
           if (def?.slot) onEquipSlot(def.slot, drawerEntry.itemId);
+          else onEquip(drawerEntry.itemId);
         }}
         onDrop={() => drawerEntry && onDrop(drawerEntry.itemId, 1)}
       />

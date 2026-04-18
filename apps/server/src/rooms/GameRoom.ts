@@ -1,5 +1,7 @@
 import { type AuthContext, type Client, Room, matchMaker } from "@colyseus/core";
 import { ArraySchema, MapSchema } from "@colyseus/schema";
+import type { AbilityDef, WeaponSlotKey } from "@game/shared/abilities";
+import { getAbility } from "@game/shared/abilities";
 import {
   CHAT_MAX_LEN,
   type ChatCommand,
@@ -38,7 +40,14 @@ import {
 } from "@game/shared/stats";
 import { DEFAULT_ZONE, type Vec3, type Zone, clampToBounds, getZone } from "@game/shared/zones";
 import { auth } from "../auth";
-import { type CombatConfig, type Combatant, DEFAULT_COMBAT, resolveAttack } from "../combat";
+import {
+  type CombatConfig,
+  type Combatant,
+  DEFAULT_COMBAT,
+  checkAbilityReady,
+  resolveAttack,
+  resolveWeaponAbility,
+} from "../combat";
 import { loadCharacter, saveCharacter } from "../db/character";
 import { insertChat, loadRecentChat } from "../db/chat";
 import { addBlock, isBlocked, removeBlock } from "../db/chatBlock";
@@ -74,6 +83,7 @@ type AllocateStatMessage = { stat: StatKey };
 type CastMessage = { skillId: SkillId; target?: { x: number; z: number } };
 type EquipSlotMessage = { slot: EquipSlot; itemId: string };
 type UnequipSlotMessage = { slot: EquipSlot };
+type UseAbilityMessage = { slot: WeaponSlotKey; target?: { x: number; z: number } };
 type BuyMessage = { itemId: string; qty?: number };
 type SellMessage = { itemId: string; qty?: number };
 type TurnInQuestMessage = { questId: string };
@@ -118,6 +128,7 @@ export class GameRoom extends Room<GameRoomState> {
   private playerUserId = new Map<string, string>();
   private playerCharacterId = new Map<string, string>();
   private skillCds = new Map<string, SkillCooldowns>();
+  private abilityCds = new Map<string, Map<string, number>>();
   private lastDamageSource = new Map<string, LastDamageSource>();
   private saveInterval?: ReturnType<typeof setInterval>;
   private lootInterval?: ReturnType<typeof setInterval>;
@@ -167,6 +178,9 @@ export class GameRoom extends Room<GameRoomState> {
     );
     this.onMessage<UnequipSlotMessage>("unequipSlot", (client, msg) =>
       this.handleUnequipSlot(client, msg),
+    );
+    this.onMessage<UseAbilityMessage>("use-ability", (client, msg) =>
+      this.handleUseAbility(client, msg),
     );
     this.onMessage<BuyMessage>("buy", (client, msg) => this.handleBuy(client, msg));
     this.onMessage<SellMessage>("sell", (client, msg) => this.handleSell(client, msg));
@@ -268,21 +282,20 @@ export class GameRoom extends Room<GameRoomState> {
       p.xpToNext = xpToNextLevel(progress.level);
       p.equippedItemId = progress.equippedItemId;
       p.gold = progress.gold;
-      p.strength = progress.strength;
-      p.dexterity = progress.dexterity;
-      p.vitality = progress.vitality;
-      p.intellect = progress.intellect;
+      p.baseStrength = progress.strength;
+      p.baseDexterity = progress.dexterity;
+      p.baseVitality = progress.vitality;
+      p.baseIntellect = progress.intellect;
       p.statPoints = progress.statPoints;
-      p.maxHp = maxHpFromStats(p.vitality);
-      p.maxMana = maxManaFromStats(p.intellect);
-      p.mana = Math.min(progress.mana, p.maxMana);
+      // Load equipment first, then recompute — effective stats depend on both.
       this.loadEquipment(p, progress.equipmentJson);
+      this.recomputeDerivedStats(p);
+      p.mana = Math.min(progress.mana, p.maxMana);
       this.loadQuests(p, progress.questsJson);
       this.preloadSkillCooldowns(client.sessionId, progress.skillCooldownsJson);
     } else {
       p.xpToNext = xpToNextLevel(1);
-      p.maxHp = maxHpFromStats(p.vitality);
-      p.maxMana = maxManaFromStats(p.intellect);
+      this.recomputeDerivedStats(p);
       p.mana = p.maxMana;
     }
     for (const row of inventory) {
@@ -319,6 +332,9 @@ export class GameRoom extends Room<GameRoomState> {
     this.playerPortal.set(client.sessionId, { rearmAt: Date.now() + PORTAL_REARM_MS });
     if (!this.skillCds.has(client.sessionId)) {
       this.skillCds.set(client.sessionId, new Map());
+    }
+    if (!this.abilityCds.has(client.sessionId)) {
+      this.abilityCds.set(client.sessionId, new Map());
     }
 
     // Stream recent chat history on join so the SidePanel chat tab isn't empty.
@@ -369,6 +385,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.playerUserId.delete(client.sessionId);
     this.playerCharacterId.delete(client.sessionId);
     this.skillCds.delete(client.sessionId);
+    this.abilityCds.delete(client.sessionId);
     this.lastDamageSource.delete(client.sessionId);
     this.rateLimiter.forget(client.sessionId);
     this.violations.forget(client.sessionId);
@@ -515,8 +532,17 @@ export class GameRoom extends Room<GameRoomState> {
   private computeDamage(p: Player): number {
     const bonus = damageBonusFromStats(p.strength);
     const equipBonusTotal = this.equipBonusFor(p).damageBonus;
-    const legacyEquipped = p.equippedItemId ? (getItem(p.equippedItemId)?.damageBonus ?? 0) : 0;
-    return this.combat.attackDamage + bonus + equipBonusTotal + legacyEquipped;
+    return this.combat.attackDamage + bonus + equipBonusTotal;
+  }
+
+  private computeAbilityDamage(p: Player, ability: AbilityDef): number {
+    const statBonus = damageBonusFromStats(p.strength);
+    const weaponDamage = this.equipBonusFor(p).damageBonus;
+    // Unarmed abilities should not stack the weapon-damage bonus; they're
+    // the fallback when there's no weapon. Weapon-bound abilities inherit
+    // the item's damageBonus the same way legacy attacks do.
+    const isUnarmed = ability.id === "strike" || ability.id === "punch";
+    return ability.damage + statBonus + (isUnarmed ? 0 : weaponDamage);
   }
 
   private equipBonusFor(p: Player) {
@@ -699,6 +725,243 @@ export class GameRoom extends Room<GameRoomState> {
     }
   }
 
+  // ---------- Weapon abilities (W1 / W2) ----------
+
+  private handleUseAbility(client: Client<unknown, SessionUser>, msg: UseAbilityMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p) return;
+    const slot = msg?.slot;
+    if (slot !== "W1" && slot !== "W2") {
+      client.send("ability-error", { slot: String(slot ?? ""), reason: "invalid_slot" });
+      return;
+    }
+    const ability = resolveWeaponAbility(p.equipment, slot);
+    if (!ability) {
+      client.send("ability-error", { slot, reason: "unknown_ability" });
+      return;
+    }
+    const cds = this.abilityCds.get(client.sessionId);
+    if (!cds) return;
+    const now = Date.now();
+    const readyAt = cds.get(ability.id) ?? 0;
+    const gate = checkAbilityReady({
+      ability,
+      now,
+      readyAt,
+      mana: p.mana,
+      alive: p.alive,
+    });
+    if (!gate.ok) {
+      client.send("ability-error", { slot, abilityId: ability.id, reason: gate.reason });
+      return;
+    }
+    if (!this.rateLimiter.consume(client.sessionId, "attack")) {
+      this.recordViolation(client, p, "rate_limit:ability");
+      return;
+    }
+
+    cds.set(ability.id, now + ability.cooldownMs);
+    if (ability.manaCost > 0) p.mana = Math.max(0, p.mana - ability.manaCost);
+
+    const baseDmg = this.computeAbilityDamage(p, ability);
+    const crit = rollCrit(p.dexterity);
+    const dmg = crit ? baseDmg * CRIT_MULTIPLIER : baseDmg;
+
+    switch (ability.kind) {
+      case "melee":
+      case "ranged":
+        this.executeSingleTargetAbility(client, p, ability, dmg, crit);
+        break;
+      case "aoe":
+        this.executeAoeAbility(client, p, ability, dmg, crit, msg.target);
+        break;
+      case "movement":
+        this.executeMovementAbility(client, p, ability, dmg, crit, msg.target);
+        break;
+      case "self":
+        this.broadcast("ability-cast", {
+          casterId: client.sessionId,
+          abilityId: ability.id,
+          pos: { x: p.x, y: p.y, z: p.z },
+          hits: 0,
+          crit,
+          dmg: 0,
+        });
+        break;
+    }
+  }
+
+  private executeSingleTargetAbility(
+    client: Client<unknown, SessionUser>,
+    attacker: Player,
+    ability: AbilityDef,
+    dmg: number,
+    crit: boolean,
+  ) {
+    const candidates: Combatant[] = [];
+    this.state.players.forEach((pp, id) => {
+      if (id === client.sessionId) return;
+      candidates.push({ id, pos: { x: pp.x, y: pp.y, z: pp.z }, alive: pp.alive, hp: pp.hp });
+    });
+    this.state.mobs.forEach((m, id) => {
+      candidates.push({
+        id: `mob:${id}`,
+        pos: { x: m.x, y: m.y, z: m.z },
+        alive: m.alive,
+        hp: m.hp,
+      });
+    });
+    const attackerC: Combatant = {
+      id: client.sessionId,
+      pos: { x: attacker.x, y: attacker.y, z: attacker.z },
+      alive: attacker.alive,
+      hp: attacker.hp,
+    };
+    const cfg: CombatConfig = {
+      ...this.combat,
+      attackDamage: dmg,
+      attackRange: ability.range,
+    };
+    const result = resolveAttack(attackerC, candidates, cfg);
+    if (!result.ok) {
+      client.send("ability-cast", {
+        abilityId: ability.id,
+        casterId: client.sessionId,
+        pos: { x: attacker.x, y: attacker.y, z: attacker.z },
+        hits: 0,
+        crit,
+        dmg: 0,
+      });
+      return;
+    }
+    this.applyAbilityHitToTarget(client, attacker, ability, result.targetId, dmg, crit);
+  }
+
+  private applyAbilityHitToTarget(
+    client: Client<unknown, SessionUser>,
+    attacker: Player,
+    ability: AbilityDef,
+    targetId: string,
+    dmg: number,
+    crit: boolean,
+  ) {
+    if (targetId.startsWith("mob:")) {
+      const mobId = targetId.slice(4);
+      const hit = this.mobSystem.applyDamage(mobId, dmg);
+      if (!hit.ok) return;
+      this.broadcast("ability-cast", {
+        casterId: client.sessionId,
+        abilityId: ability.id,
+        targetId,
+        pos: { x: attacker.x, y: attacker.y, z: attacker.z },
+        hits: 1,
+        killed: hit.killed,
+        dmg,
+        crit,
+      });
+      if (hit.killed) {
+        this.onMobKilledByPlayer(attacker, hit.kind, hit.xpBonus, hit.gold, hit.dropPos);
+      }
+      return;
+    }
+    const target = this.state.players.get(targetId);
+    const targetCombat = this.playerCombat.get(targetId);
+    if (!target || !targetCombat) return;
+    if (Date.now() < targetCombat.invulnerableUntil) return;
+    const newHp = Math.max(0, target.hp - dmg);
+    target.hp = newHp;
+    this.recordPlayerDamageSource(targetId, attacker);
+    const killed = newHp === 0;
+    if (killed) {
+      target.alive = false;
+      this.spawnKillDrop(target);
+      const targetClient = this.clients.find((c) => c.sessionId === targetId);
+      this.sendDeath(targetId);
+      this.scheduleRespawn(targetId, targetClient);
+    }
+    this.broadcast("ability-cast", {
+      casterId: client.sessionId,
+      abilityId: ability.id,
+      targetId,
+      pos: { x: attacker.x, y: attacker.y, z: attacker.z },
+      hits: 1,
+      killed,
+      dmg,
+      crit,
+    });
+  }
+
+  private executeAoeAbility(
+    client: Client<unknown, SessionUser>,
+    attacker: Player,
+    ability: AbilityDef,
+    dmg: number,
+    crit: boolean,
+    target?: { x: number; z: number },
+  ) {
+    const origin =
+      target && Number.isFinite(target.x) && Number.isFinite(target.z)
+        ? { x: target.x, y: attacker.y, z: target.z }
+        : { x: attacker.x, y: attacker.y, z: attacker.z };
+    const hits = this.mobSystem.applyRadialDamage(origin, ability.range, dmg);
+    const killed = hits.filter((h) => h.ok && h.killed);
+    for (const h of killed) {
+      if (!h.ok) continue;
+      this.onMobKilledByPlayer(attacker, h.kind, h.xpBonus, h.gold, h.dropPos);
+    }
+    this.broadcast("ability-cast", {
+      casterId: client.sessionId,
+      abilityId: ability.id,
+      pos: origin,
+      hits: hits.filter((h) => h.ok).length,
+      crit,
+      dmg,
+    });
+  }
+
+  private executeMovementAbility(
+    client: Client<unknown, SessionUser>,
+    attacker: Player,
+    ability: AbilityDef,
+    dmg: number,
+    crit: boolean,
+    target?: { x: number; z: number },
+  ) {
+    const sec = this.playerSec.get(client.sessionId);
+    let targetX: number;
+    let targetZ: number;
+    if (target && Number.isFinite(target.x) && Number.isFinite(target.z)) {
+      const dx = target.x - attacker.x;
+      const dz = target.z - attacker.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= ability.range || dist === 0) {
+        targetX = target.x;
+        targetZ = target.z;
+      } else {
+        const scale = ability.range / dist;
+        targetX = attacker.x + dx * scale;
+        targetZ = attacker.z + dz * scale;
+      }
+    } else {
+      const dx = sec ? attacker.x - sec.lastPos.x : 0;
+      const dz = sec ? attacker.z - sec.lastPos.z : 0;
+      const len = Math.hypot(dx, dz);
+      const nx = len > 0 ? dx / len : 0;
+      const nz = len > 0 ? dz / len : -1;
+      targetX = attacker.x + nx * ability.range;
+      targetZ = attacker.z + nz * ability.range;
+    }
+    const dash = clampToBounds({ x: targetX, y: attacker.y, z: targetZ }, this.zone);
+    attacker.x = dash.x;
+    attacker.z = dash.z;
+    if (sec) {
+      sec.lastPos = { x: attacker.x, y: attacker.y, z: attacker.z };
+      sec.lastMoveAt = Date.now();
+    }
+    // Hit anything within ability.range of the new position (sweep).
+    this.executeAoeAbility(client, attacker, ability, dmg, crit, { x: attacker.x, z: attacker.z });
+  }
+
   // ---------- Stats ----------
 
   private handleAllocateStat(client: Client<unknown, SessionUser>, msg: AllocateStatMessage) {
@@ -709,19 +972,22 @@ export class GameRoom extends Room<GameRoomState> {
     if (stat !== "strength" && stat !== "dexterity" && stat !== "vitality" && stat !== "intellect")
       return;
     p.statPoints -= 1;
-    (p[stat] as number) = (p[stat] as number) + 1;
-    if (stat === "vitality") {
-      const newMax = maxHpFromStats(p.vitality);
-      const delta = newMax - p.maxHp;
-      p.maxHp = newMax;
-      p.hp = Math.min(p.maxHp, p.hp + Math.max(0, delta));
-    }
-    if (stat === "intellect") {
-      const newMax = maxManaFromStats(p.intellect);
-      const delta = newMax - p.maxMana;
-      p.maxMana = newMax;
-      p.mana = Math.min(p.maxMana, p.mana + Math.max(0, delta));
-    }
+    const baseKey: "baseStrength" | "baseDexterity" | "baseVitality" | "baseIntellect" =
+      stat === "strength"
+        ? "baseStrength"
+        : stat === "dexterity"
+          ? "baseDexterity"
+          : stat === "vitality"
+            ? "baseVitality"
+            : "baseIntellect";
+    const prevMaxHp = p.maxHp;
+    const prevMaxMana = p.maxMana;
+    (p[baseKey] as number) = (p[baseKey] as number) + 1;
+    this.recomputeDerivedStats(p);
+    // Preserve the "spending a vit point refills the gained HP" feel without
+    // overshooting the new cap.
+    if (p.maxHp > prevMaxHp) p.hp = Math.min(p.maxHp, p.hp + (p.maxHp - prevMaxHp));
+    if (p.maxMana > prevMaxMana) p.mana = Math.min(p.maxMana, p.mana + (p.maxMana - prevMaxMana));
   }
 
   // ---------- Equipment slots ----------
@@ -730,34 +996,58 @@ export class GameRoom extends Room<GameRoomState> {
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
     const slot = msg?.slot;
-    if (!EQUIP_SLOTS.includes(slot)) return;
+    if (!EQUIP_SLOTS.includes(slot)) {
+      client.send("equip-error", { reason: "invalid_slot", slot: String(slot ?? "") });
+      return;
+    }
     const itemId = msg?.itemId ?? "";
     if (itemId === "") {
       p.equipment.delete(slot);
+      this.recomputeDerivedStats(p);
       return;
     }
-    if (!isItemId(itemId)) return;
+    if (!isItemId(itemId)) {
+      client.send("equip-error", { reason: "unknown_item", slot, itemId });
+      return;
+    }
     const def = getItem(itemId);
-    if (!def || def.slot !== slot) return;
-    if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) return;
+    if (!def || def.slot !== slot) {
+      client.send("equip-error", { reason: "slot_mismatch", slot, itemId });
+      return;
+    }
+    if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) {
+      client.send("equip-error", { reason: "not_in_inventory", slot, itemId });
+      return;
+    }
     p.equipment.set(slot, itemId);
+    if (slot === "weapon") p.equippedItemId = itemId;
     this.recomputeDerivedStats(p);
+    client.send("equip-ok", { slot, itemId });
   }
 
   private handleUnequipSlot(client: Client<unknown, SessionUser>, msg: UnequipSlotMessage) {
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
-    if (!EQUIP_SLOTS.includes(msg?.slot)) return;
-    p.equipment.delete(msg.slot);
+    const slot = msg?.slot;
+    if (!EQUIP_SLOTS.includes(slot)) {
+      client.send("equip-error", { reason: "invalid_slot", slot: String(slot ?? "") });
+      return;
+    }
+    p.equipment.delete(slot);
+    if (slot === "weapon") p.equippedItemId = "";
     this.recomputeDerivedStats(p);
+    client.send("equip-ok", { slot, itemId: "" });
   }
 
   private recomputeDerivedStats(p: Player) {
     const bonus = this.equipBonusFor(p);
-    const newMaxHp = maxHpFromStats(p.vitality + bonus.vitality);
-    const newMaxMana = maxManaFromStats(p.intellect + bonus.intellect);
-    p.maxHp = newMaxHp;
-    p.maxMana = newMaxMana;
+    // Effective stats = base + equipment bonuses; these are what HUD + combat use.
+    p.strength = p.baseStrength + bonus.strength;
+    p.dexterity = p.baseDexterity + bonus.dexterity;
+    p.vitality = p.baseVitality + bonus.vitality;
+    p.intellect = p.baseIntellect + bonus.intellect;
+    p.maxHp = maxHpFromStats(p.vitality);
+    p.maxMana = maxManaFromStats(p.intellect);
     p.hp = Math.min(p.hp, p.maxHp);
     p.mana = Math.min(p.mana, p.maxMana);
   }
@@ -900,6 +1190,8 @@ export class GameRoom extends Room<GameRoomState> {
     const itemId = msg?.itemId ?? "";
     if (itemId === "") {
       p.equippedItemId = "";
+      p.equipment.delete("weapon");
+      this.recomputeDerivedStats(p);
       return;
     }
     if (!isItemId(itemId)) return;
@@ -907,7 +1199,8 @@ export class GameRoom extends Room<GameRoomState> {
     if (!def || def.kind !== "weapon") return;
     if (findSlotIndex(this.slotsFromPlayer(p), itemId) < 0) return;
     p.equippedItemId = itemId;
-    if (!p.equipment.has("weapon")) p.equipment.set("weapon", itemId);
+    p.equipment.set("weapon", itemId);
+    this.recomputeDerivedStats(p);
   }
 
   private handleDrop(client: Client<unknown, SessionUser>, msg: DropMessage) {
@@ -991,8 +1284,9 @@ export class GameRoom extends Room<GameRoomState> {
     p.xpToNext = r.xpToNext;
     if (r.leveledUp) {
       p.statPoints += r.newLevels * STAT_POINTS_PER_LEVEL;
-      p.maxHp = maxHpFromStats(p.vitality);
-      p.maxMana = maxManaFromStats(p.intellect);
+      // Effective stats didn't change on level-up, but a full refill still feels
+      // right. Recompute first so cap isn't stale after spending points.
+      this.recomputeDerivedStats(p);
       p.hp = p.maxHp;
       p.mana = p.maxMana;
     }
@@ -1135,10 +1429,12 @@ export class GameRoom extends Room<GameRoomState> {
       gold: p.gold,
       mana: Math.floor(p.mana),
       maxMana: p.maxMana,
-      strength: p.strength,
-      dexterity: p.dexterity,
-      vitality: p.vitality,
-      intellect: p.intellect,
+      // Persist the raw allocated (base) stats — effective stats are recomputed
+      // from base + equipment every join so we never double-apply bonuses.
+      strength: p.baseStrength,
+      dexterity: p.baseDexterity,
+      vitality: p.baseVitality,
+      intellect: p.baseIntellect,
       statPoints: p.statPoints,
       equipmentJson: JSON.stringify(equip),
       questsJson: JSON.stringify(quests),

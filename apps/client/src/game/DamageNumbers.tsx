@@ -1,4 +1,4 @@
-import type { AttackEvent, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import type { AbilityCastEvent, AttackEvent, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { Billboard } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
@@ -36,20 +36,23 @@ function resolveTargetPos(
 
 export function DamageNumbers({
   lastAttack,
+  lastAbility,
   players,
   mobs,
 }: {
   lastAttack: AttackEvent | undefined;
+  lastAbility?: AbilityCastEvent;
   players: Map<string, PlayerSnapshot>;
   mobs: Map<string, MobSnapshot>;
 }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const seen = useRef<AttackEvent | undefined>(undefined);
+  const seenAttack = useRef<AttackEvent | undefined>(undefined);
+  const seenAbility = useRef<AbilityCastEvent | undefined>(undefined);
 
   useEffect(() => {
     if (!lastAttack) return;
-    if (seen.current === lastAttack) return;
-    seen.current = lastAttack;
+    if (seenAttack.current === lastAttack) return;
+    seenAttack.current = lastAttack;
     const pos = resolveTargetPos(lastAttack.targetId, players, mobs);
     if (!pos) return;
     const now = Date.now();
@@ -67,6 +70,33 @@ export function DamageNumbers({
     };
     setTickets((prev) => [...prev, ticket]);
   }, [lastAttack, players, mobs]);
+
+  useEffect(() => {
+    if (!lastAbility) return;
+    if (seenAbility.current === lastAbility) return;
+    seenAbility.current = lastAbility;
+    if (lastAbility.hits <= 0) return;
+    const dmg = lastAbility.dmg ?? 0;
+    if (dmg <= 0) return;
+    const targetId = lastAbility.targetId;
+    const pos = targetId
+      ? resolveTargetPos(targetId, players, mobs)
+      : { x: lastAbility.pos.x, y: lastAbility.pos.y, z: lastAbility.pos.z };
+    if (!pos) return;
+    const now = Date.now();
+    ticketCounter += 1;
+    const ticket: Ticket = {
+      id: ticketCounter,
+      x: pos.x,
+      y: pos.y + 1.4,
+      z: pos.z,
+      amount: dmg,
+      killed: lastAbility.killed ?? false,
+      crit: lastAbility.crit ?? false,
+      until: now + LIFETIME_MS,
+    };
+    setTickets((prev) => [...prev, ticket]);
+  }, [lastAbility, players, mobs]);
 
   useEffect(() => {
     if (tickets.length === 0) return;

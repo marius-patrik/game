@@ -1,3 +1,5 @@
+import type { AbilityId } from "./abilities";
+
 export type ItemKind = "weapon" | "consumable" | "trophy" | "armor" | "ring" | "currency";
 export type ItemRarity = "common" | "rare" | "legendary";
 export type EquipSlot = "weapon" | "head" | "chest" | "ring";
@@ -19,6 +21,10 @@ export type ItemDef = {
   vitBonus?: number;
   intBonus?: number;
   price?: number; // gold cost in vendor
+  /** Weapon-only: ability id bound to the W1 hotbar slot when this weapon is equipped. */
+  primaryAbilityId?: AbilityId;
+  /** Weapon-only: ability id bound to the W2 hotbar slot when this weapon is equipped. */
+  secondaryAbilityId?: AbilityId;
 };
 
 export const ITEM_CATALOG = {
@@ -53,6 +59,8 @@ export const ITEM_CATALOG = {
     damageBonus: 10,
     strBonus: 2,
     price: 60,
+    primaryAbilityId: "slash",
+    secondaryAbilityId: "thrust",
   },
   greataxe: {
     id: "greataxe",
@@ -65,6 +73,36 @@ export const ITEM_CATALOG = {
     damageBonus: 18,
     strBonus: 4,
     price: 140,
+    primaryAbilityId: "cleave",
+    secondaryAbilityId: "heavy_chop",
+  },
+  staff: {
+    id: "staff",
+    name: "Arcane Staff",
+    kind: "weapon",
+    rarity: "rare",
+    stackable: false,
+    maxStack: 1,
+    slot: "weapon",
+    damageBonus: 6,
+    intBonus: 4,
+    price: 120,
+    primaryAbilityId: "bolt",
+    secondaryAbilityId: "blast",
+  },
+  dagger: {
+    id: "dagger",
+    name: "Swiftblade Dagger",
+    kind: "weapon",
+    rarity: "rare",
+    stackable: false,
+    maxStack: 1,
+    slot: "weapon",
+    damageBonus: 7,
+    dexBonus: 4,
+    price: 100,
+    primaryAbilityId: "quickstrike",
+    secondaryAbilityId: "dash_strike",
   },
   helm: {
     id: "helm",
@@ -89,6 +127,18 @@ export const ITEM_CATALOG = {
     strBonus: 1,
     price: 48,
   },
+  light_cloak: {
+    id: "light_cloak",
+    name: "Shadow Cloak",
+    kind: "armor",
+    rarity: "common",
+    stackable: false,
+    maxStack: 1,
+    slot: "chest",
+    dexBonus: 3,
+    intBonus: 1,
+    price: 55,
+  },
   ring_spark: {
     id: "ring_spark",
     name: "Spark Ring",
@@ -99,6 +149,18 @@ export const ITEM_CATALOG = {
     slot: "ring",
     intBonus: 3,
     dexBonus: 2,
+    price: 90,
+  },
+  ring_guard: {
+    id: "ring_guard",
+    name: "Guard Ring",
+    kind: "ring",
+    rarity: "rare",
+    stackable: false,
+    maxStack: 1,
+    slot: "ring",
+    strBonus: 2,
+    vitBonus: 2,
     price: 90,
   },
   soul: {
@@ -129,8 +191,12 @@ export const VENDOR_STOCK: readonly ItemId[] = [
   "heal_potion",
   "mana_potion",
   "sword",
+  "greataxe",
+  "staff",
+  "dagger",
   "helm",
   "cuirass",
+  "light_cloak",
   "ring_spark",
-  "greataxe",
+  "ring_guard",
 ];

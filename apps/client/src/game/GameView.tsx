@@ -4,7 +4,14 @@ import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import { useTheme } from "@/theme/theme-provider";
-import { type ChatChannel, type EquipSlot, type SkillId, type StatKey, ZONES } from "@game/shared";
+import {
+  type ChatChannel,
+  type EquipSlot,
+  type SkillId,
+  type StatKey,
+  type WeaponSlotKey,
+  ZONES,
+} from "@game/shared";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -164,6 +171,10 @@ function GameViewInner({
     (slot: EquipSlot, itemId: string) => room.send("equipSlot", { slot, itemId }),
     [room.send],
   );
+  const onUnequipSlot = useCallback(
+    (slot: EquipSlot) => room.send("unequipSlot", { slot }),
+    [room.send],
+  );
   const onAllocateStat = useCallback(
     (stat: StatKey) => room.send("allocateStat", { stat }),
     [room.send],
@@ -178,6 +189,20 @@ function GameViewInner({
   const onCastAt = useCallback(
     (skillId: SkillId, target: Vec3) => {
       room.send("cast", { skillId, target });
+      playSfx("attack");
+    },
+    [room.send],
+  );
+  const onUseAbility = useCallback(
+    (slot: WeaponSlotKey) => {
+      room.send("use-ability", { slot });
+      playSfx("attack");
+    },
+    [room.send],
+  );
+  const onUseAbilityAt = useCallback(
+    (slot: WeaponSlotKey, target: Vec3) => {
+      room.send("use-ability", { slot, target: { x: target.x, z: target.z } });
       playSfx("attack");
     },
     [room.send],
@@ -339,6 +364,7 @@ function GameViewInner({
               zoneId={room.zoneId}
               moveTarget={moveTarget}
               lastAttack={room.lastAttack}
+              lastAbility={room.lastAbility}
               lastTelegraph={room.lastTelegraph}
               selfPosRef={selfPosRef}
               cinematicActive={cinematicActive}
@@ -395,6 +421,8 @@ function GameViewInner({
             enabled={canAct}
             onCast={onCast}
             onCastAt={onCastAt}
+            onUseAbility={onUseAbility}
+            onUseAbilityAt={onUseAbilityAt}
             onUse={onUse}
             onEquip={onEquip}
             onEquipSlot={onEquipSlot}
@@ -419,6 +447,7 @@ function GameViewInner({
             open={statOpen}
             onOpenChange={setStatOpen}
             onAllocate={onAllocateStat}
+            onUnequipSlot={onUnequipSlot}
           />
           <SettingsPanelController
             open={settingsOpen}
