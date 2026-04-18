@@ -6,6 +6,18 @@ type: project
 
 # Pitfalls
 
+## `Room<GameRoomState>` does NOT auto-initialize `this.state`
+Colyseus `Room` is agnostic about state shape. If `onCreate` doesn't call `this.setState(new GameRoomState())`, `this.state` is undefined and anything reading it throws `TypeError: undefined is not an object`. Every matchmake `joinOrCreate` returns a 500 and the client stays on "offline". Fix pattern from #116: value-import `GameRoomState` (not `type`-only) and call `this.setState(new GameRoomState())` as the first statement in `onCreate`, before any system wiring. The symptom looks like a client/networking bug but is always a server init bug.
+
+## Persisted zustand stores leak across users on the same browser
+`CharacterGuard` trusted `selectedCharacterId` from localStorage when a new user signed in, so the client joined the room with another user's character id → server rejected with "invalid character". Any persisted store that keys on user-owned data must be cross-checked against the *current* user's list (REST roundtrip) before it's trusted. Fix pattern from #116: guard component validates ownership via `charactersApi.list()` and clears the store if the selection isn't in the result.
+
+## `preview_start server` under monorepo dev prints combined client+server rsbuild logs
+`preview_logs` for the server serverId often shows rsbuild output that looks like client build errors (historical `selfPosRef is not defined`, theatre.js config-state warning). Those are leftover HMR noise, not current failures. Always re-check with `curl :2567/health` + `lsof -iTCP:2567` to confirm the server process is actually listening before trusting log scrollback.
+
+## `git reset --hard origin/main` wipes in-flight doc edits
+The overseer's worktree often sits on `wip/preview` with uncommitted CLAUDE.md / spawn-docs edits. A reflex `git reset --hard origin/main` to sync for the preview loop will drop those edits silently. Always `git stash -u` first (or commit to a `chore/` branch) before hard-resetting the overseer worktree. Lost the #119 infra edits once this session — redid them on a branch.
+
 ## R3F `e.point` is stale while Pointer Lock is active
 When `document.pointerLockElement === document.body`, native cursor coordinates are frozen at the lock entry, so R3F's raycaster resolves every mesh `onPointerDown` to the same world point. Any ground-click or raycast-driven ability binding breaks. Fix pattern from #114: a shared cursor store (`apps/client/src/game/cursor/cursorStore.ts`) that `Cursor3D` writes each frame; consumers branch on `peekLocked()` and prefer the store over `e.point`. Any future ability that binds to ground clicks must follow the same pattern.
 
