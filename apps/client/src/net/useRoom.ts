@@ -9,6 +9,7 @@ import {
   type DiedMessage,
   type EquipSlot,
   type GameRoomState,
+  getAbility,
   type HazardZone,
   type InventorySlot,
   type Mob,
@@ -479,6 +480,9 @@ export function useRoom(): RoomState {
         room.onMessage("respawned", (pos: { x: number; y: number; z: number }) => {
           lastRespawn = { x: pos.x, y: pos.y, z: pos.z, at: Date.now() };
           lastDied = undefined; // clear once we respawn so DeathOverlay cause resets
+          // Kick a ground puff when we plant back in the world — the Karlson
+          // layer: every landing deserves a tiny dust beat.
+          emitFxEvent({ kind: "dust-kick", at: { x: pos.x, z: pos.z } });
           commit();
         });
         room.onMessage("died", (msg: DiedMessage) => {
@@ -619,6 +623,28 @@ export function useRoom(): RoomState {
               crit: msg.crit,
               at: Date.now(),
             };
+            // Karlson feel — kinetic feedback layered on every ability:
+            //   movement  → ember trail at the landing point + dust kick
+            //   any hit   → hit-spark burst at the impact position
+            // The server-authoritative `msg.pos` is the resolved target for
+            // targeted casts and the caster position for self-casts, so both
+            // read well visually.
+            const def = getAbility(msg.abilityId);
+            if (def?.kind === "movement") {
+              emitFxEvent({
+                kind: "ember-trail",
+                at: { x: msg.pos.x, z: msg.pos.z },
+                color: def.color,
+              });
+              emitFxEvent({ kind: "dust-kick", at: { x: msg.pos.x, z: msg.pos.z } });
+            }
+            if (msg.hits > 0 && def) {
+              emitFxEvent({
+                kind: "hit-spark",
+                at: { x: msg.pos.x, z: msg.pos.z },
+                color: def.color,
+              });
+            }
             commit();
           },
         );

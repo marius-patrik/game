@@ -1,10 +1,20 @@
+import type { ZoneLightingProfile } from "@game/shared";
 import { Billboard, Float, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
-import { type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
+import {
+  type Group,
+  MathUtils,
+  type Mesh,
+  type MeshStandardMaterial,
+  type MeshToonMaterial,
+} from "three";
 import { MobDeathDust } from "@/game/fx/presets/MobDeathDust";
 import type { AttackEvent, MobSnapshot } from "@/net/useRoom";
+import { CellMaterial, useCellGradient } from "./fx/CellMaterial";
 import { GAME_PALETTE } from "./gamePalette";
+
+type CellPalette = ZoneLightingProfile["cellPalette"];
 
 const DEATH_FX_MS = 900;
 
@@ -28,15 +38,24 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   );
 }
 
-function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEvent | undefined }) {
+function MobModel({
+  mob,
+  lastAttack,
+  cellPalette,
+}: {
+  mob: MobSnapshot;
+  lastAttack: AttackEvent | undefined;
+  cellPalette: CellPalette;
+}) {
   const root = useRef<Group>(null);
   const spikes = useRef<Group>(null);
   const body = useRef<Mesh>(null);
   const eye1 = useRef<Mesh>(null);
   const eye2 = useRef<Mesh>(null);
-  const bodyMat = useRef<MeshStandardMaterial>(null);
+  const bodyMat = useRef<MeshToonMaterial>(null);
   const trailAnchor = useRef<Mesh>(null);
   const enrageRing = useRef<Mesh>(null);
+  const gradientMap = useCellGradient(cellPalette);
   // Boss enters a faster "charge" state below 50% HP. Surface that visibly so
   // players know they need to kite; server enforces the speed/cooldown change.
   const enraged = mob.kind === "boss" && mob.maxHp > 0 && mob.hp <= mob.maxHp * 0.5;
@@ -137,13 +156,12 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
       <Float speed={2.4} floatIntensity={0.18} rotationIntensity={0}>
         <mesh ref={body} castShadow>
           <coneGeometry args={[0.4, 0.95, 10]} />
-          <meshStandardMaterial
+          <meshToonMaterial
             ref={bodyMat}
             color={bodyColor}
             emissive={bodyEmissive}
             emissiveIntensity={0.45}
-            metalness={0.2}
-            roughness={0.55}
+            gradientMap={gradientMap}
           />
         </mesh>
         <mesh ref={eye1} position={[-0.13, 0.18, 0.32]}>
@@ -175,7 +193,8 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
                 castShadow
               >
                 <coneGeometry args={[0.08, 0.3, 6]} />
-                <meshStandardMaterial
+                <CellMaterial
+                  bands={cellPalette}
                   color={spikeColor}
                   emissive={spikeEmissive}
                   emissiveIntensity={0.5}
@@ -239,9 +258,11 @@ type DeathFx = { id: string; pos: { x: number; y: number; z: number }; until: nu
 export function Mobs({
   mobs,
   lastAttack,
+  cellPalette,
 }: {
   mobs: Map<string, MobSnapshot>;
   lastAttack?: AttackEvent;
+  cellPalette: CellPalette;
 }) {
   const lastRef = useRef(new Map<string, MobSnapshot>());
   const [deaths, setDeaths] = useState<DeathFx[]>([]);
@@ -276,7 +297,7 @@ export function Mobs({
   return (
     <>
       {[...mobs.values()].map((m) => (
-        <MobModel key={m.id} mob={m} lastAttack={lastAttack} />
+        <MobModel key={m.id} mob={m} lastAttack={lastAttack} cellPalette={cellPalette} />
       ))}
       {deaths.map((d) => (
         <group key={d.id} position={[d.pos.x, d.pos.y + 0.6, d.pos.z]}>

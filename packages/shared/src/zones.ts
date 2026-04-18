@@ -23,6 +23,14 @@ export type ZoneLightingProfile = {
   key: { color: string; intensity: number; position: [number, number, number] };
   fill: { color: string; intensity: number; position: [number, number, number] };
   rim: { color: string; intensity: number; position: [number, number, number] };
+  /**
+   * Cell-shading gradient (Borderlands-style 3-step diffuse banding) applied
+   * to every scene mesh that opts into the shared CellMaterial. Dark / mid /
+   * bright tint the underlying diffuse so the zone reads cohesively. The
+   * `outline` color is used by the postprocessing OutlineEffect for the
+   * thick black-ish rim on each mesh.
+   */
+  cellPalette: { dark: string; mid: string; bright: string; outline: string };
 };
 
 export type Portal = {
@@ -50,6 +58,14 @@ const LOBBY_LIGHTING: ZoneLightingProfile = {
   key: { color: "#fff6dc", intensity: 1.35, position: [6, 10, 4] },
   fill: { color: "#9ec5ff", intensity: 0.45, position: [-6, 4, -2] },
   rim: { color: "#c4b5fd", intensity: 0.6, position: [0, 5, -8] },
+  // Warm, sun-baked tones — sand → amber → pale-cream. Outline stays near
+  // black so the mid-bright diffuse bands read clearly against it.
+  cellPalette: {
+    dark: "#1f1a14",
+    mid: "#a66b31",
+    bright: "#fde8b4",
+    outline: "#0a0806",
+  },
 };
 
 const ARENA_LIGHTING: ZoneLightingProfile = {
@@ -57,6 +73,14 @@ const ARENA_LIGHTING: ZoneLightingProfile = {
   key: { color: "#ffc592", intensity: 1.2, position: [4, 9, 6] },
   fill: { color: "#4f3b60", intensity: 0.35, position: [-8, 3, -4] },
   rim: { color: "#ef4444", intensity: 0.75, position: [0, 4, -10] },
+  // Cooler, combat-ready palette — ink → crimson → rose-gold. Shifts the
+  // arena's mood away from lobby while preserving strong contrast.
+  cellPalette: {
+    dark: "#120a14",
+    mid: "#7f1d3a",
+    bright: "#f8b6a0",
+    outline: "#05030a",
+  },
 };
 
 export const ZONES = {
