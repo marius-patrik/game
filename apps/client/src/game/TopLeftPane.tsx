@@ -31,6 +31,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { canBindItemToHotbar, HOTBAR_ITEM_MIME } from "@/game/hotbar/shared";
 import { cn } from "@/lib/utils";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { DailyQuestsHeader } from "./DailyQuestsHeader";
@@ -778,9 +779,13 @@ function InventoryItemRow({
           : "#4b5563";
   const canUse = def?.kind === "consumable";
   const canEquip = Boolean(def?.slot);
+  const canDragToHotbar = canBindItemToHotbar(itemId);
   return (
     <div
-      className="flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2"
+      className={cn(
+        "flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2",
+        canDragToHotbar && "cursor-grab active:cursor-grabbing",
+      )}
       data-item={itemId}
     >
       <div className="flex items-center gap-2">
@@ -789,7 +794,25 @@ function InventoryItemRow({
           <div className="truncate font-semibold text-xs" style={{ color }}>
             {def?.name ?? itemId}
           </div>
-          <div className="text-[10px] text-muted-foreground tabular-nums">×{qty}</div>
+          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground tabular-nums">
+            <span>×{qty}</span>
+            {canDragToHotbar ? (
+              <button
+                type="button"
+                draggable
+                className="cursor-grab uppercase tracking-wide active:cursor-grabbing"
+                title={`${def?.name ?? itemId} — drag to I1/I2 or use the action buttons below`}
+                aria-label={`Drag ${def?.name ?? itemId} into a hotbar item slot`}
+                onClick={(event) => event.preventDefault()}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData(HOTBAR_ITEM_MIME, itemId);
+                }}
+              >
+                drag
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="flex gap-1">
