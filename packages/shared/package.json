@@ -9,7 +9,9 @@
     ".": "./src/index.ts",
     "./items": "./src/items.ts",
     "./progression": "./src/progression.ts",
-    "./zones": "./src/zones.ts"
+    "./zones": "./src/zones.ts",
+    "./dialog": "./src/dialog.ts",
+    "./dialogs": "./src/dialogs/index.ts"
   },
   "scripts": {
     "test": "bun test src",

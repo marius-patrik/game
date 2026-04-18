@@ -2,6 +2,8 @@ export * from "./abilities";
 export * from "./chat";
 export * from "./chat-profanity";
 export * from "./combat";
+export * from "./dialog";
+export * from "./dialogs";
 export * from "./items";
 export * from "./loot";
 export * from "./progression";

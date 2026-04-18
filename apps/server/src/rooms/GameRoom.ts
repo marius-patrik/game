@@ -61,6 +61,7 @@ import { loadCharacter, saveCharacter } from "../db/character";
 import { insertChat, loadRecentChat } from "../db/chat";
 import { addBlock, isBlocked, removeBlock } from "../db/chatBlock";
 import { getPlayerLocation, savePlayerLocation } from "../db/playerLocation";
+import { chooseDialog, type DialogActionRequest, startDialog } from "../dialog/dispatch";
 import {
   addItem,
   countItem,
@@ -99,6 +100,8 @@ type UnbindSkillMessage = { slot: SkillSlot };
 type BuyMessage = { itemId: string; qty?: number };
 type SellMessage = { itemId: string; qty?: number };
 type TurnInQuestMessage = { questId: string };
+type DialogStartMessage = { npcId: string };
+type DialogChooseMessage = { npcId: string; nodeId: string; choiceIndex: number };
 type JoinOptions = { token?: string; zoneId?: string; characterId?: string };
 
 const SKILL_POINTS_PER_LEVEL = 1;
@@ -203,6 +206,12 @@ export class GameRoom extends Room<GameRoomState> {
     this.onMessage<SellMessage>("sell", (client, msg) => this.handleSell(client, msg));
     this.onMessage<TurnInQuestMessage>("turnInQuest", (client, msg) =>
       this.handleTurnInQuest(client, msg),
+    );
+    this.onMessage<DialogStartMessage>("dialog-start", (client, msg) =>
+      this.handleDialogStart(client, msg),
+    );
+    this.onMessage<DialogChooseMessage>("dialog-choose", (client, msg) =>
+      this.handleDialogChoose(client, msg),
     );
 
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
@@ -1079,6 +1088,172 @@ export class GameRoom extends Room<GameRoomState> {
       this.grantQuest(p, "arena-initiate");
     }
     client.send("quest-complete", { questId });
+  }
+
+  // ---------- Dialog ----------
+
+  private handleDialogStart(client: Client<unknown, SessionUser>, msg: DialogStartMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p?.alive) return;
+    const npcId = msg?.npcId;
+    if (!npcId) return;
+    if (!this.isNpcInRange(p, npcId)) {
+      client.send("dialog-error", { reason: "out_of_range" });
+      return;
+    }
+    const result = startDialog(npcId);
+    if (!result.ok) {
+      client.send("dialog-error", { reason: result.reason });
+      return;
+    }
+    client.send("dialog-node", {
+      npcId,
+      speakerName: result.tree.speakerName ?? "",
+      portraitId: result.tree.portraitId ?? "",
+      node: this.serializeNode(npcId, result.node, p),
+    });
+  }
+
+  private handleDialogChoose(client: Client<unknown, SessionUser>, msg: DialogChooseMessage) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p?.alive) return;
+    const npcId = msg?.npcId;
+    const nodeId = msg?.nodeId;
+    const choiceIndex = msg?.choiceIndex;
+    if (!npcId || !nodeId || typeof choiceIndex !== "number") return;
+    if (!this.isNpcInRange(p, npcId)) {
+      client.send("dialog-error", { reason: "out_of_range" });
+      return;
+    }
+    const snapshot = this.snapshotPlayerForDialog(p);
+    const result = chooseDialog(npcId, nodeId, choiceIndex, snapshot);
+    if (!result.ok) {
+      client.send("dialog-error", { reason: result.reason, detail: result.detail });
+      return;
+    }
+    for (const action of result.actions) {
+      this.applyDialogAction(client, p, action);
+    }
+    if (result.close || !result.node) {
+      client.send("dialog-close", { npcId });
+      return;
+    }
+    client.send("dialog-node", {
+      npcId,
+      speakerName: "",
+      portraitId: "",
+      node: this.serializeNode(npcId, result.node, p),
+    });
+  }
+
+  private isNpcInRange(p: Player, npcId: string): boolean {
+    const npc = this.state.npcs.get(npcId);
+    if (!npc) return false;
+    const dx = npc.x - p.x;
+    const dz = npc.z - p.z;
+    // Generous radius — client prompt uses 2.2m, server accepts up to 4m to
+    // absorb minor latency between prompt appearance and keypress.
+    const r = 4;
+    return dx * dx + dz * dz <= r * r;
+  }
+
+  private snapshotPlayerForDialog(p: Player) {
+    const quests = new Map<string, { status: string }>();
+    p.quests.forEach((q, id) => {
+      quests.set(id, { status: q.status });
+    });
+    const inventory: { itemId: string; qty: number }[] = [];
+    for (const slot of p.inventory) {
+      inventory.push({ itemId: slot.itemId, qty: slot.qty });
+    }
+    return { level: p.level, quests, inventory };
+  }
+
+  private serializeNode(
+    npcId: string,
+    node: { id: string; text: string; choices: readonly unknown[] },
+    p: Player,
+  ) {
+    // Re-check every choice's requirements so the client can grey out gated
+    // options without a second roundtrip per render.
+    const snapshot = this.snapshotPlayerForDialog(p);
+    const choices = (node.choices as readonly import("@game/shared/dialog").DialogChoice[]).map(
+      (c) => {
+        const req = c.requires
+          ? (() => {
+              for (const r of c.requires) {
+                const check = this.checkRequirementSnapshot(r, snapshot);
+                if (!check.ok) return check;
+              }
+              return { ok: true as const };
+            })()
+          : { ok: true as const };
+        return {
+          text: c.text,
+          available: req.ok,
+          reason: req.ok ? undefined : req.reason,
+        };
+      },
+    );
+    return {
+      npcId,
+      id: node.id,
+      text: node.text,
+      choices,
+    };
+  }
+
+  private checkRequirementSnapshot(
+    req: import("@game/shared/dialog").DialogRequirement,
+    snapshot: ReturnType<GameRoom["snapshotPlayerForDialog"]>,
+  ): { ok: true } | { ok: false; reason: string } {
+    switch (req.kind) {
+      case "minLevel":
+        return snapshot.level >= req.level
+          ? { ok: true }
+          : { ok: false, reason: `Requires level ${req.level}` };
+      case "questStatus": {
+        const q = snapshot.quests.get(req.questId);
+        const status = q?.status ?? "none";
+        return status === req.status
+          ? { ok: true }
+          : { ok: false, reason: `Quest state must be ${req.status}` };
+      }
+      case "hasItem": {
+        const need = req.qty ?? 1;
+        let have = 0;
+        for (const slot of snapshot.inventory) {
+          if (slot.itemId === req.itemId) have += slot.qty;
+          if (have >= need) break;
+        }
+        return have >= need ? { ok: true } : { ok: false, reason: `Need ${need}× ${req.itemId}` };
+      }
+    }
+  }
+
+  private applyDialogAction(
+    client: Client<unknown, SessionUser>,
+    p: Player,
+    action: DialogActionRequest,
+  ) {
+    switch (action.kind) {
+      case "startQuest": {
+        if (this.zone.id !== "lobby") return;
+        if (!getQuest(action.questId)) return;
+        if (p.quests.has(action.questId)) return;
+        this.grantQuest(p, action.questId);
+        client.send("quest-accepted", { questId: action.questId });
+        return;
+      }
+      case "turnInQuest": {
+        this.handleTurnInQuest(client, { questId: action.questId });
+        return;
+      }
+      case "openVendor": {
+        client.send("open-vendor", {});
+        return;
+      }
+    }
   }
 
   // ---------- Pickup / use / drop / equip (legacy single-slot) ----------
