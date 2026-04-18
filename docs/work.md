@@ -30,7 +30,7 @@ Dependency-ordered; each PR must be preview-verified before merge (see CLAUDE.md
 
 ## Infrastructure
 
-- **Multi-CLI dispatch** (`scripts/dispatch-cli.sh`) — overseer can dispatch work to Claude Code, Codex, or Gemini in detached tmux sessions. See [.claude/memory/multi-cli.md](../.claude/memory/multi-cli.md). `tmux attach -t agent-<issue>-<cli>` to watch.
+- **Multi-CLI dispatch** (`scripts/dispatch-cli.sh`) — overseer can dispatch work to Claude Code, Codex, or Gemini in detached tmux sessions. See the [multi-cli-dispatch skill](../.claude/skills/multi-cli-dispatch/SKILL.md). `tmux attach -t agent-<issue>-<cli>` to watch.
 - **Preview verification loop** — see [CLAUDE.md](../CLAUDE.md) § "Preview verification loop". Every merged PR must be reproduced in preview; flip the matching row(s) in [docs/user-intents.md](user-intents.md) to `verified-preview`.
 - **User intent tracker** — [docs/user-intents.md](user-intents.md) carries every user-voiced ask (ui-1 .. ui-43) with status. Append on every new intent; flip on verification.
 

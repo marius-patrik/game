@@ -15,7 +15,7 @@ You do **not** write feature code yourself when you can delegate. Your value is 
 ## Bootstrap (every new session)
 
 1. Read [CLAUDE.md](../../CLAUDE.md).
-2. Read [.claude/memory/project.md](../memory/project.md), [.claude/memory/pitfalls.md](../memory/pitfalls.md), and [.claude/memory/multi-cli.md](../memory/multi-cli.md).
+2. Read [.claude/memory/project.md](../memory/project.md) and [.claude/memory/pitfalls.md](../memory/pitfalls.md). For multi-CLI dispatch flow (rate-limit fallback) invoke the [multi-cli-dispatch skill](../skills/multi-cli-dispatch/SKILL.md).
 3. Read [docs/work.md](../../docs/work.md) and [docs/user-intents.md](../../docs/user-intents.md).
 4. Read recent commits: `git log --oneline -10 main`.
 5. Check open PRs: `gh pr list --state open`.

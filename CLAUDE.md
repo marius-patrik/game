@@ -24,7 +24,7 @@ Claude is the sole maintainer. Humans drive direction, Claude executes.
 - `./scripts/spawn-agent.sh <role> [notes]` for any other role (`execution`, `planning`, `review`)
 - Or `/spawn-overseer-agent`, `/spawn-execution-agent`, `/spawn-planning-agent`, `/spawn-review-agent` as Claude Code slash commands.
 
-**Multi-CLI dispatch.** The overseer can execute work via Claude, Codex, or Gemini depending on capability/budget. See [.claude/memory/multi-cli.md](.claude/memory/multi-cli.md). Quickstart:
+**Multi-CLI dispatch.** The overseer can execute work via Claude, Codex, or Gemini depending on capability/budget. See the [multi-cli-dispatch skill](.claude/skills/multi-cli-dispatch/SKILL.md). Quickstart:
 
 ```bash
 scripts/dispatch-cli.sh <cli: claude|codex|gemini> <role> <issue#> <branch>
