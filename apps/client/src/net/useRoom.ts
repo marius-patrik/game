@@ -25,6 +25,13 @@ import {
 import { getStateCallbacks, type Room } from "colyseus.js";
 import { useEffect, useRef, useState } from "react";
 import { notify } from "@/components/ui/unified-toast";
+import {
+  closeDialog,
+  type DialogServerNode,
+  openDialog,
+  peekDialog,
+  updateDialogNode,
+} from "@/game/dialog/dialogStore";
 import { useCharacterStore } from "@/state/characterStore";
 import { joinZone } from "./room";
 
@@ -191,6 +198,8 @@ export type RoomState = {
     (type: "buy", payload: { itemId: string; qty?: number }): void;
     (type: "sell", payload: { itemId: string; qty?: number }): void;
     (type: "turnInQuest", payload: { questId: string }): void;
+    (type: "dialog-start", payload: { npcId: string }): void;
+    (type: "dialog-choose", payload: { npcId: string; nodeId: string; choiceIndex: number }): void;
   };
   travel: (zoneId: ZoneId) => void;
 };
@@ -645,10 +654,50 @@ export function useRoom(): RoomState {
         room.onMessage("quest-complete", (_msg: unknown) => {
           notify.success("Quest turned in!");
         });
+        room.onMessage("quest-accepted", (msg: { questId: string }) => {
+          const def = QUEST_CATALOG[msg.questId];
+          notify.success(def ? `Quest accepted: ${def.title}` : "Quest accepted");
+        });
+        room.onMessage(
+          "dialog-node",
+          (msg: {
+            npcId: string;
+            speakerName: string;
+            portraitId: string;
+            node: DialogServerNode;
+          }) => {
+            const existing = peekDialog();
+            if (!existing.open || existing.header?.speakerName !== msg.speakerName) {
+              openDialog({ speakerName: msg.speakerName, portraitId: msg.portraitId }, msg.node);
+            } else {
+              updateDialogNode(msg.node);
+            }
+          },
+        );
+        room.onMessage("dialog-close", (_msg: { npcId: string }) => {
+          closeDialog();
+        });
+        room.onMessage("dialog-error", (msg: { reason: string; detail?: string }) => {
+          if (msg.reason === "out_of_range") {
+            notify.error("Too far away");
+          } else if (msg.reason === "requirement_failed") {
+            notify.error(msg.detail ?? "Not available");
+          } else {
+            notify.error(`Dialog: ${msg.reason}`);
+          }
+        });
+        room.onMessage("open-vendor", (_msg: unknown) => {
+          // VendorPanel listens via a browser custom event to keep the
+          // cross-component coupling minimal.
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("game:open-vendor"));
+          }
+        });
 
         room.onLeave(() => {
           if (cancelled) return;
           console.info("[game] room left", { zoneId, sessionId: room?.sessionId });
+          closeDialog();
           setState((s) => ({
             ...s,
             status: "idle",

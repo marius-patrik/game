@@ -22,8 +22,11 @@ import { useTheme } from "@/theme/theme-provider";
 import { ActionBar } from "./ActionBar";
 import { BottomBars } from "./BottomBars";
 import { Compass } from "./Compass";
+import { setCameraProfile } from "./camera/cameraProfiles";
 import { useCursorLockToggleKey } from "./camera/useCursorLock";
 import { DeathOverlay } from "./DeathOverlay";
+import { DialogUI } from "./DialogUI";
+import { closeDialog, peekDialog, useDialogState } from "./dialog/dialogStore";
 import { HitVignette } from "./HitVignette";
 import { InteractionPrompt, type InteractionPromptKind } from "./InteractionPrompt";
 import { PartyPanel } from "./PartyPanel";
@@ -322,17 +325,51 @@ function GameViewInner({
 
   const onNpcInteract = useCallback(
     (npc: NpcSnapshot) => {
-      if (npc.kind === "vendor") {
-        setVendorOpen(true);
-        return;
-      }
+      // Keep the one-press quest-turn-in shortcut for quest-givers with a
+      // completed quest ready — players expect that flow from pre-dialog.
       if (npc.kind === "questgiver") {
         const readyQuest = self?.quests.find((q) => q.status === "complete");
-        if (readyQuest) onTurnInQuest(readyQuest.id);
+        if (readyQuest) {
+          onTurnInQuest(readyQuest.id);
+          return;
+        }
       }
+      // Everything else routes into the branching dialog system.
+      room.send("dialog-start", { npcId: npc.id });
     },
-    [onTurnInQuest, self],
+    [onTurnInQuest, room.send, self],
   );
+
+  const dialog = useDialogState();
+  const onDialogChoose = useCallback(
+    (choiceIndex: number) => {
+      const current = peekDialog();
+      if (!current.open || !current.node) return;
+      room.send("dialog-choose", {
+        npcId: current.node.npcId,
+        nodeId: current.node.id,
+        choiceIndex,
+      });
+    },
+    [room.send],
+  );
+  const onDialogClose = useCallback(() => {
+    closeDialog();
+  }, []);
+
+  useEffect(() => {
+    if (dialog.open) {
+      setCameraProfile("dialog");
+    } else {
+      setCameraProfile("combat");
+    }
+  }, [dialog.open]);
+
+  useEffect(() => {
+    const onOpenVendor = () => setVendorOpen(true);
+    window.addEventListener("game:open-vendor", onOpenVendor);
+    return () => window.removeEventListener("game:open-vendor", onOpenVendor);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -340,6 +377,7 @@ function GameViewInner({
       if (!matchesKeybind(e.key, keybinds.interact)) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (dialog.open) return;
       if (!interactionTarget) return;
       e.preventDefault();
       if (interactionTarget.kind === "npc") {
@@ -350,7 +388,7 @@ function GameViewInner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [interactionTarget, keybinds.interact, onNpcInteract, onPickup]);
+  }, [interactionTarget, keybinds.interact, onNpcInteract, onPickup, dialog.open]);
 
   useEffect(() => {
     if (getSfxVolume() !== volume) setSfxVolume(volume);
@@ -404,57 +442,62 @@ function GameViewInner({
 
       {!cinematicActive && room.sessionId ? (
         <>
-          <Compass cinematicActive={cinematicActive} />
-          <TopLeftPane
-            zoneId={room.zoneId}
-            players={room.players}
-            mobs={room.mobs}
-            npcs={room.npcs}
-            hazards={room.hazards}
-            sessionId={room.sessionId}
-            chat={room.chat}
-            onSendChat={onSendChat}
-            quests={self?.quests ?? []}
-            dailyQuests={self?.dailyQuests ?? []}
-            onTurnInQuest={onTurnInQuest}
-            canTurnIn={readyToTurnIn}
-            self={self}
-            onAllocateStat={onAllocateStat}
-            onUnequipSlot={onUnequipSlot}
-            onUse={onUse}
-            onEquip={onEquip}
-            onEquipSlot={onEquipSlot}
-            onDrop={onDropItem}
-            onAllocateSkill={onAllocateSkill}
-            onUnbindSkill={onUnbindSkill}
-          />
-          <TopRightSidebar player={self} zoneId={room.zoneId} />
-          <div className="pointer-events-auto absolute top-2 right-2 z-20 sm:top-4 sm:right-4">
-            <TopMenu
-              status={room.status}
-              playerCount={room.players.size}
-              zoneId={room.zoneId}
-              onTravel={room.travel}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
-          </div>
-          <PartyPanel players={room.players} sessionId={room.sessionId} />
+          {dialog.open ? null : (
+            <>
+              <Compass cinematicActive={cinematicActive} />
+              <TopLeftPane
+                zoneId={room.zoneId}
+                players={room.players}
+                mobs={room.mobs}
+                npcs={room.npcs}
+                hazards={room.hazards}
+                sessionId={room.sessionId}
+                chat={room.chat}
+                onSendChat={onSendChat}
+                quests={self?.quests ?? []}
+                dailyQuests={self?.dailyQuests ?? []}
+                onTurnInQuest={onTurnInQuest}
+                canTurnIn={readyToTurnIn}
+                self={self}
+                onAllocateStat={onAllocateStat}
+                onUnequipSlot={onUnequipSlot}
+                onUse={onUse}
+                onEquip={onEquip}
+                onEquipSlot={onEquipSlot}
+                onDrop={onDropItem}
+                onAllocateSkill={onAllocateSkill}
+                onUnbindSkill={onUnbindSkill}
+              />
+              <TopRightSidebar player={self} zoneId={room.zoneId} />
+              <div className="pointer-events-auto absolute top-2 right-2 z-20 sm:top-4 sm:right-4">
+                <TopMenu
+                  status={room.status}
+                  playerCount={room.players.size}
+                  zoneId={room.zoneId}
+                  onTravel={room.travel}
+                  onOpenSettings={() => setSettingsOpen(true)}
+                />
+              </div>
+              <PartyPanel players={room.players} sessionId={room.sessionId} />
+            </>
+          )}
           <BottomBars player={self} />
           <ActionBar
             player={self}
-            enabled={canAct}
+            enabled={canAct && !dialog.open}
             onUseAbility={onUseAbility}
             onUseAbilityAt={onUseAbilityAt}
             onUse={onUse}
             onEquipSlot={onEquipSlot}
           />
           <InteractionPrompt
-            visible={promptInfo !== null}
+            visible={promptInfo !== null && !dialog.open}
             label={promptInfo?.label ?? ""}
             keyBinding={keybinds.interact}
             verb={promptInfo?.verb ?? "interact with"}
             kind={promptInfo?.kind ?? "npc"}
           />
+          <DialogUI onChoose={onDialogChoose} onClose={onDialogClose} />
           <VendorPanel
             open={vendorOpen}
             onOpenChange={setVendorOpen}
