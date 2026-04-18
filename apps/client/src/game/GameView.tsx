@@ -14,6 +14,9 @@ import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
+import { useCharacterStore } from "@/state/characterStore";
+import { matchesKeybind } from "@/state/keybinds";
+import { useCharacterKeybinds } from "@/state/keybindsStore";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import { useTheme } from "@/theme/theme-provider";
 import { ActionBar } from "./ActionBar";
@@ -22,6 +25,7 @@ import { Compass } from "./Compass";
 import { useCursorLockToggleKey } from "./camera/useCursorLock";
 import { DeathOverlay } from "./DeathOverlay";
 import { HitVignette } from "./HitVignette";
+import { InteractionPrompt, type InteractionPromptKind } from "./InteractionPrompt";
 import { PartyPanel } from "./PartyPanel";
 import { Scene } from "./Scene";
 import { SettingsPanel } from "./SettingsPanel";
@@ -35,7 +39,6 @@ import { useTargetingInputHandlers } from "./targeting";
 import { useAutoPickup } from "./useAutoPickup";
 import { useClickControls } from "./useClickControls";
 import { useGameSfx } from "./useGameSfx";
-import { useNearestNpc } from "./useNearestNpc";
 import { VendorPanel } from "./VendorPanel";
 import { ZoneTransition } from "./ZoneTransition";
 
@@ -71,18 +74,21 @@ function findNearestInteractTarget(
   npcs: Map<string, NpcSnapshot>,
   drops: Map<string, DropSnapshot>,
   self: Vec3,
+  preferDrops: boolean,
 ): InteractionTarget | undefined {
   const r2 = INTERACT_RADIUS * INTERACT_RADIUS;
   let nearest: InteractionTarget | undefined;
   let nearestDist = r2;
-  for (const d of drops.values()) {
-    const dx = d.x - self.x;
-    const dz = d.z - self.z;
-    const dist = dx * dx + dz * dz;
-    if (dist > r2) continue;
-    if (!nearest || dist < nearestDist) {
-      nearest = { kind: "drop", drop: d, dist };
-      nearestDist = dist;
+  if (preferDrops) {
+    for (const d of drops.values()) {
+      const dx = d.x - self.x;
+      const dz = d.z - self.z;
+      const dist = dx * dx + dz * dz;
+      if (dist > r2) continue;
+      if (!nearest || dist < nearestDist) {
+        nearest = { kind: "drop", drop: d, dist };
+        nearestDist = dist;
+      }
     }
   }
   for (const n of npcs.values()) {
@@ -147,6 +153,10 @@ function GameViewInner({
   const setSkipCinematics = usePreferencesStore((s) => s.setSkipCinematics);
   const fov = usePreferencesStore((s) => s.fov);
   const setFov = usePreferencesStore((s) => s.setFov);
+  const autoPickup = usePreferencesStore((s) => s.autoPickup);
+  const setAutoPickup = usePreferencesStore((s) => s.setAutoPickup);
+  const selectedCharacterId = useCharacterStore((s) => s.selectedCharacterId);
+  const keybinds = useCharacterKeybinds(selectedCharacterId);
   const bg = resolved === "dark" ? "#09090b" : "#fafafa";
 
   useGameSfx(room);
@@ -232,7 +242,7 @@ function GameViewInner({
 
   // Ctrl toggles pointer-lock once we're in the world. Disabled during
   // the intro cinematic so the camera flyaround isn't interrupted.
-  useCursorLockToggleKey(canAct);
+  useCursorLockToggleKey(canAct, keybinds.cursor_lock);
 
   const deathAtRef = useRef<number | undefined>(undefined);
   const lastAliveRef = useRef(true);
@@ -280,11 +290,16 @@ function GameViewInner({
   );
   useTargetingInputHandlers({ getOrigin: getTargetingOrigin });
 
-  // Auto-pickup drops on proximity.
-  useAutoPickup({ enabled: canAct, drops: room.drops, selfPosRef, onPickup });
+  // Auto-pickup drops on proximity (toggleable via preferences).
+  useAutoPickup({
+    enabled: canAct && autoPickup,
+    drops: room.drops,
+    selfPosRef,
+    onPickup,
+  });
 
-  // Track the nearest overall target so the HUD can suppress NPC copy when a
-  // drop is actually closer, without stealing keyboard interaction from NPCs.
+  // Track the nearest interactable — drops only count when auto-pickup is OFF
+  // (otherwise they're grabbed on contact and should never need a prompt).
   useEffect(() => {
     if (!canAct) {
       setInteractionTarget(undefined);
@@ -293,7 +308,7 @@ function GameViewInner({
     const id = window.setInterval(() => {
       const selfPos = selfPosRef?.current;
       if (!selfPos) return;
-      const next = findNearestInteractTarget(room.npcs, room.drops, selfPos);
+      const next = findNearestInteractTarget(room.npcs, room.drops, selfPos, !autoPickup);
       setInteractionTarget((prev) => {
         if (!next) return prev === undefined ? prev : undefined;
         if (prev?.kind === "npc" && next.kind === "npc" && prev.npc.id === next.npc.id) return prev;
@@ -303,9 +318,8 @@ function GameViewInner({
       });
     }, 150);
     return () => window.clearInterval(id);
-  }, [canAct, room.npcs, room.drops, selfPosRef]);
+  }, [canAct, room.npcs, room.drops, selfPosRef, autoPickup]);
 
-  const nearestNpc = useNearestNpc({ enabled: canAct, npcs: room.npcs, selfPosRef });
   const onNpcInteract = useCallback(
     (npc: NpcSnapshot) => {
       if (npc.kind === "vendor") {
@@ -319,26 +333,31 @@ function GameViewInner({
     },
     [onTurnInQuest, self],
   );
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat) return;
-      if (e.key !== "e" && e.key !== "E") return;
+      if (!matchesKeybind(e.key, keybinds.interact)) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (!nearestNpc) return;
+      if (!interactionTarget) return;
       e.preventDefault();
-      onNpcInteract(nearestNpc);
+      if (interactionTarget.kind === "npc") {
+        onNpcInteract(interactionTarget.npc);
+      } else {
+        onPickup(interactionTarget.drop.id);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [nearestNpc, onNpcInteract]);
+  }, [interactionTarget, keybinds.interact, onNpcInteract, onPickup]);
 
   useEffect(() => {
     if (getSfxVolume() !== volume) setSfxVolume(volume);
   }, [volume]);
 
   const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
-  const canTurnIn = nearestNpc?.kind === "questgiver" && readyToTurnIn;
+  const promptInfo = buildPromptInfo(interactionTarget, readyToTurnIn);
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -372,7 +391,6 @@ function GameViewInner({
               onGroundClick={onGroundClick}
               onPickup={onPickup}
               onNpcInteract={onNpcInteract}
-              interactionTargetId={nearestNpc?.id}
             />
             {budget.postFX ? (
               <EffectComposer multisampling={0}>
@@ -399,7 +417,7 @@ function GameViewInner({
             quests={self?.quests ?? []}
             dailyQuests={self?.dailyQuests ?? []}
             onTurnInQuest={onTurnInQuest}
-            canTurnIn={canTurnIn}
+            canTurnIn={readyToTurnIn}
             self={self}
             onAllocateStat={onAllocateStat}
             onUnequipSlot={onUnequipSlot}
@@ -430,13 +448,13 @@ function GameViewInner({
             onUse={onUse}
             onEquipSlot={onEquipSlot}
           />
-          {nearestNpc && interactionTarget?.kind !== "drop" ? (
-            <div className="pointer-events-none absolute bottom-[168px] left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md sm:bottom-[184px]">
-              Press <kbd className="rounded border border-border/60 bg-muted px-1">E</kbd> to{" "}
-              {nearestNpc.kind === "vendor" ? "trade" : canTurnIn ? "turn in" : "talk"} with{" "}
-              <strong>{nearestNpc.name}</strong>
-            </div>
-          ) : null}
+          <InteractionPrompt
+            visible={promptInfo !== null}
+            label={promptInfo?.label ?? ""}
+            keyBinding={keybinds.interact}
+            verb={promptInfo?.verb ?? "interact with"}
+            kind={promptInfo?.kind ?? "npc"}
+          />
           <VendorPanel
             open={vendorOpen}
             onOpenChange={setVendorOpen}
@@ -462,12 +480,19 @@ function GameViewInner({
             onSkipCinematicsChange={setSkipCinematics}
             fov={fov}
             onFovChange={setFov}
+            autoPickup={autoPickup}
+            onAutoPickupChange={setAutoPickup}
+            characterId={selectedCharacterId}
           />
           <Tutorial />
         </>
       ) : null}
 
-      <CinematicGate active={cinematicActive} onSkip={finishCinematic} />
+      <CinematicGate
+        active={cinematicActive}
+        onSkip={finishCinematic}
+        skipKey={keybinds.cinematic_skip}
+      />
 
       <DeathOverlay
         dead={!alive && !cinematicActive}
@@ -479,6 +504,28 @@ function GameViewInner({
       <ZoneTransition status={room.status} zoneId={room.zoneId} skipCinematics={skipCinematics} />
     </div>
   );
+}
+
+function buildPromptInfo(
+  target: InteractionTarget | undefined,
+  readyToTurnIn: boolean,
+): { label: string; verb: string; kind: InteractionPromptKind } | null {
+  if (!target) return null;
+  if (target.kind === "drop") {
+    return { label: target.drop.itemId, verb: "pick up", kind: "drop" };
+  }
+  const { npc } = target;
+  if (npc.kind === "vendor") {
+    return { label: npc.name, verb: "trade with", kind: "vendor" };
+  }
+  if (npc.kind === "questgiver") {
+    return {
+      label: npc.name,
+      verb: readyToTurnIn ? "turn in to" : "talk to",
+      kind: "questgiver",
+    };
+  }
+  return { label: npc.name, verb: "talk to", kind: "npc" };
 }
 
 /** SettingsPanel was originally built as its own button + dialog. Here we strip
@@ -494,6 +541,9 @@ function SettingsPanelController({
   onSkipCinematicsChange,
   fov,
   onFovChange,
+  autoPickup,
+  onAutoPickupChange,
+  characterId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -505,6 +555,9 @@ function SettingsPanelController({
   onSkipCinematicsChange: (v: boolean) => void;
   fov: number;
   onFovChange: (v: number) => void;
+  autoPickup: boolean;
+  onAutoPickupChange: (v: boolean) => void;
+  characterId: string | null;
 }) {
   if (!open) return null;
   return (
@@ -517,6 +570,9 @@ function SettingsPanelController({
       onSkipCinematicsChange={onSkipCinematicsChange}
       fov={fov}
       onFovChange={onFovChange}
+      autoPickup={autoPickup}
+      onAutoPickupChange={onAutoPickupChange}
+      characterId={characterId}
       externalOpen={open}
       onExternalOpenChange={onOpenChange}
     />

@@ -2,11 +2,16 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Coins, Hand, Swords, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useCharacterStore } from "@/state/characterStore";
+import { formatKeybind } from "@/state/keybinds";
+import { useKeybind } from "@/state/keybindsStore";
 
 const TUTORIAL_KEY = "tutorial.v1.seen";
 
 export function Tutorial() {
   const [open, setOpen] = useState(false);
+  const selectedCharacterId = useCharacterStore((s) => s.selectedCharacterId);
+  const interactKey = useKeybind(selectedCharacterId, "interact");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -54,8 +59,11 @@ export function Tutorial() {
           </ul>
           <p className="text-muted-foreground text-xs">
             Walk into a glowing portal to travel to a new zone. Press{" "}
-            <kbd className="rounded border border-border/60 bg-muted px-1">T</kbd> for chat. Open{" "}
-            <strong>settings</strong> (top-right) to tune graphics + volume.
+            <kbd className="rounded border border-border/60 bg-muted px-1">
+              {formatKeybind(interactKey)}
+            </kbd>{" "}
+            to talk to nearby NPCs. Open <strong>settings</strong> (top-right) to tune graphics,
+            audio, and keybinds.
           </p>
           <div className="flex justify-end">
             <Button size="sm" onClick={dismiss}>
