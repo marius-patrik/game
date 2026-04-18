@@ -29,9 +29,9 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 
 | ID | Intent | Tracked by | Status |
 |---|---|---|---|
-| ui-1 | Unified interaction dialog for every in-world press-E | #95 | pending |
-| ui-2 | Interact key (and all keybinds) configurable in Settings | #95 | pending |
-| ui-3 | Auto item pickup, on by default, toggleable in Settings; name-only labels when on | #95 + #100 | pending |
+| ui-1 | Unified interaction dialog for every in-world press-E | #95 | verified-preview (2026-04-18: #95/PR #130 — single InteractionPrompt component for NPCs/vendors/questgivers/drops with kind-tinted border) |
+| ui-2 | Interact key (and all keybinds) configurable in Settings | #95 | verified-preview (2026-04-18: #95/PR #130 — Settings → Keybinds tab with full action coverage + conflict detection + per-character persistence; rebind E→F + Q-conflict rejected verified) |
+| ui-3 | Auto item pickup, on by default, toggleable in Settings; name-only labels when on | #95 + #100 | verified-preview (2026-04-18: #95/PR #130 — autoPickup toggle in Gameplay tab; when off, InteractionPrompt shown; when on, fly-to-player with name-only label) |
 | ui-4 | Remove online-count + "lobby" widgets from top-left of HUD | #93 | verified-preview (2026-04-18: #93/PR #125 — DOM assertion confirms no online-count chip, no "game · dev" label) |
 | ui-5 | Remove HUD hint widget | #93 | verified-preview (2026-04-18: #93/PR #125 — DOM assertion confirms no hint strip) |
 | ui-6 | XP bar bottom, full-width-ish; HP + MP half-width each above it; numbers + icons | #93 | verified-preview (2026-04-18: #93/PR #125 — BottomBars component, responsive across 360–1920 viewports) |

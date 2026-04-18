@@ -144,3 +144,18 @@ After that, the zustand-persisted `game.hotbar.v1` store updates immediately and
 
 ## Biome 2 + Tailwind v3 needs parser + at-rule config
 Biome 2.4.x flags `apps/client/src/styles/globals.css` unless `biome.json` enables `"css": { "parser": { "tailwindDirectives": true } }` and ignores `"tailwind"` in `lint/suspicious/noUnknownAtRules`. It also expands `package.json` arrays/objects by default; add `overrides[].json.formatter.expand = "auto"` if you want to keep the repo's compact manifest formatting. Surfaced in #90 / PR #127.
+
+## Preview launch cwd caches to first-start worktree
+`preview_start` caches the launch cwd at first invocation. The `bun run --filter @game/client dev` walks up to the primary repo's root, but rsbuild's bundle cache belongs to whichever checkout was first served. Symptom: feature-branch code doesn't show up in the preview even after `git checkout`. Fix: checkout the branch in the primary repo (detached if needed, since a branch held by another worktree can't be checked out directly), then `preview_stop` + `preview_start client` to invalidate rsbuild's cache. Surfaced in #95 verification.
+
+## Silent rebase-needed on push
+Branches created early in a multi-agent session may go 5+ commits behind `origin/main` by the time they're ready to push. `git push` can "silently" appear fine while GitHub rejects it. Fix: `git fetch origin && git rebase origin/main` before every push; on conflict, resolve + force-push-with-lease. Surfaced in #95.
+
+## charactersApi uses Bearer token from localStorage, not cookies
+`charactersApi` reads `localStorage["game.session.token"]` and sends `Authorization: Bearer <token>`. Preview-driven multi-user tests that rely on `document.cookie = "..."` or `fetch(..., { credentials: "include" })` alone won't update this token — the UI keeps using the old user. Fix: either remove the localStorage entry between users or patch `window.localStorage.setItem("game.session.token", newToken)` explicitly. Matters for any future leak-guard test harness. Surfaced in #95.
+
+## Pre-existing SQLITE_CONSTRAINT_PRIMARYKEY + teleport anti-cheat on spawn
+Under preview driving, `character_progress` inserts sometimes race the existing row and throw `SQLITE_CONSTRAINT_PRIMARYKEY`; separately, the `movement:teleport` anti-cheat kicks clients on first spawn when the client-authoritative position snapshot races the server-authoritative spawn. Scene renders empty (0 players) when this happens. Both are pre-existing, NOT caused by any feature PR in the current wave. File as a follow-up bug if gameplay stability becomes critical.
+
+## TabWindow v1 (reverted #129): unstable zustand selectors infinite-loop
+`useLayoutStore((s) => ({ foo: s.foo, bar: s.bar }))` returns a NEW object every render — React thinks the value changed, re-renders, selector runs again, infinite loop. Fix: either return a primitive (`useLayoutStore((s) => s.foo)`), OR use `shallow` from `zustand/shallow` as the equality function: `useLayoutStore((s) => ({...}), shallow)`. Also: `useEffect` in layout-sync components must use PRIMITIVE deps (string ids, numbers), not the full layout object. Always add a render-count regression test for components with persistent layout state — mount + fail if renders > ~5. See `feat/draggable-tabs-v2-wip` for the ADR sketch that the v2 agent will fix.
