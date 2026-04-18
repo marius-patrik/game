@@ -18,9 +18,7 @@ export function TopRightSidebar({
 }) {
   const zone = ZONES[zoneId];
   const gold = player?.gold ?? 0;
-  const activeQuest = player?.quests.find(
-    (q) => q.status === "active" || q.status === "complete",
-  );
+  const activeQuest = player?.quests.find((q) => q.status === "active" || q.status === "complete");
   const questDef = activeQuest ? QUEST_CATALOG[activeQuest.id] : undefined;
   const frac =
     activeQuest && activeQuest.goal > 0

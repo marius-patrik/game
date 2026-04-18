@@ -511,9 +511,7 @@ export function useRoom(): RoomState {
           commit();
         });
         room.onMessage("portal-locked", (msg: { to: ZoneId; minLevel: number }) => {
-          notify.error(
-            `Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`,
-          );
+          notify.error(`Portal locked: reach level ${msg.minLevel} to enter ${String(msg.to)}.`);
         });
         room.onMessage(
           "boss-telegraph",

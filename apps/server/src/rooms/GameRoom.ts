@@ -362,7 +362,7 @@ export class GameRoom extends Room<GameRoomState> {
       this.abilityCds.set(client.sessionId, new Map());
     }
 
-    // Stream recent chat history on join so the SidePanel chat tab isn't empty.
+    // Stream recent chat history on join so the chat tab isn't empty.
     loadRecentChat()
       .then((rows) => {
         client.send(

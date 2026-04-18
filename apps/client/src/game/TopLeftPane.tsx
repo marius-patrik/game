@@ -794,12 +794,22 @@ function InventoryItemRow({
       </div>
       <div className="flex gap-1">
         {canUse ? (
-          <Button size="sm" variant="secondary" className="h-6 flex-1 px-2 text-[11px]" onClick={onUse}>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-6 flex-1 px-2 text-[11px]"
+            onClick={onUse}
+          >
             Use
           </Button>
         ) : null}
         {canEquip ? (
-          <Button size="sm" variant="secondary" className="h-6 flex-1 px-2 text-[11px]" onClick={onEquip}>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-6 flex-1 px-2 text-[11px]"
+            onClick={onEquip}
+          >
             Equip
           </Button>
         ) : null}
