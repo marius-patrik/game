@@ -214,3 +214,36 @@
     animation: none;
   }
 }
+
+/* Hotbar press pulse — Karlson-style "the button reacts" beat. Triggered
+ * on pointer/key activation by toggling a class for the animation's
+ * duration. Sized and eased to feel tactile without crowding the cooldown
+ * fill that already lives on the slot. */
+.polish-hotbar-press {
+  animation: polish-hotbar-press 220ms var(--ease-out-quart);
+}
+
+@keyframes polish-hotbar-press {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: translate3d(0, 1px, 0) scale(0.94);
+    filter: brightness(1.25);
+  }
+  60% {
+    transform: translate3d(0, -1px, 0) scale(1.08);
+    filter: brightness(1.15);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .polish-hotbar-press {
+    animation: none;
+  }
+}

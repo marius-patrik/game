@@ -1,6 +1,7 @@
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
+import { Select, Selection } from "@react-three/postprocessing";
 import { type MutableRefObject, useRef } from "react";
 import type { Group } from "three";
 import { TierAwareLOD, useQuality } from "@/assets";
@@ -26,6 +27,7 @@ import { Cursor3D } from "./cursor/Cursor3D";
 import { peekGround, peekLocked } from "./cursor/cursorStore";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
+import { CellMaterial } from "./fx/CellMaterial";
 import { FxOverlay } from "./fx/FxOverlay";
 import { PostProcessing } from "./fx/PostProcessing";
 import { GAME_PALETTE } from "./gamePalette";
@@ -109,20 +111,24 @@ export function Scene({
     cubeGroup.current.rotation.y += dt * 0.6;
   });
 
-  const material = (
-    <meshStandardMaterial
+  const lighting = zone.lighting;
+  const cellPalette = lighting.cellPalette;
+
+  const centerpieceMaterial = (
+    <CellMaterial
+      bands={cellPalette}
       color={GAME_PALETTE.centerpiece.body}
       emissive={GAME_PALETTE.centerpiece.emissive}
       emissiveIntensity={0.35}
-      metalness={0.5}
-      roughness={0.18}
     />
   );
 
-  const lighting = zone.lighting;
+  // Outline pass only runs on medium+ (postFX budget); on low we also skip
+  // the <Selection> wiring so we don't pay the context/traversal cost.
+  const outlinesEnabled = budget.postFX;
 
   return (
-    <>
+    <Selection enabled={outlinesEnabled}>
       <color attach="background" args={[palette.bg]} />
       <fog attach="fog" args={[palette.bg, palette.fogNear, palette.fogFar]} />
       <ambientLight color={lighting.ambient.color} intensity={lighting.ambient.intensity} />
@@ -145,32 +151,81 @@ export function Scene({
       />
       <Environment preset={palette.preset} />
 
-      {/* Decorative floating centerpiece — small, high up, out of the action. */}
-      <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.6}>
-        <group ref={cubeGroup} position={[0, 6, 0]}>
-          <TierAwareLOD
-            tier={tier}
-            high={
-              <mesh castShadow>
-                <icosahedronGeometry args={[0.7, 3]} />
-                {material}
-              </mesh>
+      <Select enabled={outlinesEnabled}>
+        {/* Decorative floating centerpiece — small, high up, out of the action. */}
+        <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.6}>
+          <group ref={cubeGroup} position={[0, 6, 0]}>
+            <TierAwareLOD
+              tier={tier}
+              high={
+                <mesh castShadow>
+                  <icosahedronGeometry args={[0.7, 3]} />
+                  {centerpieceMaterial}
+                </mesh>
+              }
+              medium={
+                <mesh castShadow>
+                  <icosahedronGeometry args={[0.7, 1]} />
+                  {centerpieceMaterial}
+                </mesh>
+              }
+              low={
+                <mesh castShadow>
+                  <boxGeometry args={[0.9, 0.9, 0.9]} />
+                  {centerpieceMaterial}
+                </mesh>
+              }
+            />
+          </group>
+        </Float>
+
+        <ZoneDecor zoneId={zoneId} cellPalette={cellPalette} />
+
+        <Players
+          players={players}
+          sessionId={sessionId}
+          lastAttack={lastAttack}
+          selfPosRef={selfPosRef}
+          cellPalette={cellPalette}
+        />
+        <Mobs mobs={mobs} lastAttack={lastAttack} cellPalette={cellPalette} />
+        <Npcs npcs={npcs} onInteract={onNpcInteract} cellPalette={cellPalette} />
+        <Portals
+          portals={zone.portals}
+          players={players}
+          sessionId={sessionId}
+          selfPosRef={selfPosRef}
+        />
+
+        <mesh
+          rotation={[-Math.PI / 2, 0, 0]}
+          receiveShadow
+          onPointerDown={(e) => {
+            // Swallow left-clicks on the ground while a targeter is active —
+            // the targeter's global handler confirms the cast, and we do NOT
+            // want a simultaneous move-to-here to queue behind it.
+            if (e.button === 0 && targetingSource !== null) {
+              e.stopPropagation();
+              return;
             }
-            medium={
-              <mesh castShadow>
-                <icosahedronGeometry args={[0.7, 1]} />
-                {material}
-              </mesh>
+            if (e.button !== 0) return;
+            e.stopPropagation();
+            // In cursor-lock mode the native pointer is frozen at the lock
+            // entry point, so `e.point` does NOT reflect where the player is
+            // looking. Fall back to the shared ground-cursor ray (which is
+            // camera-centred in that mode).
+            if (peekLocked()) {
+              const g = peekGround();
+              if (g) onGroundClick({ x: g.x, y: 0, z: g.z });
+              return;
             }
-            low={
-              <mesh castShadow>
-                <boxGeometry args={[0.9, 0.9, 0.9]} />
-                {material}
-              </mesh>
-            }
-          />
-        </group>
-      </Float>
+            onGroundClick({ x: e.point.x, y: 0, z: e.point.z });
+          }}
+        >
+          <planeGeometry args={[width, depth]} />
+          <CellMaterial bands={cellPalette} color={palette.ground} />
+        </mesh>
+      </Select>
 
       <group position={[0, 6, 0]}>
         <SparkBurst
@@ -181,25 +236,9 @@ export function Scene({
         />
       </group>
 
-      <ZoneDecor zoneId={zoneId} />
-
-      <Players
-        players={players}
-        sessionId={sessionId}
-        lastAttack={lastAttack}
-        selfPosRef={selfPosRef}
-      />
       <PlayerLabels players={players} sessionId={sessionId} />
       <Drops drops={drops} selfPosRef={selfPosRef} onPickup={onPickup} />
-      <Mobs mobs={mobs} lastAttack={lastAttack} />
-      <Npcs npcs={npcs} onInteract={onNpcInteract} />
       <HazardZones hazards={hazards} />
-      <Portals
-        portals={zone.portals}
-        players={players}
-        sessionId={sessionId}
-        selfPosRef={selfPosRef}
-      />
       {zoneId === "lobby" ? <SafeZoneRing center={zone.spawn} /> : null}
       <DamageNumbers
         lastAttack={lastAttack}
@@ -209,35 +248,6 @@ export function Scene({
       />
       <BossTelegraph event={lastTelegraph} />
       <CasterBolts bolts={bolts} />
-
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        receiveShadow
-        onPointerDown={(e) => {
-          // Swallow left-clicks on the ground while a targeter is active —
-          // the targeter's global handler confirms the cast, and we do NOT
-          // want a simultaneous move-to-here to queue behind it.
-          if (e.button === 0 && targetingSource !== null) {
-            e.stopPropagation();
-            return;
-          }
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          // In cursor-lock mode the native pointer is frozen at the lock
-          // entry point, so `e.point` does NOT reflect where the player is
-          // looking. Fall back to the shared ground-cursor ray (which is
-          // camera-centred in that mode).
-          if (peekLocked()) {
-            const g = peekGround();
-            if (g) onGroundClick({ x: g.x, y: 0, z: g.z });
-            return;
-          }
-          onGroundClick({ x: e.point.x, y: 0, z: e.point.z });
-        }}
-      >
-        <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color={palette.ground} roughness={0.9} />
-      </mesh>
 
       {moveTarget ? <MoveTargetMarker pos={moveTarget} /> : null}
 
@@ -249,7 +259,7 @@ export function Scene({
       <Targeter selfPosRef={selfPosRef} />
 
       <FxOverlay />
-      <PostProcessing />
+      <PostProcessing cellPalette={cellPalette} />
 
       {selfPosRef ? (
         <ChaseCamera
@@ -258,7 +268,7 @@ export function Scene({
           fovOverrideActive={cinematicActive || portalCinematicActive}
         />
       ) : null}
-    </>
+    </Selection>
   );
 }
 

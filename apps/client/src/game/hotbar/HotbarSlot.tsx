@@ -1,6 +1,9 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLongPress } from "@/lib/useLongPress";
 import { cn } from "@/lib/utils";
+
+/** Duration of the press pulse animation in `tokens.css` — keep in sync. */
+const PRESS_PULSE_MS = 220;
 
 export function HotbarSlot({
   slot,
@@ -59,14 +62,31 @@ export function HotbarSlot({
     durationMs: 450,
   });
 
+  // Karlson feel: every successful press pulses the slot. The class flips
+  // on for the duration of the CSS keyframe then self-clears so the next
+  // press retriggers cleanly. `pressTick` is used in `key` on the pulse
+  // wrapper so React remounts it and the animation restarts from frame 0.
+  const [pressTick, setPressTick] = useState(0);
+  const [pressActive, setPressActive] = useState(false);
+  const triggerPressPulse = useCallback(() => {
+    setPressTick((t) => t + 1);
+    setPressActive(true);
+  }, []);
+  useEffect(() => {
+    if (!pressActive) return;
+    const to = window.setTimeout(() => setPressActive(false), PRESS_PULSE_MS + 20);
+    return () => window.clearTimeout(to);
+  }, [pressActive, pressTick]);
+
   const handleClick = useCallback(() => {
     if (longPressFiredRef.current) {
       longPressFiredRef.current = false;
       return;
     }
     if (disabled) return;
+    triggerPressPulse();
     onClick?.();
-  }, [disabled, onClick]);
+  }, [disabled, onClick, triggerPressPulse]);
 
   const cooldownFrac =
     cooldownRemainingMs > 0 && cooldownTotalMs > 0
@@ -123,9 +143,11 @@ export function HotbarSlot({
       </span>
 
       <div
+        key={pressTick}
         className={cn(
           "flex size-4 items-center justify-center rounded-md border text-[9px] font-black leading-none sm:size-6 sm:text-xs",
           distinct && "size-5 sm:size-7",
+          pressActive && "polish-hotbar-press",
         )}
         style={{
           background: empty ? "rgba(113,113,122,0.08)" : `${color}1a`,

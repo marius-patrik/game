@@ -1,9 +1,13 @@
+import type { ZoneLightingProfile } from "@game/shared";
 import { Billboard, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
 import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
+import { CellMaterial } from "./fx/CellMaterial";
 import { GAME_PALETTE } from "./gamePalette";
+
+type CellPalette = ZoneLightingProfile["cellPalette"];
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -53,11 +57,13 @@ function PlayerModel({
   isSelf,
   lastAttack,
   selfPosRef,
+  cellPalette,
 }: {
   player: PlayerSnapshot;
   isSelf: boolean;
   lastAttack: AttackEvent | undefined;
   selfPosRef?: MutableRefObject<Vec3>;
+  cellPalette: CellPalette;
 }) {
   const root = useRef<Group>(null);
   const bobGroup = useRef<Group>(null);
@@ -177,7 +183,8 @@ function PlayerModel({
       <group ref={root} position={[player.x, 0, player.z]}>
         <mesh position={[0, 0.1, 0]} castShadow>
           <sphereGeometry args={[SPHERE_RADIUS, 20, 16]} />
-          <meshStandardMaterial
+          <CellMaterial
+            bands={cellPalette}
             color={bodyColor}
             emissive={emissive}
             emissiveIntensity={0.1}
@@ -194,12 +201,11 @@ function PlayerModel({
       <group ref={bobGroup} position={[0, HOVER_HEIGHT, 0]}>
         <mesh ref={sphere} castShadow>
           <sphereGeometry args={[SPHERE_RADIUS, 32, 24]} />
-          <meshStandardMaterial
+          <CellMaterial
+            bands={cellPalette}
             color={bodyColor}
             emissive={emissive}
             emissiveIntensity={isSelf ? 0.55 : 0.3}
-            metalness={0.35}
-            roughness={0.3}
           />
         </mesh>
         {/* Thin equatorial band for visual interest + facing hint. */}
@@ -273,11 +279,13 @@ export function Players({
   sessionId,
   lastAttack,
   selfPosRef,
+  cellPalette,
 }: {
   players: Map<string, PlayerSnapshot>;
   sessionId?: string;
   lastAttack?: AttackEvent;
   selfPosRef?: MutableRefObject<Vec3>;
+  cellPalette: CellPalette;
 }) {
   return (
     <>
@@ -288,6 +296,7 @@ export function Players({
           isSelf={p.id === sessionId}
           lastAttack={lastAttack}
           selfPosRef={p.id === sessionId ? selfPosRef : undefined}
+          cellPalette={cellPalette}
         />
       ))}
     </>

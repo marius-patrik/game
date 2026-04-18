@@ -21,6 +21,7 @@ const zone: Zone = {
     key: { color: "#fff", intensity: 1, position: [0, 10, 0] },
     fill: { color: "#fff", intensity: 0.3, position: [0, 4, 0] },
     rim: { color: "#fff", intensity: 0.4, position: [0, 4, -5] },
+    cellPalette: { dark: "#000", mid: "#888", bright: "#fff", outline: "#000" },
   },
 };
 

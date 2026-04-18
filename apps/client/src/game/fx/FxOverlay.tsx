@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { type FxEvent, subscribeFxEvent } from "./fxBus";
 import { AbilityPulse } from "./presets/AbilityPulse";
+import { DustKick } from "./presets/DustKick";
+import { EmberTrail } from "./presets/EmberTrail";
+import { HitSpark } from "./presets/HitSpark";
 import { LevelUpBurst } from "./presets/LevelUpBurst";
 import { PickupTrail } from "./presets/PickupTrail";
 
@@ -43,6 +46,26 @@ export function FxOverlay() {
           case "ability-pulse":
             return (
               <AbilityPulse
+                key={a.id}
+                at={a.event.at}
+                color={a.event.color}
+                onDone={() => remove(a.id)}
+              />
+            );
+          case "dust-kick":
+            return <DustKick key={a.id} at={a.event.at} onDone={() => remove(a.id)} />;
+          case "ember-trail":
+            return (
+              <EmberTrail
+                key={a.id}
+                at={a.event.at}
+                color={a.event.color}
+                onDone={() => remove(a.id)}
+              />
+            );
+          case "hit-spark":
+            return (
+              <HitSpark
                 key={a.id}
                 at={a.event.at}
                 color={a.event.color}

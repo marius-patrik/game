@@ -38,6 +38,7 @@
     "howler": "^2.2.4",
     "lamina": "^1.1.23",
     "lucide-react": "^0.468.0",
+    "postprocessing": "^6.39.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sonner": "^1.7.1",
