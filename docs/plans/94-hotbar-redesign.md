@@ -1,7 +1,7 @@
 # Plan: #94 — Hotbar redesign (2W+2S+U+2I+2P)
 
-**Status:** draft
-**Owner agent:** frontend
+**Status:** in_progress
+**Owner agent:** execution
 **Branch:** `feat/hotbar-redesign`
 
 ## Context

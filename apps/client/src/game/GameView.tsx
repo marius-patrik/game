@@ -428,9 +428,7 @@ function GameViewInner({
             onUseAbility={onUseAbility}
             onUseAbilityAt={onUseAbilityAt}
             onUse={onUse}
-            onEquip={onEquip}
             onEquipSlot={onEquipSlot}
-            onDrop={onDropItem}
           />
           {nearestNpc && interactionTarget?.kind !== "drop" ? (
             <div className="pointer-events-none absolute bottom-[168px] left-1/2 -translate-x-1/2 rounded-full border border-amber-400/60 bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md sm:bottom-[184px]">

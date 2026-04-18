@@ -1,27 +1,35 @@
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import type { PlayerSnapshot } from "@/net/useRoom";
+import { useCharacterStore } from "@/state/characterStore";
+import { useHotbarStore, useItemQuickSlotBindings } from "@/state/hotbarStore";
+import { formatKeybind, matchesKeybind } from "@/state/keybinds";
+import { useKeybindsStore } from "@/state/keybindsStore";
 import {
   type AbilityDef,
   type AbilityId,
   type EquipSlot,
-  getAbility,
-  getItem,
-  getSkill,
-  type ItemId,
-  isItemId,
-  isSkillId,
-  resolveSkillAbility,
-  resolveWeaponAbilityId,
   type SkillSlot,
-  skillEffectiveCooldownMs,
-  ULTIMATE_COOLDOWN_MULTIPLIER,
   UNARMED_PRIMARY,
   UNARMED_SECONDARY,
   type WeaponSlotKey,
+  getAbility,
+  getItem,
+  isSkillId,
+  resolveSkillAbility,
+  resolveWeaponAbilityId,
+  skillEffectiveCooldownMs,
 } from "@game/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLongPress } from "@/lib/useLongPress";
-import { cn } from "@/lib/utils";
-import type { PlayerSnapshot } from "@/net/useRoom";
-import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
+import { HotbarSlot } from "./hotbar/HotbarSlot";
+import { PotionSlot } from "./hotbar/PotionSlot";
+import {
+  HOTBAR_ITEM_MIME,
+  type ItemQuickSlotKey,
+  abbreviateHotbarLabel,
+  canBindItemToHotbar,
+  countInventoryItem,
+} from "./hotbar/shared";
 import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./targeting";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -29,7 +37,7 @@ type Vec3 = { x: number; y: number; z: number };
 type AbilityCdKey = `ability:${AbilityId}` | `skill:${SkillSlot}`;
 type AbilityCd = Partial<Record<AbilityCdKey, number>>;
 
-type SlotSpec = {
+type AbilitySlotSpec = {
   key: WeaponSlotKey | SkillSlot;
   label: string;
   hotkey: string;
@@ -39,27 +47,25 @@ type SlotSpec = {
   cooldownMs: number;
 };
 
-const HOTBAR_SLOTS: readonly (WeaponSlotKey | SkillSlot)[] = ["W1", "W2", "S1", "S2", "U"];
+const EMPTY_INVENTORY: readonly { itemId: string; qty: number }[] = [];
+const EMPTY_SKILLS: readonly [string, string] = ["", ""];
+const ITEM_QUICK_SLOTS: readonly ItemQuickSlotKey[] = ["I1", "I2"];
 
-/** Combined abilities + inventory bar — the "main UI section" at the bottom. */
+/** Combat + utility hotbar — final 2W + 2S + U + 2I + 2P layout. */
 export function ActionBar({
   player,
   enabled,
   onUseAbility,
   onUseAbilityAt,
   onUse,
-  onEquip,
   onEquipSlot,
-  onDrop,
 }: {
   player: PlayerSnapshot | undefined;
   enabled: boolean;
   onUseAbility: (slot: WeaponSlotKey | SkillSlot) => void;
   onUseAbilityAt?: (slot: WeaponSlotKey | SkillSlot, target: Vec3) => void;
   onUse: (itemId: string) => void;
-  onEquip: (itemId: string) => void;
   onEquipSlot: (slot: EquipSlot, itemId: string) => void;
-  onDrop: (itemId: string, qty: number) => void;
 }) {
   const [, force] = useState(0);
   const abilityCdRef = useRef<AbilityCd>({});
@@ -68,12 +74,18 @@ export function ActionBar({
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const activeTargetingSource = useActiveTargetingSource();
+  const selectedCharacterId = useCharacterStore((state) => state.selectedCharacterId);
+  const keybinds = useKeybindsStore((state) => state.keybinds);
+  const itemQuickSlots = useItemQuickSlotBindings(selectedCharacterId);
+  const setItemQuickSlot = useHotbarStore((state) => state.setItemQuickSlot);
+  const [dragOverSlot, setDragOverSlot] = useState<ItemQuickSlotKey | null>(null);
 
   const weaponId = player?.equipment?.weapon ?? "";
-  const skillsEquipped = player?.skillsEquipped ?? ["", ""];
+  const skillsEquipped = player?.skillsEquipped ?? EMPTY_SKILLS;
   const ultimateSkill = player?.ultimateSkill ?? "";
+  const inventory = player?.inventory ?? EMPTY_INVENTORY;
 
-  const slots = useMemo<SlotSpec[]>(() => {
+  const slots = useMemo<AbilitySlotSpec[]>(() => {
     const lookup = (id: string) => {
       const def = getItem(id);
       if (!def || def.kind !== "weapon") return undefined;
@@ -96,7 +108,7 @@ export function ActionBar({
       {
         key: "W1",
         label: w1?.name ?? "W1",
-        hotkey: "1",
+        hotkey: formatKeybind(keybinds.ability_W1),
         ability: w1,
         ultimate: false,
         cdKey: `ability:${w1?.id ?? UNARMED_PRIMARY}` as AbilityCdKey,
@@ -105,7 +117,7 @@ export function ActionBar({
       {
         key: "W2",
         label: w2?.name ?? "W2",
-        hotkey: "2",
+        hotkey: formatKeybind(keybinds.ability_W2),
         ability: w2,
         ultimate: false,
         cdKey: `ability:${w2?.id ?? UNARMED_SECONDARY}` as AbilityCdKey,
@@ -114,7 +126,7 @@ export function ActionBar({
       {
         key: "S1",
         label: s1Ability?.name ?? "S1",
-        hotkey: "3",
+        hotkey: formatKeybind(keybinds.ability_S1),
         ability: s1Ability,
         ultimate: false,
         cdKey: "skill:S1",
@@ -123,7 +135,7 @@ export function ActionBar({
       {
         key: "S2",
         label: s2Ability?.name ?? "S2",
-        hotkey: "4",
+        hotkey: formatKeybind(keybinds.ability_S2),
         ability: s2Ability,
         ultimate: false,
         cdKey: "skill:S2",
@@ -132,14 +144,14 @@ export function ActionBar({
       {
         key: "U",
         label: uAbility?.name ?? "Ultimate",
-        hotkey: "R",
+        hotkey: formatKeybind(keybinds.ability_U),
         ability: uAbility,
         ultimate: true,
         cdKey: "skill:U",
         cooldownMs: uCooldown,
       },
     ];
-  }, [weaponId, skillsEquipped, ultimateSkill]);
+  }, [keybinds, weaponId, skillsEquipped, ultimateSkill]);
 
   const useAbility = useCallback(
     (slotKey: WeaponSlotKey | SkillSlot) => {
@@ -188,50 +200,6 @@ export function ActionBar({
     [activeTargetingSource, onUseAbility, onUseAbilityAt, slots],
   );
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.repeat) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      const key = e.key;
-      // Hotbar layout: 1=W1, 2=W2, 3=S1, 4=S2, R=U
-      if (key === "1") {
-        e.preventDefault();
-        useAbility("W1");
-      } else if (key === "2") {
-        e.preventDefault();
-        useAbility("W2");
-      } else if (key === "3") {
-        e.preventDefault();
-        useAbility("S1");
-      } else if (key === "4") {
-        e.preventDefault();
-        useAbility("S2");
-      } else if (key === "r" || key === "R") {
-        e.preventDefault();
-        useAbility("U");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [useAbility]);
-
-  useEffect(() => {
-    const id = setInterval(() => force((v) => v + 1), 100);
-    return () => clearInterval(id);
-  }, []);
-
-  const mana = Math.floor(player?.mana ?? 0);
-
-  const [drawerSlot, setDrawerSlot] = useState<number | null>(null);
-  const drawerEntry =
-    drawerSlot !== null && player?.inventory[drawerSlot] ? player.inventory[drawerSlot] : undefined;
-  const drawerItemId =
-    drawerEntry && isItemId(drawerEntry.itemId) ? (drawerEntry.itemId as ItemId) : undefined;
-
-  const openDrawer = useCallback((slotIdx: number) => setDrawerSlot(slotIdx), []);
-  const closeDrawer = useCallback(() => setDrawerSlot(null), []);
-
   const equippedItemIds = useMemo(() => {
     const out = new Set<string>();
     if (player?.equippedItemId) out.add(player.equippedItemId);
@@ -243,146 +211,278 @@ export function ActionBar({
     return out;
   }, [player?.equippedItemId, player?.equipment]);
 
+  const itemSlotData = useMemo(
+    () =>
+      ITEM_QUICK_SLOTS.map((slot) => {
+        const boundItemId = itemQuickSlots[slot];
+        const boundItem = boundItemId ? getItem(boundItemId) : undefined;
+        const count = boundItemId ? countInventoryItem(inventory, boundItemId) : 0;
+        const present = Boolean(boundItem && count > 0);
+        return {
+          slot,
+          hotkey: formatKeybind(slot === "I1" ? keybinds.item_I1 : keybinds.item_I2),
+          boundItemId,
+          item: present ? boundItem : undefined,
+          count,
+          equipped: boundItemId.length > 0 && equippedItemIds.has(boundItemId),
+        };
+      }),
+    [equippedItemIds, inventory, itemQuickSlots, keybinds],
+  );
+
+  const useItemQuickSlot = useCallback(
+    (slot: ItemQuickSlotKey) => {
+      if (!enabledRef.current) return;
+      const boundItemId = itemQuickSlots[slot];
+      if (!boundItemId || countInventoryItem(inventory, boundItemId) <= 0) return;
+      const def = getItem(boundItemId);
+      if (!def) return;
+      if (def.kind === "consumable") {
+        onUse(boundItemId);
+        return;
+      }
+      if (def.slot) onEquipSlot(def.slot, boundItemId);
+    },
+    [inventory, itemQuickSlots, onEquipSlot, onUse],
+  );
+
+  const handleQuickSlotDragOver = useCallback(
+    (slot: ItemQuickSlotKey, event: React.DragEvent<HTMLButtonElement>) => {
+      const itemId = event.dataTransfer.getData(HOTBAR_ITEM_MIME);
+      if (!itemId || !canBindItemToHotbar(itemId)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      if (dragOverSlot !== slot) setDragOverSlot(slot);
+    },
+    [dragOverSlot],
+  );
+
+  const handleQuickSlotDrop = useCallback(
+    (slot: ItemQuickSlotKey, event: React.DragEvent<HTMLButtonElement>) => {
+      const itemId = event.dataTransfer.getData(HOTBAR_ITEM_MIME);
+      setDragOverSlot(null);
+      if (!selectedCharacterId || !itemId || !canBindItemToHotbar(itemId)) return;
+      event.preventDefault();
+      setItemQuickSlot(selectedCharacterId, slot, itemId);
+    },
+    [selectedCharacterId, setItemQuickSlot],
+  );
+
+  const mana = Math.floor(player?.mana ?? 0);
+  const healPotionCount = countInventoryItem(inventory, "heal_potion");
+  const manaPotionCount = countInventoryItem(inventory, "mana_potion");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (matchesKeybind(e.key, keybinds.ability_W1)) {
+        e.preventDefault();
+        useAbility("W1");
+      } else if (matchesKeybind(e.key, keybinds.ability_W2)) {
+        e.preventDefault();
+        useAbility("W2");
+      } else if (matchesKeybind(e.key, keybinds.ability_S1)) {
+        e.preventDefault();
+        useAbility("S1");
+      } else if (matchesKeybind(e.key, keybinds.ability_S2)) {
+        e.preventDefault();
+        useAbility("S2");
+      } else if (matchesKeybind(e.key, keybinds.ability_U)) {
+        e.preventDefault();
+        useAbility("U");
+      } else if (matchesKeybind(e.key, keybinds.item_I1)) {
+        e.preventDefault();
+        useItemQuickSlot("I1");
+      } else if (matchesKeybind(e.key, keybinds.item_I2)) {
+        e.preventDefault();
+        useItemQuickSlot("I2");
+      } else if (matchesKeybind(e.key, keybinds.potion_P1) && healPotionCount > 0) {
+        e.preventDefault();
+        onUse("heal_potion");
+      } else if (matchesKeybind(e.key, keybinds.potion_P2) && manaPotionCount > 0) {
+        e.preventDefault();
+        onUse("mana_potion");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [healPotionCount, keybinds, manaPotionCount, onUse, useAbility, useItemQuickSlot]);
+
+  useEffect(() => {
+    const id = setInterval(() => force((v) => v + 1), 100);
+    return () => clearInterval(id);
+  }, []);
+
   return (
-    <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex max-w-[96vw] -translate-x-1/2 flex-wrap items-end justify-center gap-2 sm:bottom-4 sm:flex-nowrap sm:gap-3">
-      <div className="flex gap-1.5 rounded-xl border border-border/40 bg-background/70 px-2 py-2 shadow-md backdrop-blur-md">
-        {HOTBAR_SLOTS.map((slotKey) => {
-          const spec = slots.find((s) => s.key === slotKey);
-          if (!spec) return null;
+    <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 max-w-[calc(100vw-0.5rem)] -translate-x-1/2 px-1 sm:bottom-4 sm:max-w-[calc(100vw-1rem)] sm:px-2">
+      <div
+        data-testid="action-bar"
+        className="flex items-end gap-0.5 rounded-2xl border border-border/40 bg-background/75 px-1.5 py-1.5 shadow-md backdrop-blur-md sm:gap-1.5 sm:px-3 sm:py-2"
+      >
+        {slots.slice(0, 2).map((spec) => {
           const def = spec.ability;
-          const bound = Boolean(def);
           const ready = abilityCdRef.current[spec.cdKey] ?? 0;
-          const now = Date.now();
-          const cd = Math.max(0, ready - now);
-          const cdFrac = cd > 0 && spec.cooldownMs > 0 ? cd / spec.cooldownMs : 0;
+          const cd = Math.max(0, ready - Date.now());
           const canAfford = !def || def.manaCost === 0 || mana >= def.manaCost;
-          const aimingThis = activeTargetingSource === `ability:${slotKey}`;
-          const disabled = !enabled || !bound || cd > 0 || !canAfford;
-          const color = def?.color ?? "#4b5563";
-          const slotLabel = getSlotLabel(slotKey, spec.ultimate);
+          const aimingThis = activeTargetingSource === `ability:${spec.key}`;
+          const disabled = !def || (!aimingThis && (!enabled || cd > 0 || !canAfford));
+
           return (
-            <button
-              key={slotKey}
-              type="button"
-              onClick={() => useAbility(slotKey)}
-              disabled={disabled && !aimingThis}
-              aria-label={
-                bound
-                  ? `${def?.name} (key ${spec.hotkey}) — ${slotLabel}`
-                  : `${slotLabel} — empty. Bind in Skills tab.`
-              }
-              title={
-                bound
-                  ? `${def?.name} — ${def?.description}${
-                      def?.manaCost && def.manaCost > 0 ? ` (${def.manaCost} mana)` : ""
-                    }${spec.ultimate ? ` — ultimate (×${ULTIMATE_COOLDOWN_MULTIPLIER} cooldown)` : ""}${aimingThis ? " — click again to cancel" : ""}`
-                  : `${slotLabel} — bind a skill to this slot in the Skills tab.`
-              }
-              className={cn(
-                "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
-                spec.ultimate && "h-14 w-14 sm:h-16 sm:w-16",
-                disabled && !aimingThis ? "opacity-70" : "hover:scale-105",
-                aimingThis && "ring-2 ring-offset-1 ring-offset-background",
-                !bound && "border-dashed",
-              )}
-              style={{
-                borderColor: color,
-                ...(aimingThis ? { boxShadow: `0 0 0 2px ${color}` } : {}),
-              }}
-              data-slot={slotKey}
-              data-ability={def?.id ?? ""}
-            >
-              <span
-                className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
-                style={{ color }}
-              >
-                {bound ? def?.name : slotLabel}
-              </span>
-              <span className="absolute right-1 bottom-1 rounded bg-background/60 px-1 font-mono text-[10px] text-muted-foreground">
-                {spec.hotkey}
-              </span>
-              {bound && def && def.manaCost > 0 ? (
-                <span className="-translate-x-1/2 absolute bottom-1 left-1/2 text-[10px] text-sky-400 tabular-nums">
-                  {def.manaCost}
-                </span>
-              ) : null}
-              {cd > 0 && spec.ultimate ? (
-                <span
-                  className="pointer-events-none absolute inset-0"
-                  style={{
-                    background: `conic-gradient(${color} ${360 * (1 - cdFrac)}deg, rgba(0,0,0,0.65) 0)`,
-                    mask: "radial-gradient(circle, transparent 40%, black 42%)",
-                    WebkitMask: "radial-gradient(circle, transparent 40%, black 42%)",
-                  }}
-                />
-              ) : cd > 0 ? (
-                <span
-                  className="absolute inset-x-0 bottom-0 bg-background/70"
-                  style={{ height: `${cdFrac * 100}%` }}
-                />
-              ) : null}
-              {cd > 0 ? (
-                <span className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 font-mono font-semibold text-white text-xs">
-                  {(cd / 1000).toFixed(1)}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-      <div className="hidden items-center self-stretch text-muted-foreground text-xs sm:flex">
-        <span className="opacity-60">|</span>
-      </div>
-      <div className="flex gap-1.5 rounded-xl border border-border/40 bg-background/70 px-2 py-2 shadow-md backdrop-blur-md">
-        {Array.from({ length: 6 }, (_, i) => i).map((i) => {
-          const slot = player?.inventory[i];
-          if (!slot || !isItemId(slot.itemId)) {
-            return (
-              <div
-                key={`slot-empty-${i}`}
-                className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-border/30 bg-muted/10 sm:h-14 sm:w-14"
-              >
-                <span className="sr-only">Empty slot</span>
-              </div>
-            );
-          }
-          const isEquipped = equippedItemIds.has(slot.itemId);
-          return (
-            <ItemSlot
-              key={`slot-${i}-${slot.itemId}`}
-              slotIdx={i}
-              itemId={slot.itemId as ItemId}
-              qty={slot.qty}
-              equipped={isEquipped}
-              onUse={() => onUse(slot.itemId)}
-              onEquip={() => {
-                const def = getItem(slot.itemId);
-                if (def?.slot) onEquipSlot(def.slot, slot.itemId);
-                else onEquip(slot.itemId);
-              }}
-              onDrop={() => onDrop(slot.itemId, 1)}
-              onLongPress={() => openDrawer(i)}
+            <HotbarSlot
+              key={spec.key}
+              slot={spec.key}
+              hotkey={spec.hotkey}
+              glyph={abbreviateHotbarLabel(def?.name ?? spec.label)}
+              color={def?.color ?? "#71717a"}
+              empty={!def}
+              disabled={disabled}
+              active={aimingThis}
+              cooldownRemainingMs={cd}
+              cooldownTotalMs={spec.cooldownMs}
+              title={`${def?.name ?? spec.label} — ${def?.description ?? "Weapon ability."}`}
+              ariaLabel={`${def?.name ?? spec.label} on ${spec.key}, key ${spec.hotkey}`}
+              onClick={() => useAbility(spec.key)}
             />
           );
         })}
+
+        <Separator orientation="vertical" className="mx-0 h-7 self-center sm:mx-0.5 sm:h-10" />
+
+        {slots.slice(2, 4).map((spec) => {
+          const def = spec.ability;
+          const ready = abilityCdRef.current[spec.cdKey] ?? 0;
+          const cd = Math.max(0, ready - Date.now());
+          const canAfford = !def || def.manaCost === 0 || mana >= def.manaCost;
+          const aimingThis = activeTargetingSource === `ability:${spec.key}`;
+          const disabled = !def || (!aimingThis && (!enabled || cd > 0 || !canAfford));
+
+          return (
+            <HotbarSlot
+              key={spec.key}
+              slot={spec.key}
+              hotkey={spec.hotkey}
+              glyph={def ? abbreviateHotbarLabel(def.name) : "SK"}
+              color={def?.color ?? "#71717a"}
+              empty={!def}
+              disabled={disabled}
+              active={aimingThis}
+              cooldownRemainingMs={cd}
+              cooldownTotalMs={spec.cooldownMs}
+              title={
+                def
+                  ? `${def.name} — ${def.description}`
+                  : `${getSlotLabel(spec.key, false)} — empty. Bind in the Skills tab.`
+              }
+              ariaLabel={
+                def
+                  ? `${def.name} on ${spec.key}, key ${spec.hotkey}`
+                  : `${getSlotLabel(spec.key, false)} is empty`
+              }
+              onClick={() => useAbility(spec.key)}
+            />
+          );
+        })}
+
+        <Separator orientation="vertical" className="mx-0 h-7 self-center sm:mx-0.5 sm:h-10" />
+
+        {slots.slice(4, 5).map((spec) => {
+          const def = spec.ability;
+          const ready = abilityCdRef.current[spec.cdKey] ?? 0;
+          const cd = Math.max(0, ready - Date.now());
+          const canAfford = !def || def.manaCost === 0 || mana >= def.manaCost;
+          const aimingThis = activeTargetingSource === `ability:${spec.key}`;
+          const disabled = !def || (!aimingThis && (!enabled || cd > 0 || !canAfford));
+
+          return (
+            <HotbarSlot
+              key={spec.key}
+              slot={spec.key}
+              hotkey={spec.hotkey}
+              glyph={def ? abbreviateHotbarLabel(def.name) : "U"}
+              color={def?.color ?? "#fbbf24"}
+              empty={!def}
+              disabled={disabled}
+              active={aimingThis}
+              distinct
+              cooldownRemainingMs={cd}
+              cooldownTotalMs={spec.cooldownMs}
+              cooldownStyle="ring"
+              title={
+                def
+                  ? `${def.name} — ${def.description}. Ultimate slot.`
+                  : "Ultimate slot — empty. Bind an ultimate in the Skills tab."
+              }
+              ariaLabel={
+                def ? `${def.name} ultimate, key ${spec.hotkey}` : "Ultimate slot is empty"
+              }
+              onClick={() => useAbility(spec.key)}
+            />
+          );
+        })}
+
+        <Separator orientation="vertical" className="mx-0 h-7 self-center sm:mx-0.5 sm:h-10" />
+
+        {itemSlotData.map((slot) => (
+          <HotbarSlot
+            key={slot.slot}
+            slot={slot.slot}
+            hotkey={slot.hotkey}
+            glyph={slot.item ? abbreviateHotbarLabel(slot.item.name) : "IT"}
+            color={
+              slot.item?.rarity === "legendary"
+                ? "#fbbf24"
+                : slot.item?.rarity === "rare"
+                  ? "#60a5fa"
+                  : "#a1a1aa"
+            }
+            empty={!slot.item}
+            disabled={!enabled || !slot.item}
+            className={cn(
+              slot.equipped && "ring-1 ring-amber-400/70",
+              dragOverSlot === slot.slot &&
+                "ring-2 ring-sky-400/70 ring-offset-1 ring-offset-background",
+            )}
+            count={slot.item ? slot.count : undefined}
+            title={
+              slot.item
+                ? `${slot.item.name} — ${slot.item.kind === "consumable" ? "click to use" : "click to equip"}. Drag a new inventory item here to replace it.`
+                : slot.boundItemId
+                  ? `${getItem(slot.boundItemId)?.name ?? "Bound item"} is not in your inventory.`
+                  : `${slot.slot} — drag a usable inventory item here.`
+            }
+            ariaLabel={
+              slot.item
+                ? `${slot.item.name} on ${slot.slot}, key ${slot.hotkey}`
+                : `${slot.slot} quick slot`
+            }
+            onClick={() => useItemQuickSlot(slot.slot)}
+            onDragOver={(event) => handleQuickSlotDragOver(slot.slot, event)}
+            onDragLeave={() => {
+              if (dragOverSlot === slot.slot) setDragOverSlot(null);
+            }}
+            onDrop={(event) => handleQuickSlotDrop(slot.slot, event)}
+          />
+        ))}
+
+        <Separator orientation="vertical" className="mx-0 h-7 self-center sm:mx-0.5 sm:h-10" />
+
+        <PotionSlot
+          slot="P1"
+          hotkey={formatKeybind(keybinds.potion_P1)}
+          qty={healPotionCount}
+          enabled={enabled}
+          onUse={() => onUse("heal_potion")}
+        />
+        <PotionSlot
+          slot="P2"
+          hotkey={formatKeybind(keybinds.potion_P2)}
+          qty={manaPotionCount}
+          enabled={enabled}
+          onUse={() => onUse("mana_potion")}
+        />
       </div>
-      <ItemTooltipDrawer
-        itemId={drawerItemId}
-        qty={drawerEntry?.qty ?? 0}
-        equipped={drawerEntry ? equippedItemIds.has(drawerEntry.itemId) : false}
-        open={drawerSlot !== null && drawerItemId !== undefined}
-        onOpenChange={(o) => {
-          if (!o) closeDrawer();
-        }}
-        onUse={() => drawerEntry && onUse(drawerEntry.itemId)}
-        onEquip={() => {
-          if (!drawerEntry) return;
-          const def = getItem(drawerEntry.itemId);
-          if (def?.slot) onEquipSlot(def.slot, drawerEntry.itemId);
-          else onEquip(drawerEntry.itemId);
-        }}
-        onDrop={() => drawerEntry && onDrop(drawerEntry.itemId, 1)}
-      />
     </div>
   );
 }
@@ -393,124 +493,4 @@ function getSlotLabel(slot: WeaponSlotKey | SkillSlot, ultimate: boolean): strin
   if (slot === "S2") return "Skill 2";
   if (slot === "W1") return "Primary";
   return "Secondary";
-}
-
-function itemColor(item: ReturnType<typeof getItem>): string {
-  if (!item) return "#71717a";
-  if (item.rarity === "legendary") return "#fbbf24";
-  if (item.rarity === "rare") return "#60a5fa";
-  return "#a1a1aa";
-}
-
-const DOUBLE_TAP_WINDOW_MS = 300;
-
-function ItemSlot({
-  slotIdx,
-  itemId,
-  qty,
-  equipped,
-  onUse,
-  onEquip,
-  onDrop,
-  onLongPress,
-}: {
-  slotIdx: number;
-  itemId: ItemId;
-  qty: number;
-  equipped: boolean;
-  onUse: () => void;
-  onEquip: () => void;
-  onDrop: () => void;
-  onLongPress: () => void;
-}) {
-  const def = getItem(itemId);
-  const canUse = def?.kind === "consumable";
-  const canEquip = Boolean(def?.slot);
-  const primary = canUse ? onUse : canEquip ? onEquip : undefined;
-  const color = itemColor(def);
-  const bonuses: string[] = [];
-  if (def?.damageBonus) bonuses.push(`+${def.damageBonus} dmg`);
-  if (def?.strBonus) bonuses.push(`+${def.strBonus} STR`);
-  if (def?.dexBonus) bonuses.push(`+${def.dexBonus} DEX`);
-  if (def?.vitBonus) bonuses.push(`+${def.vitBonus} VIT`);
-  if (def?.intBonus) bonuses.push(`+${def.intBonus} INT`);
-  if (def?.healAmount) bonuses.push(`+${def.healAmount} HP`);
-  if (def?.manaAmount) bonuses.push(`+${def.manaAmount} mana`);
-  const actionLabel = canUse
-    ? "Double-tap to use · long-press for details"
-    : canEquip
-      ? "Double-tap to equip · long-press for details"
-      : "Long-press for details";
-  const tooltip = `${def?.name ?? itemId}${bonuses.length ? ` · ${bonuses.join(", ")}` : ""} — ${actionLabel}`;
-
-  const lastTapRef = useRef(0);
-  const longPressFiredRef = useRef(false);
-
-  const long = useLongPress({
-    onLongPress: () => {
-      longPressFiredRef.current = true;
-      onLongPress();
-    },
-    durationMs: 500,
-  });
-
-  const handleTap = useCallback(() => {
-    if (longPressFiredRef.current) {
-      longPressFiredRef.current = false;
-      return;
-    }
-    if (!primary) return;
-    const now = Date.now();
-    if (now - lastTapRef.current <= DOUBLE_TAP_WINDOW_MS) {
-      lastTapRef.current = 0;
-      primary();
-    } else {
-      lastTapRef.current = now;
-    }
-  }, [primary]);
-
-  return (
-    <div className="group relative h-12 w-12 sm:h-14 sm:w-14" title={tooltip} data-slot={slotIdx}>
-      <button
-        type="button"
-        onClick={handleTap}
-        onPointerDown={long.onPointerDown}
-        onPointerMove={long.onPointerMove}
-        onPointerUp={long.onPointerUp}
-        onPointerLeave={long.onPointerLeave}
-        onPointerCancel={long.onPointerCancel}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          long.cancel();
-          onLongPress();
-        }}
-        aria-label={`${def?.name ?? itemId}: ${actionLabel}`}
-        className={cn(
-          "flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-lg border-2 bg-muted/20 px-0.5 py-1 transition-transform sm:h-14 sm:w-14",
-          equipped && "ring-2 ring-amber-400",
-          primary ? "hover:scale-105" : "cursor-default",
-        )}
-        style={{ borderColor: color }}
-      >
-        <div className="size-5 rounded sm:size-6" style={{ background: color }} />
-        <div className="font-medium text-[9px] leading-tight" style={{ maxWidth: 48 }}>
-          {def?.name?.slice(0, 8) ?? itemId.slice(0, 8)}
-        </div>
-      </button>
-      <span className="pointer-events-none absolute right-0.5 bottom-0.5 rounded bg-background/80 px-1 text-[10px] text-muted-foreground tabular-nums">
-        ×{qty}
-      </span>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDrop();
-        }}
-        aria-label="Drop item"
-        className="absolute top-0.5 right-0.5 size-3.5 rounded-full bg-background/70 text-[10px] opacity-0 transition-opacity group-hover:opacity-100"
-      >
-        ×
-      </button>
-    </div>
-  );
 }
