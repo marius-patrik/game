@@ -1,3 +1,4 @@
+import { setCameraYaw } from "@/state/cameraStore";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useRef } from "react";
@@ -199,6 +200,8 @@ export function ChaseCamera({
       targetRef.current.z + offZ,
     );
     camera.lookAt(targetRef.current);
+
+    setCameraYaw(yawRef.current);
 
     if (!fovOverrideActive && camera instanceof PerspectiveCamera) {
       if (Math.abs(camera.fov - fov) > 0.01) {

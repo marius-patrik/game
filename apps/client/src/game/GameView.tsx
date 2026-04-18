@@ -18,6 +18,7 @@ import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { ActionBar } from "./ActionBar";
 import { BottomBars } from "./BottomBars";
+import { Compass } from "./Compass";
 import { DeathOverlay } from "./DeathOverlay";
 import { HitVignette } from "./HitVignette";
 import { PartyPanel } from "./PartyPanel";
@@ -385,6 +386,7 @@ function GameViewInner({
 
       {!cinematicActive && room.sessionId ? (
         <>
+          <Compass cinematicActive={cinematicActive} />
           <TopLeftPane
             zoneId={room.zoneId}
             players={room.players}
