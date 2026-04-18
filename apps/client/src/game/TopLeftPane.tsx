@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { HOTBAR_ITEM_MIME, canBindItemToHotbar } from "@/game/hotbar/shared";
 import { cn } from "@/lib/utils";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import {
@@ -778,10 +779,25 @@ function InventoryItemRow({
           : "#4b5563";
   const canUse = def?.kind === "consumable";
   const canEquip = Boolean(def?.slot);
+  const canDragToHotbar = canBindItemToHotbar(itemId);
   return (
     <div
-      className="flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2"
+      className={cn(
+        "flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2",
+        canDragToHotbar && "cursor-grab active:cursor-grabbing",
+      )}
       data-item={itemId}
+      draggable={canDragToHotbar}
+      title={
+        canDragToHotbar
+          ? `${def?.name ?? itemId} — drag to I1/I2 or use the action buttons below`
+          : undefined
+      }
+      onDragStart={(event) => {
+        if (!canDragToHotbar) return;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData(HOTBAR_ITEM_MIME, itemId);
+      }}
     >
       <div className="flex items-center gap-2">
         <div className="size-4 shrink-0 rounded" style={{ background: color }} aria-hidden />
@@ -789,7 +805,10 @@ function InventoryItemRow({
           <div className="truncate font-semibold text-xs" style={{ color }}>
             {def?.name ?? itemId}
           </div>
-          <div className="text-[10px] text-muted-foreground tabular-nums">×{qty}</div>
+          <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground tabular-nums">
+            <span>×{qty}</span>
+            {canDragToHotbar ? <span className="uppercase tracking-wide">drag</span> : null}
+          </div>
         </div>
       </div>
       <div className="flex gap-1">
