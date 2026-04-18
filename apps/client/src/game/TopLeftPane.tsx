@@ -1,8 +1,3 @@
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { HOTBAR_ITEM_MIME, canBindItemToHotbar } from "@/game/hotbar/shared";
-import { cn } from "@/lib/utils";
-import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import {
   type ChatChannel,
   type ChatEntry,
@@ -34,6 +29,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { canBindItemToHotbar, HOTBAR_ITEM_MIME } from "@/game/hotbar/shared";
+import { cn } from "@/lib/utils";
+import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { DailyQuestsHeader } from "./DailyQuestsHeader";
 import { Minimap } from "./Minimap";
 import { SkillsTab } from "./SkillsTab";
@@ -787,17 +787,6 @@ function InventoryItemRow({
         canDragToHotbar && "cursor-grab active:cursor-grabbing",
       )}
       data-item={itemId}
-      draggable={canDragToHotbar}
-      title={
-        canDragToHotbar
-          ? `${def?.name ?? itemId} — drag to I1/I2 or use the action buttons below`
-          : undefined
-      }
-      onDragStart={(event) => {
-        if (!canDragToHotbar) return;
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData(HOTBAR_ITEM_MIME, itemId);
-      }}
     >
       <div className="flex items-center gap-2">
         <div className="size-4 shrink-0 rounded" style={{ background: color }} aria-hidden />
@@ -807,7 +796,22 @@ function InventoryItemRow({
           </div>
           <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground tabular-nums">
             <span>×{qty}</span>
-            {canDragToHotbar ? <span className="uppercase tracking-wide">drag</span> : null}
+            {canDragToHotbar ? (
+              <button
+                type="button"
+                draggable
+                className="cursor-grab uppercase tracking-wide active:cursor-grabbing"
+                title={`${def?.name ?? itemId} — drag to I1/I2 or use the action buttons below`}
+                aria-label={`Drag ${def?.name ?? itemId} into a hotbar item slot`}
+                onClick={(event) => event.preventDefault()}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData(HOTBAR_ITEM_MIME, itemId);
+                }}
+              >
+                drag
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

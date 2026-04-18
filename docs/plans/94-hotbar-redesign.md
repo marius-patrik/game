@@ -1,6 +1,6 @@
 # Plan: #94 — Hotbar redesign (2W+2S+U+2I+2P)
 
-**Status:** in_progress
+**Status:** shipped
 **Owner agent:** execution
 **Branch:** `feat/hotbar-redesign`
 
@@ -52,7 +52,10 @@ Separators between each group. Ultimate slot visually distinct (larger, glow).
 - Drag-re-ordering between slots.
 
 ## Retro
-_(filled after merge)_
+- Picked up the interrupted `origin/feat/hotbar-redesign-wip` commit, resolved the `ActionBar` / `TopLeftPane` conflicts against current `main`, and kept the hotbar-specific changes only.
+- Tightened the mobile slot sizing and spacing after the initial fit math showed the 9-slot bar would clip a 390px viewport.
+- Moved the inventory drag affordance onto an explicit drag handle button so the new I1/I2 binding flow passed Biome's a11y rules without weakening the inventory actions.
+- Verified end-to-end in a branch-local browser run: equip sword → W1/W2 = Slash/Thrust, bind Cleave to S1, bind Meteor ultimate, drag Heal Potion to I1, click I1 to consume, click P1 to consume, dark + light desktop screenshots, mobile 390×844 screenshot with the bar fully inside the viewport.
 
 ---
 

@@ -10,17 +10,11 @@ export function Separator({
   decorative?: boolean;
 }) {
   const vertical = orientation === "vertical";
-
-  return (
-    <div
-      role={decorative ? "none" : "separator"}
-      aria-orientation={vertical ? "vertical" : "horizontal"}
-      className={cn(
-        "shrink-0 bg-border/50",
-        vertical ? "h-full w-px self-stretch" : "h-px w-full",
-        className,
-      )}
-      {...props}
-    />
+  const classes = cn(
+    "shrink-0 bg-border/50",
+    vertical ? "h-full w-px self-stretch" : "h-px w-full",
+    className,
   );
+
+  return <div aria-hidden={decorative ? true : undefined} className={classes} {...props} />;
 }

@@ -1,6 +1,6 @@
+import { useCallback, useRef } from "react";
 import { useLongPress } from "@/lib/useLongPress";
 import { cn } from "@/lib/utils";
-import { useCallback, useRef } from "react";
 
 export function HotbarSlot({
   slot,

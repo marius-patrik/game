@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { KEYBIND_DEFAULTS, formatKeybind, matchesKeybind, normalizeKey } from "./keybinds";
+import { formatKeybind, KEYBIND_DEFAULTS, matchesKeybind, normalizeKey } from "./keybinds";
 
 describe("keybind helpers", () => {
   test("ship the hotbar defaults for #94", () => {

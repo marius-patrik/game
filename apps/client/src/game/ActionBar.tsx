@@ -1,3 +1,19 @@
+import {
+  type AbilityDef,
+  type AbilityId,
+  type EquipSlot,
+  getAbility,
+  getItem,
+  isSkillId,
+  resolveSkillAbility,
+  resolveWeaponAbilityId,
+  type SkillSlot,
+  skillEffectiveCooldownMs,
+  UNARMED_PRIMARY,
+  UNARMED_SECONDARY,
+  type WeaponSlotKey,
+} from "@game/shared";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
@@ -5,30 +21,14 @@ import { useCharacterStore } from "@/state/characterStore";
 import { useHotbarStore, useItemQuickSlotBindings } from "@/state/hotbarStore";
 import { formatKeybind, matchesKeybind } from "@/state/keybinds";
 import { useKeybindsStore } from "@/state/keybindsStore";
-import {
-  type AbilityDef,
-  type AbilityId,
-  type EquipSlot,
-  type SkillSlot,
-  UNARMED_PRIMARY,
-  UNARMED_SECONDARY,
-  type WeaponSlotKey,
-  getAbility,
-  getItem,
-  isSkillId,
-  resolveSkillAbility,
-  resolveWeaponAbilityId,
-  skillEffectiveCooldownMs,
-} from "@game/shared";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HotbarSlot } from "./hotbar/HotbarSlot";
 import { PotionSlot } from "./hotbar/PotionSlot";
 import {
-  HOTBAR_ITEM_MIME,
-  type ItemQuickSlotKey,
   abbreviateHotbarLabel,
   canBindItemToHotbar,
   countInventoryItem,
+  HOTBAR_ITEM_MIME,
+  type ItemQuickSlotKey,
 } from "./hotbar/shared";
 import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./targeting";
 
@@ -230,7 +230,7 @@ export function ActionBar({
     [equippedItemIds, inventory, itemQuickSlots, keybinds],
   );
 
-  const useItemQuickSlot = useCallback(
+  const activateItemQuickSlot = useCallback(
     (slot: ItemQuickSlotKey) => {
       if (!enabledRef.current) return;
       const boundItemId = itemQuickSlots[slot];
@@ -294,10 +294,10 @@ export function ActionBar({
         useAbility("U");
       } else if (matchesKeybind(e.key, keybinds.item_I1)) {
         e.preventDefault();
-        useItemQuickSlot("I1");
+        activateItemQuickSlot("I1");
       } else if (matchesKeybind(e.key, keybinds.item_I2)) {
         e.preventDefault();
-        useItemQuickSlot("I2");
+        activateItemQuickSlot("I2");
       } else if (matchesKeybind(e.key, keybinds.potion_P1) && healPotionCount > 0) {
         e.preventDefault();
         onUse("heal_potion");
@@ -308,7 +308,7 @@ export function ActionBar({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [healPotionCount, keybinds, manaPotionCount, onUse, useAbility, useItemQuickSlot]);
+  }, [activateItemQuickSlot, healPotionCount, keybinds, manaPotionCount, onUse, useAbility]);
 
   useEffect(() => {
     const id = setInterval(() => force((v) => v + 1), 100);
@@ -457,7 +457,7 @@ export function ActionBar({
                 ? `${slot.item.name} on ${slot.slot}, key ${slot.hotkey}`
                 : `${slot.slot} quick slot`
             }
-            onClick={() => useItemQuickSlot(slot.slot)}
+            onClick={() => activateItemQuickSlot(slot.slot)}
             onDragOver={(event) => handleQuickSlotDragOver(slot.slot, event)}
             onDragLeave={() => {
               if (dragOverSlot === slot.slot) setDragOverSlot(null);
