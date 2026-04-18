@@ -73,8 +73,10 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
 | ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/memory/multi-cli.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
 | ui-39 | Overseer drives Preview after every feature merge; add intents to this file | CLAUDE.md + .claude/commands/spawn-*-agent.md | in-flight (this file is the implementation) |
-| ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | in-flight (setState fix + CharacterGuard ownership check) |
+| ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | verified-preview (2026-04-18: signup → char create → lobby "online · 1" reached, click-to-move works, HP bar renders, NPC stand visible) |
 | ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | pending |
+| ui-42 | Playwright script for end-to-end player flow; kept up to date on every merge; visual confirmation while running | #120 | pending |
+| ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | pending |
 
 ---
 
