@@ -32,19 +32,19 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-1 | Unified interaction dialog for every in-world press-E | #95 | pending |
 | ui-2 | Interact key (and all keybinds) configurable in Settings | #95 | pending |
 | ui-3 | Auto item pickup, on by default, toggleable in Settings; name-only labels when on | #95 + #100 | pending |
-| ui-4 | Remove online-count + "lobby" widgets from top-left of HUD | #93 | pending |
-| ui-5 | Remove HUD hint widget | #93 | pending |
-| ui-6 | XP bar bottom, full-width-ish; HP + MP half-width each above it; numbers + icons | #93 | pending |
-| ui-7 | Top-left pane: Map / Quests / Chat / Info / Inventory / Skills tabs | #93 | pending |
-| ui-8 | Top-right sidebar: coins + active quest (only if one) + current location | #93 | pending |
-| ui-9 | Player name in 3D scene above player | #93 | pending |
-| ui-10 | Inventory accessible as a tab in the top-left pane | #93 | pending |
-| ui-11 | Map tab expands to full pane height | #93 | pending |
+| ui-4 | Remove online-count + "lobby" widgets from top-left of HUD | #93 | verified-preview (2026-04-18: #93/PR #125 — DOM assertion confirms no online-count chip, no "game · dev" label) |
+| ui-5 | Remove HUD hint widget | #93 | verified-preview (2026-04-18: #93/PR #125 — DOM assertion confirms no hint strip) |
+| ui-6 | XP bar bottom, full-width-ish; HP + MP half-width each above it; numbers + icons | #93 | verified-preview (2026-04-18: #93/PR #125 — BottomBars component, responsive across 360–1920 viewports) |
+| ui-7 | Top-left pane: Map / Quests / Chat / Info / Inventory / Skills tabs | #93 | verified-preview (2026-04-18: #93/PR #125 — TopLeftPane with 6 tabs confirmed) |
+| ui-8 | Top-right sidebar: coins + active quest (only if one) + current location | #93 | verified-preview (2026-04-18: #93/PR #125 — TopRightSidebar component mounted) |
+| ui-9 | Player name in 3D scene above player | #93 | done-untested (2026-04-18: #93/PR #125 — PlayerLabel Billboard with 14m→20m distance fade wired in Scene; visual still needs a live preview confirmation) |
+| ui-10 | Inventory accessible as a tab in the top-left pane | #93 | verified-preview (2026-04-18: #93/PR #125 — tabs [map, quests, chat, info, inventory, skills] confirmed) |
+| ui-11 | Map tab expands to full pane height | #93 | verified-preview (2026-04-18: #93/PR #125 — Minimap refactored to ResizeObserver-based fill) |
 | ui-12 | Draggable / detachable / merge-able window+tab system (VSCode-style) | #99 | pending |
 | ui-13 | Client responsive to window size; no forced larger viewport | #92 | verified-preview (2026-04-18: viewport no longer overflows in 1440×900 or 390×844) |
 | ui-14 | Progress persists across reloads AND server updates | #92 + #96 + #116 | verified-preview (2026-04-18: level/xp/color survive reload after #115 + #116) |
 | ui-15 | Drop items don't show "talk to Mercer the vendor" | #92 | verified-preview |
-| ui-16 | Single unified notification/toast component | #93 | pending |
+| ui-16 | Single unified notification/toast component | #93 | verified-preview (2026-04-18: #93/PR #125 — unified-toast with notify.* API; LevelUpBanner + QuestToast deleted, 5 call sites migrated) |
 | ui-17 | Dark mode UI-only (3D scene lighting fixed) | #92 | verified-preview |
 | ui-18 | Elder Cubius interactable | #92 | verified-preview |
 | ui-19 | Level-up banner auto-dismisses | #92 | verified-preview |
