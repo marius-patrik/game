@@ -53,11 +53,11 @@ Things adjacent that a reader might expect but aren't being done here. File as f
 
 ## When to write a plan
 
-Overseer writes the plan before dispatching an execution agent. For complex or architecturally significant work, spawn an **architect agent** to draft it first.
+Overseer writes the plan before dispatching an execution agent. For complex or architecturally significant work, spawn a **planning agent** to draft it first.
 
 ## Plan review
 
-For non-trivial plans, spawn a **reviewer agent** or **architect agent** to critique the draft before dispatching execution. Catching a bad design choice at planning time is 10x cheaper than at review time.
+For non-trivial plans, spawn a **review agent** or **planning agent** to critique the draft before dispatching execution. Catching a bad design choice at planning time is 10x cheaper than at review time.
 
 ## After shipping
 

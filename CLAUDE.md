@@ -12,19 +12,17 @@ Claude is the sole maintainer. Humans drive direction, Claude executes.
 
 | Role | Purpose |
 |---|---|
-| `overseer` | CEO. Plans, dispatches, monitors, merges, talks to the user. Doesn't write feature code. |
-| `architect` | Drafts plans in `docs/plans/`, writes ADRs. No code. |
-| `execution` | Generalist dev — ships one issue end-to-end. |
-| `frontend` | R3F, React, Shadcn, Tailwind, particles, cinematics, HUD. |
-| `backend` | Colyseus, Drizzle, Bun server, auth, anti-cheat, persistence. |
-| `reviewer` | Critiques an open PR. No code. |
+| `overseer` | CEO. Plans, dispatches, monitors, merges, talks to the user. Can ship tiny code fixes to unblock agents; otherwise delegates. |
+| `execution` | Ships one issue end-to-end across shared/server/client. No further specialty split. |
+| `planning` | Drafts plans in `docs/plans/`, writes ADRs, weighs tradeoffs. No code. |
+| `review` | Critiques an open PR against plan + issue + coding rules. No code. |
 
 **Autonomous model.** If `docs/work.md` has items in **Next**, the overseer has standing approval to plan + dispatch + ship without further user input. The user is asked only when scope itself is unclear or **Next** is empty.
 
 **Bootstrap fresh sessions:**
 - `./scripts/spawn-agent.sh overseer` (default — for the CEO seat)
-- `./scripts/spawn-agent.sh <role> [notes]` for any other role
-- Or `/spawn-overseer-agent`, `/spawn-execution-agent`, etc. as Claude Code slash commands.
+- `./scripts/spawn-agent.sh <role> [notes]` for any other role (`execution`, `planning`, `review`)
+- Or `/spawn-overseer-agent`, `/spawn-execution-agent`, `/spawn-planning-agent`, `/spawn-review-agent` as Claude Code slash commands.
 
 **Multi-CLI dispatch.** The overseer can execute work via Claude, Codex, or Gemini depending on capability/budget. See [.claude/memory/multi-cli.md](.claude/memory/multi-cli.md). Quickstart:
 
@@ -73,7 +71,7 @@ docs/
   launch.json    Dev server configs for Claude Code preview
   memory/        Project-scoped memory (loaded into every session)
   skills/        Project-local skills (ship-feature, preflight, update-work, planning, maintenance)
-  commands/      Slash commands — one per agent role (overseer, execution, frontend, backend, reviewer, architect)
+  commands/      Slash commands — one per agent role (overseer, execution, planning, review)
   hooks/         Session/pre-push hook scripts
   worktrees/     Feature worktrees (gitignored)
 docs/

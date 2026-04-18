@@ -23,7 +23,7 @@ scripts/dispatch-cli.sh <cli> <role> <issue#> <branch>
 
 # Examples:
 scripts/dispatch-cli.sh codex execution 96 feat/character-system
-scripts/dispatch-cli.sh gemini frontend 93 feat/hud-rebuild
+scripts/dispatch-cli.sh gemini execution 93 feat/hud-rebuild
 ```
 
 The script:

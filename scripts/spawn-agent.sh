@@ -2,7 +2,7 @@
 # Launch a Claude Code session in a chosen role.
 #
 # Usage: ./scripts/spawn-agent.sh <role> [extra notes]
-#   role: overseer | execution | frontend | backend | reviewer | architect
+#   role: overseer | execution | planning | review
 #
 # Defaults to overseer if no role given.
 set -euo pipefail
