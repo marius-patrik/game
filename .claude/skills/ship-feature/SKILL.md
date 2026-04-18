@@ -9,7 +9,7 @@ Canonical flow for landing a feature in this repo. Each step is mandatory unless
 
 ## 1. Confirm scope + plan
 - Read the linked GitHub issue. It must have explicit **Scope** and **Acceptance** sections. If not — update the issue before writing code.
-- Read the plan at `docs/plans/<issue>-<slug>.md`. For non-trivial work, **a plan must exist** (written by the overseer or an architect agent). If missing, stop and ask the overseer to draft one.
+- Read the plan at `docs/plans/<issue>-<slug>.md`. For non-trivial work, **a plan must exist** (written by the overseer or a planning agent). If missing, stop and ask the overseer to draft one.
 - Read [docs/work.md](../../../docs/work.md). Move the item to **Now** (overseer does this, not the execution agent).
 
 ## 2. Branch
@@ -51,14 +51,8 @@ Wait for checks. If failing, investigate the actual failure — never bypass wit
 gh pr checks <pr>
 ```
 
-## 8. Merge + cleanup
-```bash
-gh pr merge <pr> --squash --delete-branch
-git checkout main && git pull
-```
-
-## 8.5. Request review (non-trivial PRs)
-Overseer spawns a reviewer agent. Execution agent does not self-merge.
+## 8. Request review (non-trivial PRs)
+Overseer spawns a **review agent**. Execution agent does not self-merge.
 
 ## 9. Merge + cleanup
 Overseer merges after review is clean:

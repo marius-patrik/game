@@ -48,14 +48,12 @@ See [.claude/skills/dispatch/SKILL.md](../skills/dispatch/SKILL.md) for the mini
 - Prefer `run_in_background: true` when you have independent work to do while the agent runs — you'll be notified on completion.
 - Avoid spawning two agents that edit overlapping files at the same time (see dispatch skill for common conflict surfaces).
 
-## Specialist roles
+## Roles (four total)
 
-When the work benefits, spawn a specialist:
-- [spawn-frontend-agent](spawn-frontend-agent.md) — R3F, React, Shadcn, Tailwind, particles, cinematics, HUD
-- [spawn-backend-agent](spawn-backend-agent.md) — Colyseus, Drizzle, Bun server, auth, anti-cheat, persistence
-- [spawn-reviewer-agent](spawn-reviewer-agent.md) — code review before merge
-- [spawn-architect-agent](spawn-architect-agent.md) — system design, ADRs, tradeoffs
-- [spawn-execution-agent](spawn-execution-agent.md) — generalist execution
+- [spawn-execution-agent](spawn-execution-agent.md) — ships one issue end-to-end across shared/server/client.
+- [spawn-planning-agent](spawn-planning-agent.md) — drafts `docs/plans/<issue>-<slug>.md` and ADRs before code is written.
+- [spawn-review-agent](spawn-review-agent.md) — critiques an open PR against plan + issue + coding rules.
+- Overseer (this file) — dispatches, reviews, merges, runs the post-merge preview loop.
 
 ## Monitor
 
@@ -64,7 +62,7 @@ After dispatching, do **not** sleep or poll. Claude Code will notify when backgr
 When an agent finishes:
 1. Read its report.
 2. Pull the branch locally, skim the diff.
-3. Spawn a **reviewer agent** if the diff is non-trivial.
+3. Spawn a **review agent** if the diff is non-trivial.
 4. Resolve conflicts if any; land the PR with `gh pr merge <N> --squash --delete-branch`.
 5. Pull `main`, invoke the `update-work` skill.
 6. Dispatch the next unit.

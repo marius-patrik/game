@@ -9,8 +9,8 @@
 #
 # Examples:
 #   scripts/dispatch-cli.sh codex execution 96 feat/character-system
-#   scripts/dispatch-cli.sh gemini frontend 85 feat/cinematic-portal
-#   scripts/dispatch-cli.sh claude backend 97 feat/equipment
+#   scripts/dispatch-cli.sh gemini execution 85 feat/cinematic-portal
+#   scripts/dispatch-cli.sh claude execution 97 feat/equipment
 #
 # Exits non-zero on argument/setup errors. The agent itself runs in tmux and
 # its success/failure is observed via git state + PR creation, not this script.
@@ -23,12 +23,12 @@ ISSUE=${3:-}
 BRANCH=${4:-}
 
 if [[ -z "$CLI" || -z "$ROLE" || -z "$ISSUE" || -z "$BRANCH" ]]; then
-  echo "Usage: $0 <cli: claude|codex|gemini> <role: execution|frontend|backend|reviewer|architect> <issue#> <branch>" >&2
+  echo "Usage: $0 <cli: claude|codex|gemini> <role: overseer|execution|planning|review> <issue#> <branch>" >&2
   exit 2
 fi
 
 case "$CLI" in claude|codex|gemini) ;; *) echo "Unknown CLI: $CLI" >&2; exit 2;; esac
-case "$ROLE" in execution|frontend|backend|reviewer|architect|overseer) ;; *) echo "Unknown role: $ROLE" >&2; exit 2;; esac
+case "$ROLE" in overseer|execution|planning|review) ;; *) echo "Unknown role: $ROLE" >&2; exit 2;; esac
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
@@ -39,7 +39,7 @@ if [[ ! -f "$ROLE_FILE" ]]; then
   exit 3
 fi
 
-# Plan file is optional — execution-oriented roles prefer one; architect drafts one.
+# Plan file is optional — execution prefers one; planning drafts one.
 PLAN_FILE="docs/plans/${ISSUE}-"
 PLAN_PATH=$(ls ${PLAN_FILE}*.md 2>/dev/null | head -1 || true)
 
