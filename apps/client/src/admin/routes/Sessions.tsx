@@ -15,8 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { notify } from "@/components/ui/unified-toast";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 import { adminFetch, adminPost } from "../api";
 
 type LiveSession = {
@@ -99,11 +99,11 @@ export function AdminSessions() {
     try {
       await adminPost(`/admin/api/sessions/${pending.sessionId}/${pending.kind}`);
       const labels = { kick: "Kicked", mute: "Muted 15m", revoke: "Revoked" } as const;
-      toast.success(`${labels[pending.kind]} ${pending.sessionId.slice(0, 6)}`);
+      notify.success(`${labels[pending.kind]} ${pending.sessionId.slice(0, 6)}`);
       setPending(null);
       await fetchSessions();
     } catch (e) {
-      toast.error(`Action failed: ${String(e)}`);
+      notify.error(`Action failed: ${String(e)}`);
     } finally {
       setSubmitting(false);
     }

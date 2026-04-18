@@ -9,10 +9,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { notify } from "@/components/ui/unified-toast";
 import { charactersApi } from "@/lib/charactersApi";
 import { useCharacterStore } from "@/state/characterStore";
 import { useState } from "react";
-import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 const PRESET_COLORS = [
@@ -36,7 +36,7 @@ export function CharacterNew() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim().length < 3) {
-      toast.error("Name must be at least 3 characters");
+      notify.error("Name must be at least 3 characters");
       return;
     }
     setIsCreating(true);
@@ -46,10 +46,10 @@ export function CharacterNew() {
         name: string;
       };
       setSelectedCharacterId(char.id!);
-      toast.success(`Character ${char.name!} created!`);
+      notify.success(`Character ${char.name!} created!`);
       setLocation("/");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create character");
+      notify.error(err instanceof Error ? err.message : "Failed to create character");
     } finally {
       setIsCreating(false);
     }
