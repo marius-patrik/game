@@ -10,23 +10,23 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **Verification sweep** — after the 2026-04-18 shipping wave (#96 character, #97 equipment, #101 daily quests, #106 sell-grid, #107 sphere/camera, #108 3D cursor, #115 char system, #116 setState hotfix, #117 daily quests, #118 equipment, #119 preview-verification infra), the overseer must drive the full player flow in the preview and flip the remaining `done-untested` rows in [docs/user-intents.md](user-intents.md) to `verified-preview`. Fix any regressions surfaced before continuing the next wave.
+- **#93** HUD rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts, current-equipment tab) — plan at [docs/plans/93-hud-rebuild.md](plans/93-hud-rebuild.md). Depends on #96/#97/#98 (all shipped).
 
 ## Next
 
 Dependency-ordered; each PR must be preview-verified before merge (see CLAUDE.md → Preview verification loop):
 
-1. **#98** skill system + skills tab + ultimate slot — depends on #97 (shipped).
-2. **#93** HUD rebuild (XP/HP/MP bars bottom, top-left tab pane, top-right sidebar, unified toasts, **current-equipment tab**) — depends on #96/#97/#98.
-3. **#110** compass/radar at top (quests, mobs, portals, NPCs) — depends on #93.
-4. **#94** hotbar redesign (2W+2S+U+2I+2P) — depends on #93/#97/#98.
+1. **#110** compass/radar at top (quests, mobs, portals, NPCs) — depends on #93.
+2. **#94** hotbar redesign (2W+2S+U+2I+2P) — depends on #93/#97/#98 (#97/#98 shipped).
+3. **#99** draggable window/tab system (ADR + impl) — depends on #93.
+4. **#120** Playwright end-to-end test script (kept actively up to date) — can run parallel once HUD rebuild (#93) settles.
 5. **#95** unified InteractionPrompt + full keybinds + auto-pickup — depends on #93/#94/#107.
 6. **#109** Skyrim-style dialog system — depends on #95/#107.
-7. **#99** draggable window/tab system (ADR + impl) — depends on #93.
-8. **#120** Playwright end-to-end test script (kept actively up to date) — can run parallel once HUD rebuild (#93) settles.
-9. **#121** Borderlands cell shading + outlines + Karlson-style feel — can bundle with or precede #111.
-10. **#111** game-feel polish pass (particles, shaders, screen shake, frosted-glass UI, glow) — depends on HUD + hotbar + dialog.
-11. **#102** final audit / pitfalls / cleanup — absolute last.
+7. **#121** Borderlands cell shading + outlines + Karlson-style feel — can bundle with or precede #111.
+8. **#111** game-feel polish pass (particles, shaders, screen shake, frosted-glass UI, glow) — depends on HUD + hotbar + dialog.
+9. **#90** Biome 1.9.4 → 2.x bump — narrow chore PR, slottable between waves.
+10. **#102** final audit / pitfalls / cleanup — absolute last.
+11. **Grand verification sweep** — after all above merge, drive the full player flow in preview, promote every remaining `done-untested` row in [docs/user-intents.md](user-intents.md).
 
 ## Infrastructure
 
@@ -46,6 +46,9 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 
 ## Done (2026-04-18 session)
 
+- [x] **#124** skill allocator + skills tab + ultimate slot (#98) — shared skills registry (6 normal + 2 ultimate), `Player.skillsEquipped/ultimateSkill/skillPoints`, `onMessage("allocate-skill" / "unbind-skill")`, `validateAllocation/validateUnbind` helpers, ultimate cooldown ×3, SkillsTab in SidePanel, ActionBar drops legacy heal/dash. 180 tests pass.
+- [x] **#123** repo cleanup (multi-cli memory → in-repo skill, 6 plan drafts, drop global `.agents/` gitignore entry).
+- [x] **#122** role consolidation — frontend/backend/architect/reviewer retired; roles collapsed to overseer/execution/planning/review.
 - [x] **#119** preview verification loop + `docs/user-intents.md` — every PR must be driven through the preview before merge; intent tracker with 43 rows backfilled.
 - [x] **#118** equipment slots + weapon-driven W1/W2 abilities (#97) — 10 abilities, 3 weapons + armors + rings, ability dispatch helper, +16 tests.
 - [x] **#117** seasonal/daily quest rotator (#101) — UTC-seeded 3-quest rotation, `character_daily_progress` table, rollover logic, countdown header.
