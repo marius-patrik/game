@@ -77,3 +77,23 @@ export function useDialogState(): DialogState {
 export function peekDialog(): DialogState {
   return state;
 }
+
+if (typeof window !== "undefined") {
+  // Dev hook — lets preview-harness smoke-test the UI without a real server
+  // round-trip. Mirrors `window.setCameraProfile` in cameraProfiles.ts.
+  (
+    window as unknown as {
+      __dialogStore?: {
+        open: typeof openDialog;
+        update: typeof updateDialogNode;
+        close: typeof closeDialog;
+        peek: typeof peekDialog;
+      };
+    }
+  ).__dialogStore = {
+    open: openDialog,
+    update: updateDialogNode,
+    close: closeDialog,
+    peek: peekDialog,
+  };
+}
