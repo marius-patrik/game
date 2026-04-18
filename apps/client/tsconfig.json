@@ -3,12 +3,19 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["@rsbuild/core/types", "bun"],
+    "types": ["@rsbuild/core/types", "bun", "node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@game/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src", "rsbuild.config.ts", "tailwind.config.ts", "postcss.config.mjs"]
+  "include": [
+    "src",
+    "e2e",
+    "playwright.config.ts",
+    "rsbuild.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.mjs"
+  ]
 }

@@ -12,7 +12,8 @@ export default defineConfig({
     decorators: { version: "legacy" },
   },
   server: {
-    port: 3000,
+    host: process.env.RSBUILD_HOST ?? "127.0.0.1",
+    port: Number(process.env.RSBUILD_PORT ?? 3000),
   },
   output: {
     cleanDistPath: true,

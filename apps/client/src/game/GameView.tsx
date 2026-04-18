@@ -1,5 +1,6 @@
 import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
+import { clearGameE2ESnapshot, publishGameE2ESnapshot } from "@/e2e/gameBridge";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
 import { usePreferencesStore } from "@/state/preferencesStore";
@@ -338,6 +339,33 @@ function GameViewInner({
 
   const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
   const canTurnIn = nearestNpc?.kind === "questgiver" && readyToTurnIn;
+
+  useEffect(() => {
+    publishGameE2ESnapshot({
+      status: room.status,
+      error: room.error,
+      zoneId: room.zoneId,
+      sessionId: room.sessionId,
+      self,
+      players: room.players,
+      mobs: room.mobs,
+      npcs: room.npcs,
+      drops: room.drops,
+      hazards: room.hazards,
+    });
+    return () => clearGameE2ESnapshot();
+  }, [
+    room.status,
+    room.error,
+    room.zoneId,
+    room.sessionId,
+    self,
+    room.players,
+    room.mobs,
+    room.npcs,
+    room.drops,
+    room.hazards,
+  ]);
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>

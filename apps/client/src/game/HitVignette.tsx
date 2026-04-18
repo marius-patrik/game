@@ -36,6 +36,7 @@ export function HitVignette({ self }: { self: PlayerSnapshot | undefined }) {
             animate={{ opacity: 0 }}
             transition={{ duration: 0.28, ease: "easeOut" }}
             className="pointer-events-none absolute inset-0 z-30"
+            data-testid="hit-vignette"
             style={{
               background:
                 "radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(220,38,38,0.45) 100%)",

@@ -64,5 +64,9 @@ export function getActiveDailyQuests(dateISO: string): readonly QuestDef[] {
 }
 
 export function getTodayUTC(): string {
+  const override = process.env.GAME_DAILY_DATE_OVERRIDE;
+  if (override && /^\d{4}-\d{2}-\d{2}$/.test(override)) {
+    return override;
+  }
   return new Date().toISOString().split("T")[0]!;
 }

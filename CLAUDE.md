@@ -92,6 +92,7 @@ bun run dev:server             # ws://localhost:2567 (+ /health, /colyseus monit
 bun run check                  # Biome lint + format check
 bun run check:fix              # Biome autofix
 bun run typecheck              # tsc --noEmit across workspaces
+bun run test:e2e              # Playwright full-flow run + screenshots
 ```
 
 In Claude sessions, use `preview_start client` / `preview_start server` (reads `.claude/launch.json`).

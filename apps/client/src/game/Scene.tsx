@@ -1,5 +1,6 @@
 import { TierAwareLOD, useQuality } from "@/assets";
 import { useCameraIntro } from "@/cinematic";
+import { isGameE2EEnabled, setGameE2EProjector } from "@/e2e/gameBridge";
 import { SparkBurst } from "@/fx";
 import type {
   AbilityCastEvent,
@@ -14,9 +15,9 @@ import type {
 } from "@/net/useRoom";
 import { DEFAULT_ZONE, ZONES, type ZoneId } from "@game/shared";
 import { Environment, Float } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { type MutableRefObject, useRef } from "react";
-import type { Group } from "three";
+import { useFrame, useThree } from "@react-three/fiber";
+import { type MutableRefObject, useEffect, useRef } from "react";
+import { type Group, Vector3 } from "three";
 import { BossTelegraph } from "./BossTelegraph";
 import { CasterBolts } from "./CasterBolts";
 import { DamageNumbers } from "./DamageNumbers";
@@ -236,6 +237,7 @@ export function Scene({
       <ClickBurst />
       <MoveCircle />
       <Targeter selfPosRef={selfPosRef} />
+      <SceneE2EBridge />
 
       {selfPosRef ? (
         <ChaseCamera
@@ -246,6 +248,34 @@ export function Scene({
       ) : null}
     </>
   );
+}
+
+function SceneE2EBridge() {
+  const { camera, gl } = useThree();
+
+  useEffect(() => {
+    if (!isGameE2EEnabled()) return;
+    setGameE2EProjector((point) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      const projected = new Vector3(point.x, point.y ?? 0, point.z).project(camera);
+      if (
+        !Number.isFinite(projected.x) ||
+        !Number.isFinite(projected.y) ||
+        projected.z < -1 ||
+        projected.z > 1
+      ) {
+        return null;
+      }
+      return {
+        x: rect.left + ((projected.x + 1) / 2) * rect.width,
+        y: rect.top + ((1 - projected.y) / 2) * rect.height,
+      };
+    });
+    return () => setGameE2EProjector(null);
+  }, [camera, gl]);
+
+  return null;
 }
 
 function MoveTargetMarker({ pos }: { pos: Vec3 }) {
