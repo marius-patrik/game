@@ -11,6 +11,8 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@formkit/auto-animate": "^0.8.2",
     "@game/shared": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.4",
@@ -52,16 +54,19 @@
   "devDependencies": {
     "@rsbuild/core": "^1.1.11",
     "@rsbuild/plugin-react": "^1.1.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@theatre/studio": "^0.7.2",
+    "@types/bun": "^1.1.14",
+    "@types/howler": "^2.2.12",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.170.0",
-    "@types/howler": "^2.2.12",
-    "tailwindcss": "^3.4.17",
     "autoprefixer": "^10.4.20",
+    "happy-dom": "^20.9.0",
     "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "@theatre/studio": "^0.7.2",
-    "@types/bun": "^1.1.14",
     "typescript": "^5.7.2"
   }
 }
