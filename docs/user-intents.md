@@ -71,7 +71,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | pending |
 | ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | pending |
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
-| ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/memory/multi-cli.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
+| ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/skills/multi-cli-dispatch/SKILL.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
 | ui-39 | Overseer drives Preview after every feature merge; add intents to this file | CLAUDE.md + .claude/commands/spawn-*-agent.md | in-flight (this file is the implementation) |
 | ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | verified-preview (2026-04-18: signup → char create → lobby "online · 1" reached, click-to-move works, HP bar renders, NPC stand visible) |
 | ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | pending |

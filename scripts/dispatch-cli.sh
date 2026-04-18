@@ -71,7 +71,7 @@ Also read:
 - ${REPO_ROOT}/CLAUDE.md
 - ${REPO_ROOT}/.claude/memory/project.md
 - ${REPO_ROOT}/.claude/memory/pitfalls.md
-- ${REPO_ROOT}/.claude/memory/multi-cli.md
+- ${REPO_ROOT}/.claude/skills/multi-cli-dispatch/SKILL.md
 
 ## Assignment
 - Issue: #${ISSUE}
