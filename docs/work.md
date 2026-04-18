@@ -46,6 +46,7 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 
 ## Done (2026-04-18 session)
 
+- [x] **#131** Skyrim-style NPC dialog system (#109) — `DialogNode`/`DialogChoice`/`DialogAction`/`DialogRequirement` + `validateDialogTree` + `checkAllRequirements`, Elder Cubius + Mercer trees, `onMessage("dialog-start"/"dialog-choose")` with 4m range gate, DialogUI modal (portrait + rAF typewriter + 1-9 numbered + Space-skip + Esc-close), camera `dialog` profile on open, HUD hidden while open, `useSyncExternalStore` dialogStore, 218/218 tests. Flipped ui-34 → verified-preview.
 - [x] **#130** unified InteractionPrompt + keybinds + auto-pickup (#95) — one InteractionPrompt component, keybinds store with per-character persistence + conflict detection + unrebindable guard (Esc/Tab/Enter), Settings dialog restructured into Gameplay/Keybinds/Audio/Graphics tabs, autoPickup preference. Removed `useNearestNpc.ts` (folded into `findNearestInteractTarget`). 200/200 tests pass. Flipped ui-1/ui-2/ui-3 → verified-preview.
 - [x] **#129 REVERTED** — draggable tabs v1 had infinite render loop (Maximum update depth exceeded in TabWindow). v2 WIP parked on `feat/draggable-tabs-v2-wip`; will re-dispatch later with render-count regression test requirement.
 - [x] **#129** draggable window+tab system (#99) — ADR 0003, `tab-window/` component, `layoutStore` with per-user persistence, TopLeftPane wired for drag/dock/merge. Rebased onto post-#128 main by conflict-resolver agent (additive conflicts, both features preserved). 199/199 tests pass.

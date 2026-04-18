@@ -67,7 +67,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-31 | Sell dialog grid UI with item icons (like inventory) | #106 | verified-preview (2026-04-18 via Gemini dispatch → PR #112 merged) |
 | ui-32 | Floating sphere players; dynamic game-declared camera arm; FOV slider; cursor-lock (Ctrl) | #107 | verified-preview |
 | ui-33 | Custom 3D cursor + ground targeting system (movement circle, dash two-step, cast-in-space reusable) | #108 | done-untested |
-| ui-34 | Skyrim-style NPC dialog system | #109 | pending |
+| ui-34 | Skyrim-style NPC dialog system | #109 | verified-preview (2026-04-18: #109/PR #131 — DialogUI with portrait + typewriter + numbered choices; Elder Cubius quest-start + level-3-gated trial verified; Mercer vendor entry via `openVendor` action; camera profile switches to dialog; HUD hidden while open; mobile bottom-sheet with 44px tap targets) |
 | ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | done-untested (2026-04-18: #110/PR #126 — Compass.tsx with cardinal ticks + POI dots shipped via Gemini dispatch; visual preview confirmation pending) |
 | ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | pending |
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
