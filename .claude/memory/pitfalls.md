@@ -131,6 +131,14 @@ Calling `travel('arena')` via fiber inspection and immediately `send('move', {x:
 
 UI-driven travel (clicking the portal entity in-world) works fine — the race only bites when both actions come from Preview in rapid succession. For server-state correctness checks (mob list, HP ticks, new schema fields), **prefer fiber inspection over UI-driven travel + interact**. Surfaced in #89 healer/hazard verification.
 
+## Playwright hotbar drag/drop needs manual `DragEvent` dispatch for custom MIME data
+In #94, Playwright's `locator.dragTo()` moved the cursor but didn't leave `application/x-game-hotbar-item` on the target, so I1/I2 stayed empty. The inventory drag handle's React `onDragStart` *does* populate the MIME payload when driven by DOM events. Reliable verification pattern:
+- Create one `DataTransfer`.
+- Dispatch `dragstart` on the source handle.
+- Dispatch `dragover` then `drop` on the hotbar slot with that same `DataTransfer`.
+
+After that, the zustand-persisted `game.hotbar.v1` store updates immediately and the slot title/text reflects the binding. Use this instead of `dragTo()` for future hotbar/equipment drag verification.
+
 ## Dispatched agents write to the primary checkout when they use absolute paths
 `isolation: "worktree"` allocates an isolated worktree under `.claude/worktrees/agent-*` and bootstraps the agent with that cwd, but the Write/Edit tools themselves are path-agnostic. The moment an agent passes an absolute path like `/Users/user/Documents/projects/game/apps/...` (natural when it pastes paths from a plan or an earlier tool output), the edit lands in the **primary** checkout — which is usually on `main` or an overseer branch. Symptom: `git status` inside the agent's worktree shows working tree clean, but the primary is dirty on a branch it doesn't own. Overseer recovery: `git stash -u` in the primary, `git stash pop` in the correct worktree — OR, if the agent is still running, wait for it to finish (it'll often self-correct on its next edit sequence and commit from its worktree, leaving the earlier stray absolute-path edits harmlessly in the primary's working tree). Either way: if you see mysterious untracked/modified files in the primary after dispatching, don't panic, it's the agent not a bug in your overseer flow. #70 mobile-touch-polish hit this twice before converging.
 
