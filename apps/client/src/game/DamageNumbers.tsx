@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils } from "three";
 import type { AbilityCastEvent, AttackEvent, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 const LIFETIME_MS = 850;
 const RISE = 1.4;
@@ -130,7 +131,11 @@ function DamageNumber({ ticket }: { ticket: Ticket }) {
     g.scale.setScalar(baseScale * critBump);
   });
   const text = ticket.killed ? "KILL!" : ticket.crit ? `-${ticket.amount}!` : `-${ticket.amount}`;
-  const color = ticket.killed ? "#facc15" : ticket.crit ? "#fde047" : "#fca5a5";
+  const color = ticket.killed
+    ? GAME_PALETTE.dmg.kill
+    : ticket.crit
+      ? GAME_PALETTE.dmg.crit
+      : GAME_PALETTE.dmg.hit;
   return (
     <group ref={ref} position={[ticket.x, ticket.y, ticket.z]}>
       <Billboard>
@@ -166,7 +171,7 @@ function makeTextCanvas(text: string, color: string): HTMLCanvasElement {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineWidth = 8;
-  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.strokeStyle = GAME_PALETTE.dmg.stroke;
   ctx.strokeText(text, w / 2, h / 2);
   ctx.fillStyle = color;
   ctx.fillText(text, w / 2, h / 2);

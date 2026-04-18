@@ -1,7 +1,9 @@
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils } from "three";
+import { triggerScreenShake } from "@/game/fx";
 import type { BossTelegraphEvent } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 type Active = {
   id: string;
@@ -33,6 +35,10 @@ export function BossTelegraph({ event }: { event: BossTelegraphEvent | undefined
       until: now + event.durationMs,
     };
     setActive((prev) => [...prev, ticket]);
+    const impactTimer = window.setTimeout(() => {
+      triggerScreenShake("boss-telegraph");
+    }, event.durationMs);
+    return () => window.clearTimeout(impactTimer);
   }, [event]);
 
   useEffect(() => {
@@ -70,11 +76,21 @@ function TelegraphRing({ ticket }: { ticket: Active }) {
     <group ref={ref} position={[ticket.x, 0.02, ticket.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.78, 1, 48]} />
-        <meshBasicMaterial color="#ef4444" transparent opacity={0.75} toneMapped={false} />
+        <meshBasicMaterial
+          color={GAME_PALETTE.telegraph.rim}
+          transparent
+          opacity={0.75}
+          toneMapped={false}
+        />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.005]}>
         <circleGeometry args={[0.78, 32]} />
-        <meshBasicMaterial color="#7f1d1d" transparent opacity={0.28} toneMapped={false} />
+        <meshBasicMaterial
+          color={GAME_PALETTE.telegraph.body}
+          transparent
+          opacity={0.28}
+          toneMapped={false}
+        />
       </mesh>
     </group>
   );

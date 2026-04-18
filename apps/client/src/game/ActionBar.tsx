@@ -21,6 +21,7 @@ import { useCharacterStore } from "@/state/characterStore";
 import { useHotbarStore, useItemQuickSlotBindings } from "@/state/hotbarStore";
 import { formatKeybind, matchesKeybind } from "@/state/keybinds";
 import { useCharacterKeybinds } from "@/state/keybindsStore";
+import { GAME_PALETTE } from "./gamePalette";
 import { HotbarSlot } from "./hotbar/HotbarSlot";
 import { PotionSlot } from "./hotbar/PotionSlot";
 import {
@@ -176,7 +177,7 @@ export function ActionBar({
           shape: "circle",
           rangeMax: def.range,
           color: def.color,
-          outOfRangeColor: "#ef4444",
+          outOfRangeColor: GAME_PALETTE.outOfRange,
           onConfirm: (pos) => {
             abilityCdRef.current = {
               ...abilityCdRef.current,
@@ -335,7 +336,7 @@ export function ActionBar({
               slot={spec.key}
               hotkey={spec.hotkey}
               glyph={abbreviateHotbarLabel(def?.name ?? spec.label)}
-              color={def?.color ?? "#71717a"}
+              color={def?.color ?? GAME_PALETTE.emptySlot}
               empty={!def}
               disabled={disabled}
               active={aimingThis}
@@ -364,7 +365,7 @@ export function ActionBar({
               slot={spec.key}
               hotkey={spec.hotkey}
               glyph={def ? abbreviateHotbarLabel(def.name) : "SK"}
-              color={def?.color ?? "#71717a"}
+              color={def?.color ?? GAME_PALETTE.emptySlot}
               empty={!def}
               disabled={disabled}
               active={aimingThis}
@@ -401,7 +402,7 @@ export function ActionBar({
               slot={spec.key}
               hotkey={spec.hotkey}
               glyph={def ? abbreviateHotbarLabel(def.name) : "U"}
-              color={def?.color ?? "#fbbf24"}
+              color={def?.color ?? GAME_PALETTE.rarity.legendary}
               empty={!def}
               disabled={disabled}
               active={aimingThis}
@@ -432,10 +433,10 @@ export function ActionBar({
             glyph={slot.item ? abbreviateHotbarLabel(slot.item.name) : "IT"}
             color={
               slot.item?.rarity === "legendary"
-                ? "#fbbf24"
+                ? GAME_PALETTE.rarity.legendary
                 : slot.item?.rarity === "rare"
-                  ? "#60a5fa"
-                  : "#a1a1aa"
+                  ? GAME_PALETTE.rarity.rare
+                  : GAME_PALETTE.rarity.common
             }
             empty={!slot.item}
             disabled={!enabled || !slot.item}

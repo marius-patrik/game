@@ -106,7 +106,6 @@ export const notify = {
 };
 
 function FanfareToast({
-  accent,
   icon,
   title,
   subtitle,
@@ -120,14 +119,13 @@ function FanfareToast({
   caption?: ReactNode;
   onDismiss: () => void;
 }) {
-  const accentBorder = accent === "amber" ? "border-amber-400/70" : "border-amber-400/70";
   return (
     <button
       type="button"
       onClick={onDismiss}
       className={cn(
-        "flex min-w-[240px] items-center gap-3 rounded-xl border-2 bg-background/95 px-4 py-3 text-center shadow-xl backdrop-blur-md",
-        accentBorder,
+        "polish-glass-strong polish-glow-gold",
+        "flex min-w-[240px] items-center gap-3 rounded-[var(--radius-lg)] px-4 py-3 text-center",
       )}
     >
       <span className="shrink-0">{icon}</span>

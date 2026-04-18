@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { type Mesh, Vector3 } from "three";
 import type { CasterBoltSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 /**
  * Visual bolts from caster mobs. Each bolt interpolates from its origin to
@@ -45,7 +46,7 @@ function Bolt({ bolt }: { bolt: CasterBoltSnapshot }) {
     m.scale.setScalar(0.85 + Math.sin(elapsed * 0.02) * 0.1 * life);
   });
 
-  const color = bolt.state === "miss" ? "#94a3b8" : "#a78bfa";
+  const color = bolt.state === "miss" ? GAME_PALETTE.caster.miss : GAME_PALETTE.caster.hit;
   return (
     <Trail width={0.5} length={2.4} color={color} attenuation={(t) => t * t}>
       <mesh ref={ref} position={[bolt.from.x, bolt.from.y, bolt.from.z]}>

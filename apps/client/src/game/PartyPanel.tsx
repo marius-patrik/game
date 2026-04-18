@@ -26,7 +26,7 @@ export function PartyPanel({
   if (members.length === 0) return null;
 
   return (
-    <div className="pointer-events-none absolute bottom-[168px] left-2 z-10 flex flex-col gap-1.5 rounded-xl border border-border/40 bg-background/75 px-2.5 py-2 shadow-md backdrop-blur-md sm:bottom-[184px] sm:left-4">
+    <div className="polish-glass pointer-events-none absolute bottom-[168px] left-2 z-10 flex flex-col gap-1.5 rounded-[var(--radius-lg)] px-2.5 py-2 sm:bottom-[184px] sm:left-4">
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase tracking-wider">
         <Users className="size-3" />
         Party

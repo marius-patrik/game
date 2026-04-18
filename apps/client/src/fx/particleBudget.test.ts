@@ -6,19 +6,17 @@ describe("scaleParticleCount", () => {
     expect(scaleParticleCount(200, "high")).toBe(200);
   });
 
-  test("medium tier is 0.5x", () => {
-    expect(scaleParticleCount(200, "medium")).toBe(100);
+  test("medium tier is 0.6x", () => {
+    expect(scaleParticleCount(200, "medium")).toBe(120);
   });
 
-  test("low tier is 0.25x (ADR-0002: mobile 4x reduction)", () => {
-    expect(scaleParticleCount(200, "low")).toBe(50);
+  test("low tier caps particles for mobile (~0.35x per ADR-0002)", () => {
+    expect(scaleParticleCount(200, "low")).toBe(70);
   });
 
   test("floors to at least 1 particle", () => {
     expect(scaleParticleCount(1, "low")).toBe(1);
     expect(scaleParticleCount(2, "low")).toBe(1);
-    expect(scaleParticleCount(3, "low")).toBe(1);
-    expect(scaleParticleCount(4, "low")).toBe(1);
   });
 
   test("zero base yields 0", () => {

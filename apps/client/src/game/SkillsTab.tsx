@@ -11,6 +11,7 @@ import { Sparkles, Star, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 export function SkillsTab({
   player,
@@ -197,7 +198,7 @@ function SkillCard({
         <div className="flex items-center gap-1.5">
           <div
             className="size-3 rounded-full"
-            style={{ background: ability?.color ?? "#71717a" }}
+            style={{ background: ability?.color ?? GAME_PALETTE.emptySlot }}
             aria-hidden="true"
           />
           <div className="font-semibold">{skill.name}</div>

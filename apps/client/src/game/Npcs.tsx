@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { type Group, MathUtils, type Mesh } from "three";
 import type { NpcSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 function NameTag({ name, color }: { name: string; color: string }) {
   const canvas = document.createElement("canvas");
@@ -15,7 +16,7 @@ function NameTag({ name, color }: { name: string; color: string }) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineWidth = 6;
-    ctx.strokeStyle = "rgba(0,0,0,0.8)";
+    ctx.strokeStyle = GAME_PALETTE.dmg.stroke;
     ctx.strokeText(name, 128, 32);
     ctx.fillStyle = color;
     ctx.fillText(name, 128, 32);
@@ -41,8 +42,8 @@ function NpcModel({
   const root = useRef<Group>(null);
   const body = useRef<Mesh>(null);
   const isVendor = npc.kind === "vendor";
-  const color = isVendor ? "#8b5cf6" : "#22c55e";
-  const emissive = isVendor ? "#4c1d95" : "#14532d";
+  const color = isVendor ? GAME_PALETTE.npc.vendor : GAME_PALETTE.npc.questgiver;
+  const emissive = isVendor ? GAME_PALETTE.npc.vendorEmissive : GAME_PALETTE.npc.questgiverEmissive;
 
   useFrame((state, dt) => {
     const b = body.current;
@@ -75,8 +76,8 @@ function NpcModel({
       <mesh position={[0, 1.05, 0]}>
         <octahedronGeometry args={[0.22, 0]} />
         <meshStandardMaterial
-          color="#fde68a"
-          emissive="#fbbf24"
+          color={GAME_PALETTE.npc.readyRing}
+          emissive={GAME_PALETTE.npc.readyEmissive}
           emissiveIntensity={0.7}
           toneMapped={false}
         />

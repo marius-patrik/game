@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { type Group, MathUtils, type SpriteMaterial } from "three";
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 /**
  * Hover-above-player name tag. Uses a canvas-textured sprite so we stay in a
@@ -102,8 +103,8 @@ function drawLabel(cvs: HTMLCanvasElement, text: string, isSelf: boolean) {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineWidth = 8;
-  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.strokeStyle = GAME_PALETTE.dmg.stroke;
   ctx.strokeText(text, w / 2, h / 2);
-  ctx.fillStyle = isSelf ? "#fde68a" : "#e4e4e7";
+  ctx.fillStyle = isSelf ? GAME_PALETTE.player.selfLabel : GAME_PALETTE.player.otherLabel;
   ctx.fillText(text, w / 2, h / 2);
 }

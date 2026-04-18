@@ -32,6 +32,7 @@ import {
   peekDialog,
   updateDialogNode,
 } from "@/game/dialog/dialogStore";
+import { emitFxEvent, triggerScreenShake } from "@/game/fx";
 import { useCharacterStore } from "@/state/characterStore";
 import { joinZone } from "./room";
 
@@ -779,6 +780,8 @@ export function useRoom(): RoomState {
       lastLevelRef.current = self.level;
     } else if (self.level > lastLevelRef.current) {
       notify.levelUp({ level: self.level });
+      emitFxEvent({ kind: "level-up", at: { x: self.x, z: self.z } });
+      triggerScreenShake("level-up");
       lastLevelRef.current = self.level;
     } else {
       lastLevelRef.current = self.level;

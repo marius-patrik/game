@@ -26,6 +26,9 @@ import { Cursor3D } from "./cursor/Cursor3D";
 import { peekGround, peekLocked } from "./cursor/cursorStore";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
+import { FxOverlay } from "./fx/FxOverlay";
+import { PostProcessing } from "./fx/PostProcessing";
+import { GAME_PALETTE } from "./gamePalette";
 import { HazardZones } from "./HazardZones";
 import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
@@ -108,24 +111,37 @@ export function Scene({
 
   const material = (
     <meshStandardMaterial
-      color="#a78bfa"
-      emissive="#6d28d9"
+      color={GAME_PALETTE.centerpiece.body}
+      emissive={GAME_PALETTE.centerpiece.emissive}
       emissiveIntensity={0.35}
       metalness={0.5}
       roughness={0.18}
     />
   );
 
+  const lighting = zone.lighting;
+
   return (
     <>
       <color attach="background" args={[palette.bg]} />
       <fog attach="fog" args={[palette.bg, palette.fogNear, palette.fogFar]} />
-      <ambientLight intensity={palette.ambient} />
+      <ambientLight color={lighting.ambient.color} intensity={lighting.ambient.intensity} />
       <directionalLight
-        position={[6, 10, 4]}
-        intensity={1.4}
+        color={lighting.key.color}
+        position={lighting.key.position}
+        intensity={lighting.key.intensity}
         castShadow
         shadow-mapSize={[budget.shadowMapSize, budget.shadowMapSize]}
+      />
+      <directionalLight
+        color={lighting.fill.color}
+        position={lighting.fill.position}
+        intensity={lighting.fill.intensity}
+      />
+      <directionalLight
+        color={lighting.rim.color}
+        position={lighting.rim.position}
+        intensity={lighting.rim.intensity}
       />
       <Environment preset={palette.preset} />
 
@@ -157,7 +173,12 @@ export function Scene({
       </Float>
 
       <group position={[0, 6, 0]}>
-        <SparkBurst baseCount={80} color="#f472b6" lifetime={1.2} speed={1.6} />
+        <SparkBurst
+          baseCount={80}
+          color={GAME_PALETTE.centerpiece.spark}
+          lifetime={1.2}
+          speed={1.6}
+        />
       </group>
 
       <ZoneDecor zoneId={zoneId} />
@@ -227,6 +248,9 @@ export function Scene({
       <MoveCircle />
       <Targeter selfPosRef={selfPosRef} />
 
+      <FxOverlay />
+      <PostProcessing />
+
       {selfPosRef ? (
         <ChaseCamera
           selfPosRef={selfPosRef}
@@ -251,11 +275,11 @@ function MoveTargetMarker({ pos }: { pos: Vec3 }) {
     <group ref={ref} position={[pos.x, 0.01, pos.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.3, 0.42, 32]} />
-        <meshBasicMaterial color="#fde68a" transparent opacity={0.9} />
+        <meshBasicMaterial color={GAME_PALETTE.moveMarker} transparent opacity={0.9} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.001]}>
         <ringGeometry args={[0.12, 0.18, 24]} />
-        <meshBasicMaterial color="#fde68a" transparent opacity={0.55} />
+        <meshBasicMaterial color={GAME_PALETTE.moveMarker} transparent opacity={0.55} />
       </mesh>
     </group>
   );

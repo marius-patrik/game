@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
 import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -27,12 +28,17 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const HEIGHT = 0.12;
   const fillWidth = WIDTH * frac;
   const fillOffset = -(WIDTH - fillWidth) / 2;
-  const fillColor = frac > 0.5 ? "#10b981" : frac > 0.25 ? "#eab308" : "#ef4444";
+  const fillColor =
+    frac > 0.5
+      ? GAME_PALETTE.player.hpHigh
+      : frac > 0.25
+        ? GAME_PALETTE.player.hpMid
+        : GAME_PALETTE.player.hpLow;
   return (
     <Billboard position={[0, 1.7, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.04, HEIGHT + 0.04]} />
-        <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
+        <meshBasicMaterial color={GAME_PALETTE.player.barBg} transparent opacity={0.85} />
       </mesh>
       <mesh position={[fillOffset, 0, 0.001]}>
         <planeGeometry args={[fillWidth, HEIGHT]} />
@@ -215,8 +221,8 @@ function PlayerModel({
               <torusGeometry args={[0.9, 0.08, 12, 24, Math.PI]} />
               <meshStandardMaterial
                 ref={swingMat}
-                color="#fde68a"
-                emissive="#fcd34d"
+                color={GAME_PALETTE.player.crown}
+                emissive={GAME_PALETTE.player.crownEmissive}
                 emissiveIntensity={2}
                 toneMapped={false}
                 transparent
@@ -242,7 +248,7 @@ function PlayerModel({
       {/* Soft shadow disc on the floor, keeps the orb grounded visually. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.011, 0]}>
         <circleGeometry args={[SPHERE_RADIUS * 1.1, 24]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.28} />
+        <meshBasicMaterial color={GAME_PALETTE.player.shadow} transparent opacity={0.28} />
       </mesh>
       <HPBar hp={player.hp} maxHp={player.maxHp} />
     </group>

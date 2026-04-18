@@ -8,10 +8,11 @@ import {
   ZONES,
 } from "@game/shared";
 import { Canvas } from "@react-three/fiber";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
+import { emitFxEvent, triggerScreenShake, useScreenShakeDom } from "@/game/fx";
+import { GAME_PALETTE } from "@/game/gamePalette";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
 import { useCharacterStore } from "@/state/characterStore";
@@ -160,7 +161,7 @@ function GameViewInner({
   const setAutoPickup = usePreferencesStore((s) => s.setAutoPickup);
   const selectedCharacterId = useCharacterStore((s) => s.selectedCharacterId);
   const keybinds = useCharacterKeybinds(selectedCharacterId);
-  const bg = resolved === "dark" ? "#09090b" : "#fafafa";
+  const bg = resolved === "dark" ? "hsl(240 10% 3.9%)" : "hsl(0 0% 98%)";
 
   useGameSfx(room);
 
@@ -195,15 +196,31 @@ function GameViewInner({
     (slot: WeaponSlotKey | SkillSlot) => {
       room.send("use-ability", { slot });
       playSfx("attack");
+      const me = room.sessionId ? room.players.get(room.sessionId) : undefined;
+      if (me) {
+        emitFxEvent({
+          kind: "ability-pulse",
+          at: { x: me.x, z: me.z },
+          color: GAME_PALETTE.abilityPulse,
+        });
+      }
     },
-    [room.send],
+    [room.send, room.sessionId, room.players],
   );
   const onUseAbilityAt = useCallback(
     (slot: WeaponSlotKey | SkillSlot, target: Vec3) => {
       room.send("use-ability", { slot, target: { x: target.x, z: target.z } });
       playSfx("attack");
+      const me = room.sessionId ? room.players.get(room.sessionId) : undefined;
+      if (me) {
+        emitFxEvent({
+          kind: "ability-pulse",
+          at: { x: me.x, z: me.z },
+          color: GAME_PALETTE.abilityPulse,
+        });
+      }
     },
-    [room.send],
+    [room.send, room.sessionId, room.players],
   );
   const onAllocateSkill = useCallback(
     (skillId: SkillId, slot: SkillSlot) => {
@@ -397,8 +414,10 @@ function GameViewInner({
   const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
   const promptInfo = buildPromptInfo(interactionTarget, readyToTurnIn);
 
+  const shakeClass = useScreenShakeDom();
+
   return (
-    <div className="relative h-full w-full" style={{ background: bg }}>
+    <div className={`relative h-full w-full ${shakeClass}`.trim()} style={{ background: bg }}>
       <div className="absolute inset-0" data-theme="game">
         <Canvas
           shadows
@@ -430,12 +449,6 @@ function GameViewInner({
               onPickup={onPickup}
               onNpcInteract={onNpcInteract}
             />
-            {budget.postFX ? (
-              <EffectComposer multisampling={0}>
-                <Bloom intensity={0.6} luminanceThreshold={0.85} mipmapBlur />
-                <Vignette eskil={false} offset={0.15} darkness={0.6} />
-              </EffectComposer>
-            ) : null}
           </Suspense>
         </Canvas>
       </div>

@@ -3,21 +3,19 @@ import { animated, useSpring } from "@react-spring/three";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Color, type Group } from "three";
+import { emitFxEvent } from "@/game/fx";
+import { GAME_PALETTE } from "@/game/gamePalette";
 import type { DropSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 type PickupIntentMap = Map<string, number>;
 
-const ITEM_COLOR: Record<string, string> = {
-  heal_potion: "#ef4444",
-  mana_potion: "#38bdf8",
-  sword: "#94a3b8",
-  greataxe: "#a1a1aa",
-  helm: "#f59e0b",
-  cuirass: "#fb923c",
-  ring_spark: "#a78bfa",
-  soul: "#a78bfa",
-};
+function itemColor(id: string): string {
+  const c = GAME_PALETTE.item[id];
+  if (c) return c;
+  const fallback = GAME_PALETTE.item.unknown;
+  return fallback ?? "#f59e0b";
+}
 
 const FLY_DURATION_MS = 350;
 const TARGET_Y_OFFSET = 1.2;
@@ -47,7 +45,7 @@ export function PickupFly({
   const def = getItem(drop.itemId);
   const isWeapon = def?.kind === "weapon";
   const isArmor = def?.kind === "armor";
-  const color = useMemo(() => new Color(ITEM_COLOR[drop.itemId] ?? "#f59e0b"), [drop.itemId]);
+  const color = useMemo(() => new Color(itemColor(drop.itemId)), [drop.itemId]);
 
   // Straight-line XZ lerp with a parabolic arc on Y. Recomputed each frame so
   // the mesh keeps tracking even if the player moves during the flight.
@@ -172,6 +170,13 @@ export function useFlyingDrops(
     }
     seen.current = next;
     if (toFly.length > 0) {
+      for (const d of toFly) {
+        emitFxEvent({
+          kind: "pickup",
+          at: { x: d.x, z: d.z },
+          color: itemColor(d.itemId),
+        });
+      }
       setFlying((list) => {
         const existingIds = new Set(list.map((f) => f.id));
         const additions = toFly.filter((d) => !existingIds.has(d.id));
