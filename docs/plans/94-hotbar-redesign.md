@@ -53,3 +53,27 @@ Separators between each group. Ultimate slot visually distinct (larger, glow).
 
 ## Retro
 _(filled after merge)_
+
+---
+
+## Resume note — 2026-04-18 re-dispatch
+
+The previous Codex agent was interrupted by a transport error mid-run. Their partial work lives on **`origin/feat/hotbar-redesign-wip`** (one commit past pre-Biome main).
+
+**First action for this agent:**
+```bash
+git fetch origin
+git checkout -b feat/hotbar-redesign origin/main
+git merge origin/feat/hotbar-redesign-wip --no-edit
+# if conflicts (Biome 2.x has since landed on main), resolve formatting-only conflicts in favor of Biome output
+bun install
+```
+
+Inspect what's already there (`git diff main..HEAD`):
+- `apps/client/src/game/hotbar/` (new dir)
+- `apps/client/src/state/hotbarStore.ts` (new)
+- `apps/client/src/state/keybinds.ts` + `keybindsStore.ts` + `keybinds.test.ts` (new — partial overlap with #95 keybinds scope; retain but the final #95 PR will refine)
+- `apps/client/src/components/ui/separator.tsx` (new)
+- `ActionBar.tsx`, `GameView.tsx`, `TopLeftPane.tsx` (modified)
+
+Complete the remaining #94 scope per the plan above. Preflight + PR per usual contract.

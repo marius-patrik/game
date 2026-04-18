@@ -52,3 +52,31 @@ Every agent must preview-verify before opening a PR; a scripted end-to-end Playw
 
 ## Retro
 _(filled after merge)_
+
+---
+
+## Resume note — 2026-04-18 re-dispatch
+
+Previous Codex agent was interrupted mid-run. Partial work on **`origin/chore/playwright-e2e-wip`**.
+
+**First action:**
+```bash
+git fetch origin
+git checkout -b chore/playwright-e2e origin/main
+git merge origin/chore/playwright-e2e-wip --no-edit
+# resolve any Biome 2.x formatting conflicts in favor of Biome output
+bun install
+```
+
+Inherited from WIP (inspect + validate):
+- `apps/client/playwright.config.ts` — new
+- `apps/client/e2e/` — new dir (helpers + specs; check coverage vs plan)
+- `apps/client/src/e2e/gameBridge.ts` — possibly an in-app bridge (questionable — e2e shouldn't ship in src bundle; may need relocation)
+- `.github/workflows/ci.yml` — new e2e job
+- `package.json` / `apps/client/package.json` — `@playwright/test` devDep + `test:e2e` script
+- `.claude/skills/ship-feature/SKILL.md` / `CLAUDE.md` — doc updates
+- Modified: `GameView.tsx`, `HitVignette.tsx`, `Scene.tsx`, `VendorPanel.tsx`, `CharacterNew.tsx`, `rsbuild.config.ts`, `tsconfig.json`, `quests/dailyRotator.ts` — check if these are data-testid additions for e2e (keep) or scope creep (revert)
+
+**Audit the non-e2e file changes carefully.** If they're data-testid additions only, keep them. If they're behavior changes, revert — e2e doesn't modify production behavior.
+
+Complete remaining #120 scope per the plan above.

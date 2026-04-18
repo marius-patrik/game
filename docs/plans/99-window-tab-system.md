@@ -79,3 +79,27 @@ Pick one in the ADR, justify. Expected pick: **dnd-kit** (keeps bundle small + a
 
 ## Retro
 _(filled after merge)_
+
+---
+
+## Resume note — 2026-04-18 re-dispatch
+
+Previous Codex agent was interrupted by transport error mid-run. Partial work on **`origin/feat/draggable-tabs-wip`**.
+
+**First action:**
+```bash
+git fetch origin
+git checkout -b feat/draggable-tabs origin/main
+git merge origin/feat/draggable-tabs-wip --no-edit
+# resolve any Biome 2.x formatting conflicts in favor of Biome output
+bun install
+```
+
+Inherited from WIP:
+- `docs/decisions/0003-window-tab-system.md` — ADR (check + extend if needed)
+- `apps/client/src/components/ui/tab-window/` — new tab-window component dir
+- `apps/client/src/state/layoutStore.ts` + `.test.ts` — new persistent layout state
+- `apps/client/package.json` + `bun.lock` — new DnD dep (likely @dnd-kit)
+- `GameView.tsx`, `TopLeftPane.tsx`, `TopMenu.tsx` — modified
+
+Complete remaining #99 scope per the plan above.
