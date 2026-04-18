@@ -31,15 +31,19 @@ If the overseer didn't name an issue, branch, and plan: stop and ask. Do not gue
 
 Follow [.claude/skills/ship-feature/SKILL.md](../skills/ship-feature/SKILL.md).
 
-For UI work:
-- Verify in a running browser via `preview_start client` + `preview_start server`, not just with curl.
-- Check `preview_console_logs level=error` — must be empty.
-- Test dark + light themes if you touched visuals.
-- Test mobile viewport if layout changed.
+**Preview verification is mandatory before opening the PR.** A typecheck-green diff that was never driven in a real browser is not done:
+
+1. `preview_start client` + `preview_start server`; hard-reload.
+2. Log in as a test user (create one via the signup page if needed). Create a character if the app gates on it. Drive every acceptance bullet through the UI via `preview_click` / `preview_fill` / `preview_eval`.
+3. `preview_console_logs level=error` — must be empty except for pre-existing warnings; flag any new ones.
+4. `preview_snapshot` to confirm structure; `preview_screenshot` for visual evidence.
+5. Test dark + light themes if you touched visuals; test mobile 390×844 if layout changed.
+6. Attach the screenshot + a one-line verification note to the PR body: "Verified: signed up → customizer → spawned → equipped sword → W1 swapped to Slash".
 
 ## Return to overseer
 
 - PR number + URL.
-- Screenshot evidence for visual changes (describe what the screenshot shows).
+- Screenshot evidence for visual changes.
+- Preview-verification note (which `ui-N` rows you walked through).
 - Any learnings for pitfalls.md.
 - Stop before merging.

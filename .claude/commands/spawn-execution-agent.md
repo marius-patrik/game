@@ -28,10 +28,17 @@ If the overseer didn't name an issue, branch, and plan: stop and ask. Do not gue
 
 ## Execute
 
-Invoke the `ship-feature` skill and follow it verbatim. When the PR is **open and CI is green**, stop and return to the overseer:
+Invoke the `ship-feature` skill and follow it verbatim. Before opening the PR:
+
+1. **Preview-verify your change.** Start (or reuse) `preview_start client` + `preview_start server` and reproduce the acceptance bullets through the actual UI. Log in as a test user, create a character if the app gates on it, and drive the feature end-to-end. Capture a screenshot for the PR body. A change that typechecks but was never driven in the browser is **not done**.
+2. Attach the screenshot + one-line preview evidence in the PR body ("Verified: created character → dashed → equipped sword → W1/W2 swapped").
+3. Check `preview_console_logs level=error` — flag any new errors you introduced.
+
+When the PR is **open and CI is green**, stop and return to the overseer:
 
 - PR number + URL
 - Summary of what landed (2–4 bullets)
+- Preview-verification note ("clicked through ui-N, confirmed working")
 - Any unexpected findings (things worth adding to pitfalls.md or filing follow-up issues)
 
 **Do not merge the PR yourself** — the overseer merges after reviewing and coordinating with other in-flight work.

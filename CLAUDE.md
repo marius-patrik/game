@@ -101,10 +101,26 @@ In Claude sessions, use `preview_start client` / `preview_start server` (reads `
 ## Where work lives
 
 - **[docs/work.md](docs/work.md)** — the single source of truth. Current focus at top, next up below, backlog at bottom. Update it when focus shifts.
+- **[docs/user-intents.md](docs/user-intents.md)** — global checklist of every user-voiced intent and whether it has been verified in the preview. Append a row every time the user asks for something; flip the status to `verified-preview` only after driving it live.
 - **GitHub issues** — one issue per discrete unit of work. Every issue links back to the `work.md` line it came from.
 - **[docs/decisions/](docs/decisions/)** — ADRs. Capture *why* we chose X over Y. Numbered, append-only (supersede with a new ADR, don't edit).
 
 When you pick up work: read `docs/work.md`, find the current-focus item, open/find its GitHub issue, branch, do the work, PR.
+
+## Preview verification loop (mandatory after every merge)
+
+The user's north star is the running game. Every merged PR must be reproduced in the preview before the intent counts as shipped:
+
+1. After `gh pr merge`: `git pull origin main` in the primary checkout. Sync the overseer worktree if different (`git reset --hard origin/main`, but re-stage any in-flight local edits first).
+2. `preview_start client` / `preview_start server` if not running; hard-reload via `preview_eval`.
+3. Drive the acceptance bullets end-to-end (`preview_click`, `preview_fill`, `preview_eval`) — log in, create a character if needed, reproduce the feature.
+4. `preview_console_logs level=error` — confirm no new errors.
+5. `preview_screenshot` for visual changes.
+6. Flip the matching row(s) in `docs/user-intents.md` to `verified-preview` with the date.
+
+If preview surfaces a regression, revert the merge or land a hotfix immediately. Never let main sit broken.
+
+Execution agents do the same loop before opening their PR (see `.claude/commands/spawn-*-agent.md`). The overseer re-verifies post-merge against the freshly-built main.
 
 ## Conventions
 

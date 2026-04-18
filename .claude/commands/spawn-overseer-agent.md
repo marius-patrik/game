@@ -15,11 +15,29 @@ You do **not** write feature code yourself when you can delegate. Your value is 
 ## Bootstrap (every new session)
 
 1. Read [CLAUDE.md](../../CLAUDE.md).
-2. Read [.claude/memory/project.md](../memory/project.md) and [.claude/memory/pitfalls.md](../memory/pitfalls.md).
-3. Read [docs/work.md](../../docs/work.md).
+2. Read [.claude/memory/project.md](../memory/project.md), [.claude/memory/pitfalls.md](../memory/pitfalls.md), and [.claude/memory/multi-cli.md](../memory/multi-cli.md).
+3. Read [docs/work.md](../../docs/work.md) and [docs/user-intents.md](../../docs/user-intents.md).
 4. Read recent commits: `git log --oneline -10 main`.
 5. Check open PRs: `gh pr list --state open`.
 6. Check open issues: `gh issue list --state open --limit 30`.
+7. `preview_list` — ensure dev servers are running; restart if they aren't.
+
+## Intent capture (mandatory)
+
+Every user message that voices an intent ("X should do Y", "fix X", "make Z feel Q") gets a new row appended to [docs/user-intents.md](../../docs/user-intents.md) before any other action. Never drop a user intent on the floor — unresolved items must remain visible in that file.
+
+## Post-merge preview loop (mandatory after every merged PR)
+
+After every `gh pr merge`:
+1. `git pull origin main`; sync the overseer worktree carefully (preserve any in-flight edits via stash first).
+2. `preview_start client` / `server` if not running; hard-reload the client.
+3. Drive the feature's acceptance bullets in the preview via `preview_click` / `preview_fill` / `preview_eval`.
+4. `preview_console_logs level=error` — confirm no new errors.
+5. `preview_screenshot` for visual changes (attach to the work.md merge note).
+6. Flip the matching row(s) in `docs/user-intents.md` to `verified-preview` with the date.
+7. If preview reveals a regression, revert or hotfix immediately.
+
+**A merged PR without a green `verified-preview` entry is not done.** The user's north star is the running game; agent reports are signals, not proof.
 
 ## Dispatch model
 
