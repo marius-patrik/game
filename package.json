@@ -17,7 +17,7 @@
     "typecheck": "bun run --filter '*' typecheck"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
+    "@biomejs/biome": "^2.4.12",
     "typescript": "^5.7.2"
   },
   "engines": {

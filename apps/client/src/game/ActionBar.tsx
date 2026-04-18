@@ -1,26 +1,26 @@
-import { useLongPress } from "@/lib/useLongPress";
-import { cn } from "@/lib/utils";
-import type { PlayerSnapshot } from "@/net/useRoom";
 import {
   type AbilityDef,
   type AbilityId,
   type EquipSlot,
-  type ItemId,
-  type SkillSlot,
-  ULTIMATE_COOLDOWN_MULTIPLIER,
-  UNARMED_PRIMARY,
-  UNARMED_SECONDARY,
-  type WeaponSlotKey,
   getAbility,
   getItem,
   getSkill,
+  type ItemId,
   isItemId,
   isSkillId,
   resolveSkillAbility,
   resolveWeaponAbilityId,
+  type SkillSlot,
   skillEffectiveCooldownMs,
+  ULTIMATE_COOLDOWN_MULTIPLIER,
+  UNARMED_PRIMARY,
+  UNARMED_SECONDARY,
+  type WeaponSlotKey,
 } from "@game/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLongPress } from "@/lib/useLongPress";
+import { cn } from "@/lib/utils";
+import type { PlayerSnapshot } from "@/net/useRoom";
 import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
 import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./targeting";
 
@@ -341,8 +341,9 @@ export function ActionBar({
               <div
                 key={`slot-empty-${i}`}
                 className="flex h-12 w-12 items-center justify-center rounded-lg border-2 border-border/30 bg-muted/10 sm:h-14 sm:w-14"
-                aria-label="Empty slot"
-              />
+              >
+                <span className="sr-only">Empty slot</span>
+              </div>
             );
           }
           const isEquipped = equippedItemIds.has(slot.itemId);

@@ -1,11 +1,11 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
   },
-  "organizeImports": { "enabled": true },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
@@ -14,10 +14,23 @@
         "noNonNullAssertion": "off"
       },
       "correctness": {
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": {
+          "level": "error",
+          "options": {
+            "ignore": ["useAbility"]
+          }
+        }
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noArrayIndexKey": "off",
+        "noUnknownAtRules": {
+          "level": "error",
+          "options": {
+            "ignore": ["tailwind"]
+          }
+        }
       }
     }
   },
@@ -26,6 +39,11 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "javascript": {
     "formatter": {
@@ -36,17 +54,28 @@
     }
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "build",
-      "out",
-      ".rsbuild",
-      "apps/*/dist",
-      "apps/*/build",
-      "apps/server/src/static/embedded.ts",
-      "apps/server/src/db/migrations-embedded.ts",
-      "apps/server/drizzle/meta"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/out",
+      "!**/.rsbuild",
+      "!**/apps/**/*/dist",
+      "!**/apps/**/*/build",
+      "!**/apps/server/src/static/embedded.ts",
+      "!**/apps/server/src/db/migrations-embedded.ts",
+      "!**/apps/server/drizzle/meta"
     ]
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["package.json"],
+      "json": {
+        "formatter": {
+          "expand": "auto"
+        }
+      }
+    }
+  ]
 }
