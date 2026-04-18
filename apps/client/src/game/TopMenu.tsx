@@ -35,16 +35,12 @@ export function TopMenu({
   zoneId,
   onTravel,
   onOpenSettings,
-  hiddenPanels = [],
-  onRestorePanel,
 }: {
   status: Status;
   playerCount: number;
   zoneId: ZoneId;
   onTravel: (zoneId: ZoneId) => void;
   onOpenSettings: () => void;
-  hiddenPanels?: { id: string; label: string }[];
-  onRestorePanel?: (tabId: string) => void;
 }) {
   const { data: session } = useSession();
   const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
@@ -106,24 +102,6 @@ export function TopMenu({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-        {hiddenPanels.length > 0 && onRestorePanel ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
-              Panels
-            </DropdownMenuLabel>
-            {hiddenPanels.map((panel) => (
-              <DropdownMenuItem
-                key={panel.id}
-                onClick={() => onRestorePanel(panel.id)}
-                className="gap-2"
-              >
-                <MapPin className="size-3 text-muted-foreground" />
-                <span>Restore {panel.label}</span>
-              </DropdownMenuItem>
-            ))}
-          </>
-        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuLabel className="font-normal text-xs text-muted-foreground">
           Theme

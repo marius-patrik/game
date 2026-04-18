@@ -28,11 +28,9 @@ import {
   Shield,
   Sparkles,
 } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Tab as WindowTab } from "@/components/ui/tab-window/Tab";
-import { TabWindow } from "@/components/ui/tab-window/TabWindow";
 import { canBindItemToHotbar, HOTBAR_ITEM_MIME } from "@/game/hotbar/shared";
 import { cn } from "@/lib/utils";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
@@ -40,16 +38,9 @@ import { DailyQuestsHeader } from "./DailyQuestsHeader";
 import { Minimap } from "./Minimap";
 import { SkillsTab } from "./SkillsTab";
 
-export type TopLeftTabId = "map" | "quests" | "chat" | "info" | "inventory" | "skills";
+type Tab = "map" | "quests" | "chat" | "info" | "inventory" | "skills";
 
-export const TOP_LEFT_LAYOUT_ID = "hud.top-left";
-export const TOP_LEFT_DEFAULT_WINDOW_ID = "hud.top-left.dock";
-
-export const TOP_LEFT_TABS: {
-  id: TopLeftTabId;
-  label: string;
-  Icon: typeof MapIcon;
-}[] = [
+const TABS: { id: Tab; label: string; Icon: typeof MapIcon }[] = [
   { id: "map", label: "Map", Icon: MapIcon },
   { id: "quests", label: "Quests", Icon: ScrollText },
   { id: "chat", label: "Chat", Icon: MessageSquare },
@@ -58,23 +49,11 @@ export const TOP_LEFT_TABS: {
   { id: "skills", label: "Skills", Icon: Sparkles },
 ];
 
-function useCoarsePointer() {
-  const [coarsePointer, setCoarsePointer] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches,
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const media = window.matchMedia("(pointer: coarse)");
-    const onChange = () => setCoarsePointer(media.matches);
-    onChange();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, []);
-
-  return coarsePointer;
-}
-
+/**
+ * Top-left tabbed pane — the main HUD container. Holds Map / Quests / Chat /
+ * Info / Inventory / Skills. Tabs collapse to icon-only pills on narrow
+ * viewports. Each tab's content fills the pane height.
+ */
 export function TopLeftPane({
   zoneId,
   players,
@@ -121,82 +100,18 @@ export function TopLeftPane({
   onUnbindSkill: (slot: SkillSlot) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileTab, setMobileTab] = useState<TopLeftTabId>("map");
+  const [tab, setTab] = useState<Tab>("map");
   const keyboardAutoCollapsedRef = useRef(false);
-  const coarsePointer = useCoarsePointer();
-  const selfName = sessionId ? (players.get(sessionId)?.name ?? "") : "";
-
-  function renderTabContent(tabId: TopLeftTabId): ReactNode {
-    if (tabId === "map") {
-      return (
-        <MapTab
-          zoneId={zoneId}
-          players={players}
-          mobs={mobs}
-          npcs={npcs}
-          hazards={hazards}
-          sessionId={sessionId}
-        />
-      );
-    }
-
-    if (tabId === "quests") {
-      return (
-        <div className="flex-1 overflow-auto">
-          <QuestsTab
-            quests={quests}
-            dailyQuests={dailyQuests}
-            onTurnIn={onTurnInQuest}
-            canTurnIn={canTurnIn}
-          />
-        </div>
-      );
-    }
-
-    if (tabId === "chat") {
-      return <ChatTab entries={chat} onSend={onSendChat} selfName={selfName} />;
-    }
-
-    if (tabId === "info") {
-      return (
-        <div className="flex-1 overflow-auto">
-          <InfoTab player={self} onAllocate={onAllocateStat} />
-        </div>
-      );
-    }
-
-    if (tabId === "inventory") {
-      return (
-        <div className="flex-1 overflow-auto">
-          <InventoryTab
-            player={self}
-            onUse={onUse}
-            onEquip={onEquip}
-            onEquipSlot={onEquipSlot}
-            onUnequipSlot={onUnequipSlot}
-            onDrop={onDrop}
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex-1 overflow-auto">
-        <SkillsTab player={self} onAllocate={onAllocateSkill} onUnbind={onUnbindSkill} />
-      </div>
-    );
-  }
 
   // Auto-collapse when the soft keyboard opens while the chat tab is focused
   // (mobile only — the chat input fills the remaining HUD space and would
   // otherwise push the bottom bars offscreen). Re-open once the keyboard dismisses.
   useEffect(() => {
-    if (!coarsePointer) return;
     const vv = window.visualViewport;
     if (!vv) return;
     const baseline = vv.height;
     const onResize = () => {
-      if (mobileTab !== "chat") return;
+      if (tab !== "chat") return;
       const shrunk = vv.height < baseline - 120;
       if (shrunk && !collapsed) {
         setCollapsed(true);
@@ -208,7 +123,7 @@ export function TopLeftPane({
     };
     vv.addEventListener("resize", onResize);
     return () => vv.removeEventListener("resize", onResize);
-  }, [coarsePointer, mobileTab, collapsed]);
+  }, [tab, collapsed]);
 
   return (
     <div
@@ -229,84 +144,83 @@ export function TopLeftPane({
           <ChevronsRight className="size-3" />
         </Button>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {coarsePointer ? (
-            <>
-              <div className="flex items-center justify-between border-border/40 border-b">
-                <div className="flex flex-wrap">
-                  {TOP_LEFT_TABS.map(({ id, label, Icon }) => (
-                    <TabBtn
-                      key={id}
-                      current={mobileTab}
-                      value={id}
-                      onChange={setMobileTab}
-                      icon={<Icon className="size-3.5" />}
-                    >
-                      {label}
-                    </TabBtn>
-                  ))}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => setCollapsed(true)}
-                  aria-label="Collapse panel"
+        <>
+          <div className="flex items-center justify-between border-border/40 border-b">
+            <div className="flex flex-wrap">
+              {TABS.map(({ id, label, Icon }) => (
+                <TabBtn
+                  key={id}
+                  current={tab}
+                  value={id}
+                  onChange={setTab}
+                  icon={<Icon className="size-3.5" />}
                 >
-                  <ChevronsRight className="size-3 rotate-180" />
-                </Button>
+                  {label}
+                </TabBtn>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              onClick={() => setCollapsed(true)}
+              aria-label="Collapse panel"
+            >
+              <ChevronsRight className="size-3 rotate-180" />
+            </Button>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {tab === "map" ? (
+              <MapTab
+                zoneId={zoneId}
+                players={players}
+                mobs={mobs}
+                npcs={npcs}
+                hazards={hazards}
+                sessionId={sessionId}
+              />
+            ) : null}
+            {tab === "quests" ? (
+              <div className="flex-1 overflow-auto">
+                <QuestsTab
+                  quests={quests}
+                  dailyQuests={dailyQuests}
+                  onTurnIn={onTurnInQuest}
+                  canTurnIn={canTurnIn}
+                />
               </div>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {renderTabContent(mobileTab)}
+            ) : null}
+            {tab === "chat" ? (
+              <ChatTab
+                entries={chat}
+                onSend={onSendChat}
+                selfName={sessionId ? (players.get(sessionId)?.name ?? "") : ""}
+              />
+            ) : null}
+            {tab === "info" ? (
+              <div className="flex-1 overflow-auto">
+                <InfoTab player={self} onAllocate={onAllocateStat} />
               </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-between border-border/40 border-b px-3 py-2">
-                <div className="text-[11px] text-muted-foreground uppercase tracking-[0.18em]">
-                  workspace
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0"
-                  onClick={() => setCollapsed(true)}
-                  aria-label="Collapse panel"
-                >
-                  <ChevronsRight className="size-3 rotate-180" />
-                </Button>
+            ) : null}
+            {tab === "inventory" ? (
+              <div className="flex-1 overflow-auto">
+                <InventoryTab
+                  player={self}
+                  onUse={onUse}
+                  onEquip={onEquip}
+                  onEquipSlot={onEquipSlot}
+                  onUnequipSlot={onUnequipSlot}
+                  onDrop={onDrop}
+                />
               </div>
-              <TabWindow
-                id={TOP_LEFT_LAYOUT_ID}
-                defaultWindowId={TOP_LEFT_DEFAULT_WINDOW_ID}
-                emptyState="Restore a hidden panel from the tracker menu or drag one back here."
-              >
-                <WindowTab id="map" title="Map" icon={<MapIcon className="size-3.5" />}>
-                  {renderTabContent("map")}
-                </WindowTab>
-                <WindowTab id="quests" title="Quests" icon={<ScrollText className="size-3.5" />}>
-                  {renderTabContent("quests")}
-                </WindowTab>
-                <WindowTab id="chat" title="Chat" icon={<MessageSquare className="size-3.5" />}>
-                  {renderTabContent("chat")}
-                </WindowTab>
-                <WindowTab id="info" title="Info" icon={<Info className="size-3.5" />}>
-                  {renderTabContent("info")}
-                </WindowTab>
-                <WindowTab
-                  id="inventory"
-                  title="Inventory"
-                  icon={<Backpack className="size-3.5" />}
-                >
-                  {renderTabContent("inventory")}
-                </WindowTab>
-                <WindowTab id="skills" title="Skills" icon={<Sparkles className="size-3.5" />}>
-                  {renderTabContent("skills")}
-                </WindowTab>
-              </TabWindow>
-            </>
-          )}
-        </div>
+            ) : null}
+            {tab === "skills" ? (
+              <div className="flex-1 overflow-auto">
+                <SkillsTab player={self} onAllocate={onAllocateSkill} onUnbind={onUnbindSkill} />
+              </div>
+            ) : null}
+          </div>
+        </>
       )}
     </div>
   );
@@ -319,11 +233,11 @@ function TabBtn({
   icon,
   children,
 }: {
-  current: TopLeftTabId;
-  value: TopLeftTabId;
-  onChange: (t: TopLeftTabId) => void;
-  icon: ReactNode;
-  children: ReactNode;
+  current: Tab;
+  value: Tab;
+  onChange: (t: Tab) => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
 }) {
   const active = current === value;
   return (
