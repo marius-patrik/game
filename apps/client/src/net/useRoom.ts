@@ -16,7 +16,7 @@ import {
   type Npc,
   type Player,
   type QuestProgress,
-  type SkillId,
+  type SkillSlot,
   type StatKey,
   type WeaponSlotKey,
   type WorldDrop,
@@ -55,9 +55,12 @@ export type PlayerSnapshot = {
   baseVitality: number;
   baseIntellect: number;
   statPoints: number;
+  skillPoints: number;
   equippedItemId: string;
   partyId: string;
   equipment: Record<string, string>;
+  skillsEquipped: [string, string];
+  ultimateSkill: string;
   inventory: SlotSnapshot[];
   quests: QuestSnapshot[];
   dailyQuests: QuestSnapshot[];
@@ -116,13 +119,6 @@ export type MobKilledEvent = {
   pos: { x: number; y: number; z: number };
   at: number;
 };
-export type SkillCastEvent = {
-  casterId: string;
-  skillId: SkillId;
-  pos: { x: number; y: number; z: number };
-  hits: number;
-  at: number;
-};
 export type AbilityCastEvent = {
   casterId: string;
   abilityId: AbilityId;
@@ -170,7 +166,6 @@ export type RoomState = {
   lastPickup?: PickupEvent;
   lastUsed?: UsedEvent;
   lastMobKilled?: MobKilledEvent;
-  lastSkill?: SkillCastEvent;
   lastAbility?: AbilityCastEvent;
   lastTelegraph?: BossTelegraphEvent;
   lastDied?: DiedEvent;
@@ -184,11 +179,12 @@ export type RoomState = {
     (type: "drop", payload: { itemId: string; qty: number }): void;
     (type: "chat", payload: { channel: ChatChannel; text: string }): void;
     (type: "allocateStat", payload: { stat: StatKey }): void;
-    (type: "cast", payload: { skillId: SkillId; target?: { x: number; z: number } }): void;
     (
       type: "use-ability",
-      payload: { slot: WeaponSlotKey; target?: { x: number; z: number } },
+      payload: { slot: WeaponSlotKey | SkillSlot; target?: { x: number; z: number } },
     ): void;
+    (type: "allocate-skill", payload: { skillId: string; slot: SkillSlot }): void;
+    (type: "unbind-skill", payload: { slot: SkillSlot }): void;
     (type: "equipSlot", payload: { slot: EquipSlot; itemId: string }): void;
     (type: "unequipSlot", payload: { slot: EquipSlot }): void;
     (type: "buy", payload: { itemId: string; qty?: number }): void;
@@ -215,6 +211,13 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
   p.dailyQuests.forEach((q: QuestProgress, id: string) => {
     dailyQuests.push({ id, status: q.status, progress: q.progress, goal: q.goal });
   });
+  const skillsArray = p.skillsEquipped as Iterable<string>;
+  const skillsEquipped: [string, string] = ["", ""];
+  let i = 0;
+  for (const s of skillsArray) {
+    if (i < 2) skillsEquipped[i] = typeof s === "string" ? s : "";
+    i += 1;
+  }
   return {
     id: key,
     name: p.name,
@@ -240,9 +243,12 @@ function snapPlayer(p: Player, key: string): PlayerSnapshot {
     baseVitality: p.baseVitality,
     baseIntellect: p.baseIntellect,
     statPoints: p.statPoints,
+    skillPoints: p.skillPoints,
     equippedItemId: p.equippedItemId,
     partyId: p.partyId,
     equipment,
+    skillsEquipped,
+    ultimateSkill: p.ultimateSkill,
     inventory: inv,
     quests,
     dailyQuests,
@@ -351,7 +357,6 @@ export function useRoom(): RoomState {
         let lastPickup: PickupEvent | undefined;
         let lastUsed: UsedEvent | undefined;
         let lastMobKilled: MobKilledEvent | undefined;
-        let lastSkill: SkillCastEvent | undefined;
         let lastAbility: AbilityCastEvent | undefined;
         let lastTelegraph: BossTelegraphEvent | undefined;
         let lastDied: DiedEvent | undefined;
@@ -379,7 +384,6 @@ export function useRoom(): RoomState {
             lastPickup,
             lastUsed,
             lastMobKilled,
-            lastSkill,
             lastAbility,
             lastTelegraph,
             lastDied,
@@ -570,26 +574,20 @@ export function useRoom(): RoomState {
           travel(msg.to);
         });
         room.onMessage(
-          "skill-cast",
+          "skill-error",
           (msg: {
-            casterId: string;
-            skillId: SkillId;
-            pos: { x: number; y: number; z: number };
-            hits: number;
+            reason:
+              | "unknown_skill"
+              | "invalid_slot"
+              | "level_gate"
+              | "insufficient_points"
+              | "already_allocated"
+              | "slot_kind_mismatch"
+              | "empty_slot";
           }) => {
-            lastSkill = {
-              casterId: msg.casterId,
-              skillId: msg.skillId,
-              pos: msg.pos,
-              hits: msg.hits,
-              at: Date.now(),
-            };
-            commit();
+            toast.error(`Skill: ${msg.reason.replace(/_/g, " ")}`);
           },
         );
-        room.onMessage("cast-error", (msg: { skillId: SkillId; reason: "cooldown" | "mana" }) => {
-          toast.error(`Cast failed: ${msg.reason}`);
-        });
         room.onMessage(
           "ability-cast",
           (msg: {

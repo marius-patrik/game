@@ -8,6 +8,7 @@ import {
   type ChatChannel,
   type EquipSlot,
   type SkillId,
+  type SkillSlot,
   type StatKey,
   type WeaponSlotKey,
   ZONES,
@@ -179,31 +180,29 @@ function GameViewInner({
     (stat: StatKey) => room.send("allocateStat", { stat }),
     [room.send],
   );
-  const onCast = useCallback(
-    (skillId: SkillId) => {
-      room.send("cast", { skillId });
-      playSfx("attack");
-    },
-    [room.send],
-  );
-  const onCastAt = useCallback(
-    (skillId: SkillId, target: Vec3) => {
-      room.send("cast", { skillId, target });
-      playSfx("attack");
-    },
-    [room.send],
-  );
   const onUseAbility = useCallback(
-    (slot: WeaponSlotKey) => {
+    (slot: WeaponSlotKey | SkillSlot) => {
       room.send("use-ability", { slot });
       playSfx("attack");
     },
     [room.send],
   );
   const onUseAbilityAt = useCallback(
-    (slot: WeaponSlotKey, target: Vec3) => {
+    (slot: WeaponSlotKey | SkillSlot, target: Vec3) => {
       room.send("use-ability", { slot, target: { x: target.x, z: target.z } });
       playSfx("attack");
+    },
+    [room.send],
+  );
+  const onAllocateSkill = useCallback(
+    (skillId: SkillId, slot: SkillSlot) => {
+      room.send("allocate-skill", { skillId, slot });
+    },
+    [room.send],
+  );
+  const onUnbindSkill = useCallback(
+    (slot: SkillSlot) => {
+      room.send("unbind-skill", { slot });
     },
     [room.send],
   );
@@ -416,12 +415,13 @@ function GameViewInner({
             dailyQuests={self?.dailyQuests ?? []}
             onTurnInQuest={onTurnInQuest}
             canTurnIn={canTurnIn}
+            self={self}
+            onAllocateSkill={onAllocateSkill}
+            onUnbindSkill={onUnbindSkill}
           />
           <ActionBar
             player={self}
             enabled={canAct}
-            onCast={onCast}
-            onCastAt={onCastAt}
             onUseAbility={onUseAbility}
             onUseAbilityAt={onUseAbilityAt}
             onUse={onUse}

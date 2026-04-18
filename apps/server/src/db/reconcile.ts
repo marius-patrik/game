@@ -26,6 +26,15 @@ const PLAYER_PROGRESS_COLUMNS: readonly ColumnSpec[] = [
   { name: "equipment_json", ddl: "text DEFAULT '{}' NOT NULL" },
   { name: "quests_json", ddl: "text DEFAULT '{}' NOT NULL" },
   { name: "skill_cooldowns_json", ddl: "text DEFAULT '{}' NOT NULL" },
+  { name: "skills_equipped_json", ddl: "text DEFAULT '[]' NOT NULL" },
+  { name: "ultimate_skill", ddl: "text DEFAULT '' NOT NULL" },
+  { name: "skill_points", ddl: "integer DEFAULT 0 NOT NULL" },
+];
+
+const CHARACTER_PROGRESS_COLUMNS: readonly ColumnSpec[] = [
+  { name: "skills_equipped_json", ddl: "text DEFAULT '[]' NOT NULL" },
+  { name: "ultimate_skill", ddl: "text DEFAULT '' NOT NULL" },
+  { name: "skill_points", ddl: "integer DEFAULT 0 NOT NULL" },
 ];
 
 function existingColumns(client: Database, table: string): Set<string> {
@@ -72,10 +81,19 @@ export function reconcileSchema(client: Database): void {
       equipment_json TEXT NOT NULL DEFAULT '{}',
       quests_json TEXT NOT NULL DEFAULT '{}',
       skill_cooldowns_json TEXT NOT NULL DEFAULT '{}',
+      skills_equipped_json TEXT NOT NULL DEFAULT '[]',
+      ultimate_skill TEXT NOT NULL DEFAULT '',
+      skill_points INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL,
       FOREIGN KEY (character_id) REFERENCES character(id) ON DELETE CASCADE
     );
   `);
+
+  const characterProgressPresent = existingColumns(client, "character_progress");
+  for (const col of CHARACTER_PROGRESS_COLUMNS) {
+    if (characterProgressPresent.has(col.name)) continue;
+    client.exec(`ALTER TABLE character_progress ADD COLUMN ${col.name} ${col.ddl}`);
+  }
 
   client.exec(`
     CREATE TABLE IF NOT EXISTS character_inventory (

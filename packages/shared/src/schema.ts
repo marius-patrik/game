@@ -38,10 +38,13 @@ export class Player extends Schema {
   @type("number") baseVitality = 5;
   @type("number") baseIntellect = 5;
   @type("number") statPoints = 0;
+  @type("number") skillPoints = 0;
   @type("string") equippedItemId = "";
   @type("string") partyId = "";
   @type("string") customizationColor = "";
+  @type("string") ultimateSkill = "";
   @type({ map: "string" }) equipment = new MapSchema<string>();
+  @type(["string"]) skillsEquipped = new ArraySchema<string>();
   @type([InventorySlot]) inventory = new ArraySchema<InventorySlot>();
   @type({ map: QuestProgress }) quests = new MapSchema<QuestProgress>();
   @type({ map: QuestProgress }) dailyQuests = new MapSchema<QuestProgress>();

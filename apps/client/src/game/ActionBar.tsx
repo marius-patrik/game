@@ -6,15 +6,19 @@ import {
   type AbilityId,
   type EquipSlot,
   type ItemId,
-  SKILL_CATALOG,
-  type SkillId,
+  type SkillSlot,
+  ULTIMATE_COOLDOWN_MULTIPLIER,
   UNARMED_PRIMARY,
   UNARMED_SECONDARY,
   type WeaponSlotKey,
   getAbility,
   getItem,
+  getSkill,
   isItemId,
+  isSkillId,
+  resolveSkillAbility,
   resolveWeaponAbilityId,
+  skillEffectiveCooldownMs,
 } from "@game/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ItemTooltipDrawer } from "./ItemTooltipDrawer";
@@ -22,17 +26,25 @@ import { cancelTargeting, startTargeting, useActiveTargetingSource } from "./tar
 
 type Vec3 = { x: number; y: number; z: number };
 
-type Cd = Partial<Record<SkillId, number>>;
-type AbilityCd = Partial<Record<AbilityId, number>>;
+type AbilityCdKey = `ability:${AbilityId}` | `skill:${SkillSlot}`;
+type AbilityCd = Partial<Record<AbilityCdKey, number>>;
 
-const HOTBAR_SKILLS: readonly SkillId[] = ["heal", "dash"];
+type SlotSpec = {
+  key: WeaponSlotKey | SkillSlot;
+  label: string;
+  hotkey: string;
+  ability: AbilityDef | undefined;
+  ultimate: boolean;
+  cdKey: AbilityCdKey;
+  cooldownMs: number;
+};
+
+const HOTBAR_SLOTS: readonly (WeaponSlotKey | SkillSlot)[] = ["W1", "W2", "S1", "S2", "U"];
 
 /** Combined abilities + inventory bar — the "main UI section" at the bottom. */
 export function ActionBar({
   player,
   enabled,
-  onCast,
-  onCastAt,
   onUseAbility,
   onUseAbilityAt,
   onUse,
@@ -42,17 +54,14 @@ export function ActionBar({
 }: {
   player: PlayerSnapshot | undefined;
   enabled: boolean;
-  onCast: (id: SkillId) => void;
-  onCastAt?: (id: SkillId, target: Vec3) => void;
-  onUseAbility: (slot: WeaponSlotKey) => void;
-  onUseAbilityAt?: (slot: WeaponSlotKey, target: Vec3) => void;
+  onUseAbility: (slot: WeaponSlotKey | SkillSlot) => void;
+  onUseAbilityAt?: (slot: WeaponSlotKey | SkillSlot, target: Vec3) => void;
   onUse: (itemId: string) => void;
   onEquip: (itemId: string) => void;
   onEquipSlot: (slot: EquipSlot, itemId: string) => void;
   onDrop: (itemId: string, qty: number) => void;
 }) {
   const [, force] = useState(0);
-  const cdRef = useRef<Cd>({});
   const abilityCdRef = useRef<AbilityCd>({});
   const manaRef = useRef(player?.mana ?? 0);
   manaRef.current = Math.floor(player?.mana ?? 0);
@@ -61,8 +70,10 @@ export function ActionBar({
   const activeTargetingSource = useActiveTargetingSource();
 
   const weaponId = player?.equipment?.weapon ?? "";
+  const skillsEquipped = player?.skillsEquipped ?? ["", ""];
+  const ultimateSkill = player?.ultimateSkill ?? "";
 
-  const abilities = useMemo(() => {
+  const slots = useMemo<SlotSpec[]>(() => {
     const lookup = (id: string) => {
       const def = getItem(id);
       if (!def || def.kind !== "weapon") return undefined;
@@ -73,79 +84,83 @@ export function ActionBar({
     };
     const w1Id = resolveWeaponAbilityId(weaponId || undefined, "W1", lookup);
     const w2Id = resolveWeaponAbilityId(weaponId || undefined, "W2", lookup);
-    return {
-      W1: getAbility(w1Id) ?? getAbility(UNARMED_PRIMARY),
-      W2: getAbility(w2Id) ?? getAbility(UNARMED_SECONDARY),
-    } as Record<WeaponSlotKey, AbilityDef | undefined>;
-  }, [weaponId]);
-
-  const beginTargetedDash = useCallback(() => {
-    if (!enabledRef.current) return;
-    const skill = SKILL_CATALOG.dash;
-    const now = Date.now();
-    const ready = cdRef.current.dash ?? 0;
-    if (now < ready) return;
-    if (manaRef.current < skill.manaCost) return;
-    startTargeting({
-      source: "skill:dash",
-      shape: "circle",
-      rangeMax: skill.range,
-      color: skill.color,
-      outOfRangeColor: "#ef4444",
-      onConfirm: (pos) => {
-        cdRef.current = { ...cdRef.current, dash: Date.now() + skill.cooldownMs };
-        force((v) => v + 1);
-        if (onCastAt) onCastAt("dash", pos);
-        else onCast("dash");
+    const w1 = getAbility(w1Id) ?? getAbility(UNARMED_PRIMARY);
+    const w2 = getAbility(w2Id) ?? getAbility(UNARMED_SECONDARY);
+    const s1Id = skillsEquipped[0] ?? "";
+    const s2Id = skillsEquipped[1] ?? "";
+    const s1Ability = isSkillId(s1Id) ? resolveSkillAbility(s1Id) : undefined;
+    const s2Ability = isSkillId(s2Id) ? resolveSkillAbility(s2Id) : undefined;
+    const uAbility = isSkillId(ultimateSkill) ? resolveSkillAbility(ultimateSkill) : undefined;
+    const uCooldown = uAbility ? skillEffectiveCooldownMs(ultimateSkill, uAbility.cooldownMs) : 0;
+    return [
+      {
+        key: "W1",
+        label: w1?.name ?? "W1",
+        hotkey: "1",
+        ability: w1,
+        ultimate: false,
+        cdKey: `ability:${w1?.id ?? UNARMED_PRIMARY}` as AbilityCdKey,
+        cooldownMs: w1?.cooldownMs ?? 0,
       },
-      onCancel: () => {
-        force((v) => v + 1);
+      {
+        key: "W2",
+        label: w2?.name ?? "W2",
+        hotkey: "2",
+        ability: w2,
+        ultimate: false,
+        cdKey: `ability:${w2?.id ?? UNARMED_SECONDARY}` as AbilityCdKey,
+        cooldownMs: w2?.cooldownMs ?? 0,
       },
-    });
-    force((v) => v + 1);
-  }, [onCast, onCastAt]);
-
-  const cast = useCallback(
-    (id: SkillId) => {
-      if (!enabledRef.current) return;
-      if (id === "dash") {
-        if (activeTargetingSource === "skill:dash") {
-          cancelTargeting();
-          return;
-        }
-        beginTargetedDash();
-        return;
-      }
-      const skill = SKILL_CATALOG[id];
-      const now = Date.now();
-      const ready = cdRef.current[id] ?? 0;
-      if (now < ready) return;
-      if (manaRef.current < skill.manaCost) return;
-      cdRef.current = { ...cdRef.current, [id]: now + skill.cooldownMs };
-      force((v) => v + 1);
-      onCast(id);
-    },
-    [activeTargetingSource, beginTargetedDash, onCast],
-  );
+      {
+        key: "S1",
+        label: s1Ability?.name ?? "S1",
+        hotkey: "3",
+        ability: s1Ability,
+        ultimate: false,
+        cdKey: "skill:S1",
+        cooldownMs: s1Ability?.cooldownMs ?? 0,
+      },
+      {
+        key: "S2",
+        label: s2Ability?.name ?? "S2",
+        hotkey: "4",
+        ability: s2Ability,
+        ultimate: false,
+        cdKey: "skill:S2",
+        cooldownMs: s2Ability?.cooldownMs ?? 0,
+      },
+      {
+        key: "U",
+        label: uAbility?.name ?? "Ultimate",
+        hotkey: "R",
+        ability: uAbility,
+        ultimate: true,
+        cdKey: "skill:U",
+        cooldownMs: uCooldown,
+      },
+    ];
+  }, [weaponId, skillsEquipped, ultimateSkill]);
 
   const useAbility = useCallback(
-    (slot: WeaponSlotKey) => {
+    (slotKey: WeaponSlotKey | SkillSlot) => {
       if (!enabledRef.current) return;
-      const def = abilities[slot];
+      const spec = slots.find((s) => s.key === slotKey);
+      if (!spec) return;
+      const def = spec.ability;
       if (!def) return;
       const now = Date.now();
-      const ready = abilityCdRef.current[def.id] ?? 0;
+      const ready = abilityCdRef.current[spec.cdKey] ?? 0;
       if (now < ready) return;
       if (manaRef.current < def.manaCost) return;
       // Ranged / aoe / movement abilities go through the targeter for precision;
       // melee single-target abilities just fire on the nearest hostile.
       if (def.kind === "aoe" || def.kind === "movement" || def.kind === "ranged") {
-        if (activeTargetingSource === `ability:${slot}`) {
+        if (activeTargetingSource === `ability:${slotKey}`) {
           cancelTargeting();
           return;
         }
         startTargeting({
-          source: `ability:${slot}`,
+          source: `ability:${slotKey}`,
           shape: "circle",
           rangeMax: def.range,
           color: def.color,
@@ -153,11 +168,11 @@ export function ActionBar({
           onConfirm: (pos) => {
             abilityCdRef.current = {
               ...abilityCdRef.current,
-              [def.id]: Date.now() + def.cooldownMs,
+              [spec.cdKey]: Date.now() + spec.cooldownMs,
             };
             force((v) => v + 1);
-            if (onUseAbilityAt) onUseAbilityAt(slot, pos);
-            else onUseAbility(slot);
+            if (onUseAbilityAt) onUseAbilityAt(slotKey, pos);
+            else onUseAbility(slotKey);
           },
           onCancel: () => {
             force((v) => v + 1);
@@ -166,11 +181,11 @@ export function ActionBar({
         force((v) => v + 1);
         return;
       }
-      abilityCdRef.current = { ...abilityCdRef.current, [def.id]: now + def.cooldownMs };
+      abilityCdRef.current = { ...abilityCdRef.current, [spec.cdKey]: now + spec.cooldownMs };
       force((v) => v + 1);
-      onUseAbility(slot);
+      onUseAbility(slotKey);
     },
-    [abilities, activeTargetingSource, onUseAbility, onUseAbilityAt],
+    [activeTargetingSource, onUseAbility, onUseAbilityAt, slots],
   );
 
   useEffect(() => {
@@ -178,20 +193,28 @@ export function ActionBar({
       if (e.repeat) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      const idx = Number.parseInt(e.key, 10);
-      if (!Number.isFinite(idx)) return;
-      e.preventDefault();
-      // Hotbar layout: 1=W1, 2=W2, 3=heal, 4=dash
-      if (idx === 1) useAbility("W1");
-      else if (idx === 2) useAbility("W2");
-      else {
-        const skillId = HOTBAR_SKILLS[idx - 3];
-        if (skillId) cast(skillId);
+      const key = e.key;
+      // Hotbar layout: 1=W1, 2=W2, 3=S1, 4=S2, R=U
+      if (key === "1") {
+        e.preventDefault();
+        useAbility("W1");
+      } else if (key === "2") {
+        e.preventDefault();
+        useAbility("W2");
+      } else if (key === "3") {
+        e.preventDefault();
+        useAbility("S1");
+      } else if (key === "4") {
+        e.preventDefault();
+        useAbility("S2");
+      } else if (key === "r" || key === "R") {
+        e.preventDefault();
+        useAbility("U");
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cast, useAbility]);
+  }, [useAbility]);
 
   useEffect(() => {
     const id = setInterval(() => force((v) => v + 1), 100);
@@ -223,112 +246,76 @@ export function ActionBar({
   return (
     <div className="pointer-events-auto absolute bottom-2 left-1/2 z-10 flex max-w-[96vw] -translate-x-1/2 flex-wrap items-end justify-center gap-2 sm:bottom-4 sm:flex-nowrap sm:gap-3">
       <div className="flex gap-1.5 rounded-xl border border-border/40 bg-background/70 px-2 py-2 shadow-md backdrop-blur-md">
-        {(["W1", "W2"] as const).map((slot, idx) => {
-          const def = abilities[slot];
-          if (!def) return null;
-          const ready = abilityCdRef.current[def.id] ?? 0;
+        {HOTBAR_SLOTS.map((slotKey) => {
+          const spec = slots.find((s) => s.key === slotKey);
+          if (!spec) return null;
+          const def = spec.ability;
+          const bound = Boolean(def);
+          const ready = abilityCdRef.current[spec.cdKey] ?? 0;
           const now = Date.now();
           const cd = Math.max(0, ready - now);
-          const cdFrac = cd > 0 ? cd / def.cooldownMs : 0;
-          const canAfford = def.manaCost === 0 || mana >= def.manaCost;
-          const aimingThis = activeTargetingSource === `ability:${slot}`;
-          const disabled = !enabled || cd > 0 || !canAfford;
+          const cdFrac = cd > 0 && spec.cooldownMs > 0 ? cd / spec.cooldownMs : 0;
+          const canAfford = !def || def.manaCost === 0 || mana >= def.manaCost;
+          const aimingThis = activeTargetingSource === `ability:${slotKey}`;
+          const disabled = !enabled || !bound || cd > 0 || !canAfford;
+          const color = def?.color ?? "#4b5563";
+          const slotLabel = getSlotLabel(slotKey, spec.ultimate);
           return (
             <button
-              key={slot}
+              key={slotKey}
               type="button"
-              onClick={() => useAbility(slot)}
+              onClick={() => useAbility(slotKey)}
               disabled={disabled && !aimingThis}
-              aria-label={`${def.name} (key ${idx + 1}) — ${slot}`}
-              title={`${def.name} — ${def.description}${
-                def.manaCost > 0 ? ` (${def.manaCost} mana)` : ""
-              }${aimingThis ? " — click again to cancel" : ""}`}
+              aria-label={
+                bound
+                  ? `${def?.name} (key ${spec.hotkey}) — ${slotLabel}`
+                  : `${slotLabel} — empty. Bind in Skills tab.`
+              }
+              title={
+                bound
+                  ? `${def?.name} — ${def?.description}${
+                      def?.manaCost && def.manaCost > 0 ? ` (${def.manaCost} mana)` : ""
+                    }${spec.ultimate ? ` — ultimate (×${ULTIMATE_COOLDOWN_MULTIPLIER} cooldown)` : ""}${aimingThis ? " — click again to cancel" : ""}`
+                  : `${slotLabel} — bind a skill to this slot in the Skills tab.`
+              }
               className={cn(
                 "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
+                spec.ultimate && "h-14 w-14 sm:h-16 sm:w-16",
                 disabled && !aimingThis ? "opacity-70" : "hover:scale-105",
                 aimingThis && "ring-2 ring-offset-1 ring-offset-background",
+                !bound && "border-dashed",
               )}
               style={{
-                borderColor: def.color,
-                ...(aimingThis ? { boxShadow: `0 0 0 2px ${def.color}` } : {}),
+                borderColor: color,
+                ...(aimingThis ? { boxShadow: `0 0 0 2px ${color}` } : {}),
               }}
-              data-slot={slot}
-              data-ability={def.id}
+              data-slot={slotKey}
+              data-ability={def?.id ?? ""}
             >
               <span
                 className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
-                style={{ color: def.color }}
+                style={{ color }}
               >
-                {def.name}
+                {bound ? def?.name : slotLabel}
               </span>
               <span className="absolute right-1 bottom-1 rounded bg-background/60 px-1 font-mono text-[10px] text-muted-foreground">
-                {idx + 1}
+                {spec.hotkey}
               </span>
-              {def.manaCost > 0 ? (
+              {bound && def && def.manaCost > 0 ? (
                 <span className="-translate-x-1/2 absolute bottom-1 left-1/2 text-[10px] text-sky-400 tabular-nums">
                   {def.manaCost}
                 </span>
               ) : null}
-              {cd > 0 ? (
+              {cd > 0 && spec.ultimate ? (
                 <span
-                  className="absolute inset-x-0 bottom-0 bg-background/70"
-                  style={{ height: `${cdFrac * 100}%` }}
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: `conic-gradient(${color} ${360 * (1 - cdFrac)}deg, rgba(0,0,0,0.65) 0)`,
+                    mask: "radial-gradient(circle, transparent 40%, black 42%)",
+                    WebkitMask: "radial-gradient(circle, transparent 40%, black 42%)",
+                  }}
                 />
-              ) : null}
-              {cd > 0 ? (
-                <span className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2 font-mono font-semibold text-white text-xs">
-                  {(cd / 1000).toFixed(1)}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-        {HOTBAR_SKILLS.map((id, idx) => {
-          const skill = SKILL_CATALOG[id];
-          const ready = cdRef.current[id] ?? 0;
-          const now = Date.now();
-          const cd = Math.max(0, ready - now);
-          const cdFrac = cd > 0 ? cd / skill.cooldownMs : 0;
-          const canAfford = skill.manaCost === 0 || mana >= skill.manaCost;
-          const aimingThis = activeTargetingSource === `skill:${id}`;
-          const disabled = !enabled || cd > 0 || !canAfford;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => cast(id)}
-              disabled={disabled && !aimingThis}
-              aria-label={`${skill.name} (key ${idx + 3})`}
-              title={`${skill.name} — ${skill.description}${
-                skill.manaCost > 0 ? ` (${skill.manaCost} mana)` : ""
-              }${aimingThis ? " — click again to cancel" : ""}`}
-              className={cn(
-                "group relative h-12 w-12 overflow-hidden rounded-lg border-2 bg-background/80 shadow-md backdrop-blur-md transition-transform sm:h-14 sm:w-14",
-                disabled && !aimingThis ? "opacity-70" : "hover:scale-105",
-                aimingThis && "ring-2 ring-offset-1 ring-offset-background",
-              )}
-              style={{
-                borderColor: skill.color,
-                ...(aimingThis ? { boxShadow: `0 0 0 2px ${skill.color}` } : {}),
-              }}
-              data-slot={`S${idx + 1}`}
-              data-skill={id}
-            >
-              <span
-                className="-translate-x-1/2 absolute top-1 left-1/2 font-bold text-[10px] tabular-nums sm:text-[11px]"
-                style={{ color: skill.color }}
-              >
-                {skill.name}
-              </span>
-              <span className="absolute right-1 bottom-1 rounded bg-background/60 px-1 font-mono text-[10px] text-muted-foreground">
-                {idx + 3}
-              </span>
-              {skill.manaCost > 0 ? (
-                <span className="-translate-x-1/2 absolute bottom-1 left-1/2 text-[10px] text-sky-400 tabular-nums">
-                  {skill.manaCost}
-                </span>
-              ) : null}
-              {cd > 0 ? (
+              ) : cd > 0 ? (
                 <span
                   className="absolute inset-x-0 bottom-0 bg-background/70"
                   style={{ height: `${cdFrac * 100}%` }}
@@ -397,6 +384,14 @@ export function ActionBar({
       />
     </div>
   );
+}
+
+function getSlotLabel(slot: WeaponSlotKey | SkillSlot, ultimate: boolean): string {
+  if (slot === "U" || ultimate) return "Ultimate";
+  if (slot === "S1") return "Skill 1";
+  if (slot === "S2") return "Skill 2";
+  if (slot === "W1") return "Primary";
+  return "Secondary";
 }
 
 function itemColor(item: ReturnType<typeof getItem>): string {
