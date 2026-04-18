@@ -12,13 +12,11 @@ import {
 } from "three";
 import { useQuality } from "@/assets";
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
-const PORTAL_COLOR: Record<string, string> = {
-  lobby: "#fbbf24",
-  arena: "#f97316",
-};
+const PORTAL_COLOR: Record<string, string> = GAME_PALETTE.portal;
 
 const PROXIMITY_RADIUS = 2;
 const PROXIMITY_RADIUS_SQ = PROXIMITY_RADIUS * PROXIMITY_RADIUS;
@@ -36,7 +34,7 @@ function PortalMarker({
   const haloRef = useRef<Mesh>(null);
   const groundRef = useRef<Mesh>(null);
   const { tier } = useQuality();
-  const color = PORTAL_COLOR[portal.to] ?? "#a855f7";
+  const color = PORTAL_COLOR[portal.to] ?? GAME_PALETTE.portal.fallback;
 
   const segments = tier === "low" ? 32 : tier === "medium" ? 48 : 64;
   const baseSparkles = tier === "low" ? 8 : tier === "medium" ? 18 : 32;

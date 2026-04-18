@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { AdditiveBlending, type Mesh, type MeshBasicMaterial } from "three";
 import { useQuality } from "@/assets";
+import { GAME_PALETTE } from "./gamePalette";
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -39,7 +40,7 @@ export function SafeZoneRing({ center = { x: 0, y: 0, z: 0 } }: { center?: Vec3 
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>
         <ringGeometry args={[INNER_RADIUS, OUTER_RADIUS, 96]} />
         <meshBasicMaterial
-          color="#60a5fa"
+          color={GAME_PALETTE.safeZone.outer}
           transparent
           opacity={0.22}
           depthWrite={false}
@@ -50,7 +51,7 @@ export function SafeZoneRing({ center = { x: 0, y: 0, z: 0 } }: { center?: Vec3 
       <mesh ref={bandRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} renderOrder={0}>
         <ringGeometry args={[BAND_RADIUS - 0.08, BAND_RADIUS + 0.08, 96]} />
         <meshBasicMaterial
-          color="#93c5fd"
+          color={GAME_PALETTE.safeZone.inner}
           transparent
           opacity={0.35}
           depthWrite={false}

@@ -35,8 +35,15 @@ import { canBindItemToHotbar, HOTBAR_ITEM_MIME } from "@/game/hotbar/shared";
 import { cn } from "@/lib/utils";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { DailyQuestsHeader } from "./DailyQuestsHeader";
+import { GAME_PALETTE } from "./gamePalette";
 import { Minimap } from "./Minimap";
 import { SkillsTab } from "./SkillsTab";
+
+function rarityColor(rarity?: string, hasDef?: boolean): string {
+  if (rarity === "legendary") return GAME_PALETTE.rarity.legendary;
+  if (rarity === "rare") return GAME_PALETTE.rarity.rare;
+  return hasDef ? GAME_PALETTE.rarity.common : GAME_PALETTE.locked;
+}
 
 type Tab = "map" | "quests" | "chat" | "info" | "inventory" | "skills";
 
@@ -128,7 +135,7 @@ export function TopLeftPane({
   return (
     <div
       className={cn(
-        "pointer-events-auto absolute top-2 left-2 flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-border/40 bg-background/85 shadow-xl backdrop-blur-md sm:top-4 sm:left-4",
+        "polish-glass polish-glow-ring pointer-events-auto absolute top-2 left-2 flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-[var(--radius-lg)] sm:top-4 sm:left-4",
         collapsed ? "h-auto" : "h-[60vh] w-[min(360px,calc(100vw-1rem))] sm:h-[min(520px,70vh)]",
       )}
       data-testid="top-left-pane"
@@ -684,14 +691,7 @@ function EquipSlotRow({
   const def = itemId ? getItem(itemId) : undefined;
   const primary = def?.primaryAbilityId ? getAbility(def.primaryAbilityId) : undefined;
   const secondary = def?.secondaryAbilityId ? getAbility(def.secondaryAbilityId) : undefined;
-  const color =
-    def?.rarity === "legendary"
-      ? "#fbbf24"
-      : def?.rarity === "rare"
-        ? "#60a5fa"
-        : def
-          ? "#a1a1aa"
-          : "#4b5563";
+  const color = rarityColor(def?.rarity, Boolean(def));
   return (
     <div
       className="flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2"
@@ -769,14 +769,7 @@ function InventoryItemRow({
   onDrop: () => void;
 }) {
   const def = isItemId(itemId) ? getItem(itemId as ItemId) : undefined;
-  const color =
-    def?.rarity === "legendary"
-      ? "#fbbf24"
-      : def?.rarity === "rare"
-        ? "#60a5fa"
-        : def
-          ? "#a1a1aa"
-          : "#4b5563";
+  const color = rarityColor(def?.rarity, Boolean(def));
   const canUse = def?.kind === "consumable";
   const canEquip = Boolean(def?.slot);
   const canDragToHotbar = canBindItemToHotbar(itemId);

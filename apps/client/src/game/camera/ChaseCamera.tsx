@@ -1,6 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useRef } from "react";
 import { MathUtils, PerspectiveCamera, Vector3 } from "three";
+import { sampleShakeOffset } from "@/game/fx/ScreenShake";
 import { setCameraYaw } from "@/state/cameraStore";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import {
@@ -64,6 +65,7 @@ export function ChaseCamera({
   const yawRef = useRef(INITIAL_YAW);
   const targetRef = useRef(new Vector3(selfPosRef.current.x, 0, selfPosRef.current.z));
   const initializedRef = useRef(false);
+  const shakeRef = useRef({ x: 0, y: 0, z: 0 });
 
   // Active profile interpolation.
   const profileFromRef = useRef<CameraProfile>(CAMERA_PROFILES.combat);
@@ -194,10 +196,13 @@ export function ChaseCamera({
     const offY = profile.arm * cosTilt;
     const offZ = Math.cos(yaw) * profile.arm * sinTilt;
 
+    sampleShakeOffset(shakeRef.current);
+    const sh = shakeRef.current;
+
     camera.position.set(
-      targetRef.current.x + offX,
-      targetRef.current.y + offY,
-      targetRef.current.z + offZ,
+      targetRef.current.x + offX + sh.x,
+      targetRef.current.y + offY + sh.y,
+      targetRef.current.z + offZ + sh.z,
     );
     camera.lookAt(targetRef.current);
 

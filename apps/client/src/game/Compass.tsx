@@ -173,13 +173,19 @@ function POIStaticIcon({ kind }: { kind: POI["kind"] }) {
   switch (kind) {
     case "mob":
       return (
-        <div className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.6)]" />
+        <div
+          className="h-1.5 w-1.5 rounded-full bg-red-500"
+          style={{ boxShadow: "var(--glow-danger)" }}
+        />
       );
     case "boss":
       return <Target className="h-3 w-3 text-red-500" />;
     case "npc":
       return (
-        <div className="h-1.5 w-1.5 rounded-sm bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.6)]" />
+        <div
+          className="h-1.5 w-1.5 rounded-sm bg-green-500"
+          style={{ boxShadow: "var(--glow-heal)" }}
+        />
       );
     case "portal":
       return <Circle className="h-3 w-3 text-blue-400" />;

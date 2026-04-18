@@ -1,7 +1,9 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { type Group, MathUtils, type MeshBasicMaterial } from "three";
+import { HazardEmber } from "@/game/fx/presets/HazardEmber";
 import type { HazardSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 /** Orange floor-painted hazard ring with a pulsing inner fill. One mesh + one
  * shader per hazard — cheap enough for mobile within ADR-0002's 150-draw-call
@@ -28,18 +30,24 @@ function HazardRing({ hazard }: { hazard: HazardSnapshot }) {
     <group ref={group} position={[hazard.x, 0.02, hazard.z]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[ringInner, ringOuter, 48]} />
-        <meshBasicMaterial color="#f97316" transparent opacity={0.85} toneMapped={false} />
+        <meshBasicMaterial
+          color={GAME_PALETTE.hazard.ring}
+          transparent
+          opacity={0.85}
+          toneMapped={false}
+        />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.001]}>
         <circleGeometry args={[ringInner, 48]} />
         <meshBasicMaterial
           ref={innerMat}
-          color="#ea580c"
+          color={GAME_PALETTE.hazard.fill}
           transparent
           opacity={0.18}
           toneMapped={false}
         />
       </mesh>
+      <HazardEmber radius={hazard.radius} />
     </group>
   );
 }

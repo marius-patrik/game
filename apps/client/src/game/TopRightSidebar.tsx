@@ -31,7 +31,7 @@ export function TopRightSidebar({
       className="pointer-events-auto absolute top-2 right-2 flex max-w-[min(260px,60vw)] flex-col gap-2 sm:top-4 sm:right-4 sm:max-w-[260px]"
       data-testid="top-right-sidebar"
     >
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/70 px-3 py-2 backdrop-blur-md">
+      <div className="flex items-center justify-between gap-2 polish-glass rounded-[var(--radius)] px-3 py-2">
         <div className="flex items-center gap-1.5 text-amber-400">
           <Coins className="size-4" />
           <span className="font-semibold tabular-nums">{gold.toLocaleString()}</span>
@@ -40,7 +40,7 @@ export function TopRightSidebar({
       </div>
 
       {activeQuest && questDef ? (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border/40 bg-background/70 px-3 py-2 backdrop-blur-md">
+        <div className="flex flex-col gap-1.5 polish-glass rounded-[var(--radius)] px-3 py-2">
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wide">
             <ScrollText className="size-3" />
             Active quest
@@ -66,7 +66,7 @@ export function TopRightSidebar({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-1.5 rounded-lg border border-border/40 bg-background/70 px-3 py-1.5 text-[11px] backdrop-blur-md">
+      <div className="flex items-center gap-1.5 polish-glass rounded-[var(--radius)] px-3 py-1.5 text-[11px]">
         <MapPin className="size-3.5 text-muted-foreground" />
         <span className="truncate">{zone?.name ?? zoneId}</span>
       </div>

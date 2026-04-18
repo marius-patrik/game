@@ -24,13 +24,12 @@ export function InteractionPrompt({
   kind: InteractionPromptKind;
 }) {
   if (!visible) return null;
-  const color = kindBorderColor(kind);
   return (
     <div
       data-testid="interaction-prompt"
       data-kind={kind}
-      className="pointer-events-none absolute bottom-[168px] left-1/2 -translate-x-1/2 rounded-full border bg-background/80 px-4 py-1 text-xs shadow backdrop-blur-md sm:bottom-[184px]"
-      style={{ borderColor: color }}
+      className="polish-glass pointer-events-none absolute bottom-[168px] left-1/2 -translate-x-1/2 rounded-full px-4 py-1 text-xs sm:bottom-[184px]"
+      style={{ borderColor: `rgb(var(${kindBorderTokenVar(kind)}) / 0.6)` }}
     >
       Press{" "}
       <kbd className="rounded border border-border/60 bg-muted px-1">
@@ -41,17 +40,17 @@ export function InteractionPrompt({
   );
 }
 
-function kindBorderColor(kind: InteractionPromptKind): string {
+function kindBorderTokenVar(kind: InteractionPromptKind): string {
   switch (kind) {
     case "vendor":
-      return "rgba(139,92,246,0.6)";
+      return "--accent-violet";
     case "questgiver":
-      return "rgba(34,197,94,0.6)";
+      return "--accent-emerald";
     case "drop":
-      return "rgba(167,243,208,0.6)";
+      return "--accent-emerald-soft";
     case "portal":
-      return "rgba(251,146,60,0.6)";
+      return "--accent-amber";
     default:
-      return "rgba(251,191,36,0.6)";
+      return "--accent-gold";
   }
 }

@@ -1,6 +1,9 @@
 import { ZONES, type ZoneId } from "@game/shared";
 import { useEffect, useRef, useState } from "react";
 import type { HazardSnapshot, MobSnapshot, NpcSnapshot, PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
+
+const MINIMAP = GAME_PALETTE.minimap;
 
 /**
  * Top-down HUD minimap. Renders zone bounds, portals as gold rings, mobs as
@@ -71,22 +74,22 @@ export function Minimap({
 
       ctx.clearRect(0, 0, size, size);
       // panel background
-      ctx.fillStyle = "rgba(9, 9, 11, 0.7)";
+      ctx.fillStyle = MINIMAP.bg;
       ctx.fillRect(0, 0, size, size);
-      ctx.strokeStyle = "rgba(161, 161, 170, 0.4)";
+      ctx.strokeStyle = MINIMAP.border;
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, size - 1, size - 1);
       // zone bounds
-      ctx.strokeStyle = "rgba(161, 161, 170, 0.35)";
+      ctx.strokeStyle = MINIMAP.grid;
       ctx.strokeRect(toX(minX), toY(minZ), spanX * scale, spanZ * scale);
 
       // portals
       for (const p of zone.portals) {
-        ctx.fillStyle = "rgba(251, 191, 36, 0.9)";
+        ctx.fillStyle = MINIMAP.portalFill;
         ctx.beginPath();
         ctx.arc(toX(p.pos.x), toY(p.pos.z), 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = "rgba(251, 191, 36, 0.35)";
+        ctx.strokeStyle = MINIMAP.portalRing;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(toX(p.pos.x), toY(p.pos.z), 8, 0, Math.PI * 2);
@@ -97,13 +100,13 @@ export function Minimap({
       for (const h of hazards.values()) {
         const px = toX(h.x);
         const py = toY(h.z);
-        ctx.strokeStyle = "rgba(249, 115, 22, 0.35)";
+        ctx.strokeStyle = MINIMAP.hazardRing;
         ctx.lineWidth = 1;
         const rScale = Math.max(3, h.radius * scale * 0.45);
         ctx.beginPath();
         ctx.arc(px, py, rScale, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.fillStyle = "#f97316";
+        ctx.fillStyle = MINIMAP.hazardFill;
         ctx.font = "bold 10px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -115,7 +118,7 @@ export function Minimap({
         const px = toX(m.x);
         const py = toY(m.z);
         if (m.kind === "healer") {
-          ctx.strokeStyle = "#22c55e";
+          ctx.strokeStyle = MINIMAP.mobHealer;
           ctx.lineWidth = 2;
           ctx.beginPath();
           ctx.moveTo(px - 4, py);
@@ -124,7 +127,7 @@ export function Minimap({
           ctx.lineTo(px, py + 4);
           ctx.stroke();
         } else {
-          ctx.fillStyle = "#ef4444";
+          ctx.fillStyle = MINIMAP.mobAlive;
           ctx.beginPath();
           ctx.arc(px, py, 3, 0, Math.PI * 2);
           ctx.fill();
@@ -137,7 +140,7 @@ export function Minimap({
         const px = toX(n.x);
         const py = toY(n.z);
         if (n.kind === "vendor") {
-          ctx.fillStyle = "#f59e0b"; // amber
+          ctx.fillStyle = MINIMAP.npcIcon;
           ctx.beginPath();
           ctx.moveTo(px, py - 5);
           ctx.lineTo(px + 5, py);
@@ -145,11 +148,11 @@ export function Minimap({
           ctx.lineTo(px - 5, py);
           ctx.closePath();
           ctx.fill();
-          ctx.strokeStyle = "rgba(0,0,0,0.55)";
+          ctx.strokeStyle = MINIMAP.iconStroke;
           ctx.lineWidth = 1;
           ctx.stroke();
         } else if (n.kind === "questgiver") {
-          ctx.fillStyle = "#facc15"; // brighter yellow so it reads differently from portals
+          ctx.fillStyle = MINIMAP.npcReady;
           const r = 5;
           ctx.beginPath();
           for (let i = 0; i < 5; i++) {
@@ -161,11 +164,11 @@ export function Minimap({
           }
           ctx.closePath();
           ctx.fill();
-          ctx.strokeStyle = "rgba(0,0,0,0.55)";
+          ctx.strokeStyle = MINIMAP.iconStroke;
           ctx.lineWidth = 1;
           ctx.stroke();
         } else {
-          ctx.fillStyle = "#a3a3a3";
+          ctx.fillStyle = MINIMAP.mobDead;
           ctx.beginPath();
           ctx.arc(px, py, 3, 0, Math.PI * 2);
           ctx.fill();
@@ -175,7 +178,7 @@ export function Minimap({
       // players (others = cyan; self = white dot)
       for (const p of players.values()) {
         if (p.id === sessionId) continue;
-        ctx.fillStyle = "#22d3ee";
+        ctx.fillStyle = MINIMAP.self;
         ctx.beginPath();
         ctx.arc(toX(p.x), toY(p.z), 3, 0, Math.PI * 2);
         ctx.fill();
@@ -183,8 +186,8 @@ export function Minimap({
 
       const self = sessionId ? players.get(sessionId) : undefined;
       if (self) {
-        ctx.fillStyle = "#ffffff";
-        ctx.strokeStyle = "#ffffff";
+        ctx.fillStyle = MINIMAP.other;
+        ctx.strokeStyle = MINIMAP.other;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(toX(self.x), toY(self.z), 5, 0, Math.PI * 2);
@@ -192,7 +195,7 @@ export function Minimap({
       }
 
       // zone label
-      ctx.fillStyle = "rgba(250, 250, 250, 0.85)";
+      ctx.fillStyle = MINIMAP.text;
       ctx.font = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";

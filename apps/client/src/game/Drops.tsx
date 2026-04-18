@@ -4,21 +4,11 @@ import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useMemo, useRef } from "react";
 import { Color, type Mesh } from "three";
 import type { DropSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 import { PickupFly, useFlyingDrops } from "./PickupFly";
 
 type Vec3 = { x: number; y: number; z: number };
 type PickupIntentMap = Map<string, number>;
-
-const ITEM_COLOR: Record<string, string> = {
-  heal_potion: "#ef4444",
-  mana_potion: "#38bdf8",
-  sword: "#94a3b8",
-  greataxe: "#a1a1aa",
-  helm: "#f59e0b",
-  cuirass: "#fb923c",
-  ring_spark: "#a78bfa",
-  soul: "#a78bfa",
-};
 
 function DropMarker({
   drop,
@@ -28,7 +18,10 @@ function DropMarker({
   onPickup: (dropId: string) => void;
 }) {
   const meshRef = useRef<Mesh>(null);
-  const color = useMemo(() => new Color(ITEM_COLOR[drop.itemId] ?? "#f59e0b"), [drop.itemId]);
+  const color = useMemo(
+    () => new Color(GAME_PALETTE.item[drop.itemId] ?? GAME_PALETTE.item.unknown),
+    [drop.itemId],
+  );
   const def = getItem(drop.itemId);
   const isWeapon = def?.kind === "weapon";
   const isArmor = def?.kind === "armor";

@@ -12,7 +12,7 @@ export function Toaster({ ...props }: SonnerProps) {
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border/60 group-[.toaster]:shadow-lg",
+            "group toast polish-glass polish-glow-ring group-[.toaster]:text-foreground group-[.toaster]:rounded-[var(--radius)]",
           description: "group-[.toast]:text-muted-foreground",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",

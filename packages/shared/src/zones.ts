@@ -12,6 +12,19 @@ export type ZoneTheme = {
   fog: { near: number; far: number };
 };
 
+/**
+ * Three-point lighting: warm key (main directional), cool fill (secondary),
+ * and a rim light from behind. Zones override the defaults for mood — the
+ * lobby stays bright and neutral; the arena drops the fill and pushes the
+ * rim crimson for a combat feel.
+ */
+export type ZoneLightingProfile = {
+  ambient: { color: string; intensity: number };
+  key: { color: string; intensity: number; position: [number, number, number] };
+  fill: { color: string; intensity: number; position: [number, number, number] };
+  rim: { color: string; intensity: number; position: [number, number, number] };
+};
+
 export type Portal = {
   to: ZoneId;
   pos: Vec3;
@@ -29,6 +42,21 @@ export type Zone = {
   maxClients: number;
   portals: Portal[];
   theme: ZoneTheme;
+  lighting: ZoneLightingProfile;
+};
+
+const LOBBY_LIGHTING: ZoneLightingProfile = {
+  ambient: { color: "#b8c8d8", intensity: 0.45 },
+  key: { color: "#fff6dc", intensity: 1.35, position: [6, 10, 4] },
+  fill: { color: "#9ec5ff", intensity: 0.45, position: [-6, 4, -2] },
+  rim: { color: "#c4b5fd", intensity: 0.6, position: [0, 5, -8] },
+};
+
+const ARENA_LIGHTING: ZoneLightingProfile = {
+  ambient: { color: "#3a1a1a", intensity: 0.3 },
+  key: { color: "#ffc592", intensity: 1.2, position: [4, 9, 6] },
+  fill: { color: "#4f3b60", intensity: 0.35, position: [-8, 3, -4] },
+  rim: { color: "#ef4444", intensity: 0.75, position: [0, 4, -10] },
 };
 
 export const ZONES = {
@@ -46,6 +74,7 @@ export const ZONES = {
       gridMinor: "#1c1c1f",
       fog: { near: 12, far: 40 },
     },
+    lighting: LOBBY_LIGHTING,
   },
   arena: {
     id: "arena",
@@ -61,6 +90,7 @@ export const ZONES = {
       gridMinor: "#451a03",
       fog: { near: 18, far: 55 },
     },
+    lighting: ARENA_LIGHTING,
   },
 } as const satisfies Record<ZoneId, Zone>;
 

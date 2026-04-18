@@ -1,13 +1,29 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { GLASS } from "./glass";
 
-export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div
-      ref={ref}
-      className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
-      {...props}
-    />
+export type CardVariant = "default" | "glass" | "glass-strong" | "glass-faint" | "glass-gold";
+
+type CardProps = React.HTMLAttributes<HTMLDivElement> & { variant?: CardVariant };
+
+function variantClass(v: CardVariant | undefined): string {
+  switch (v) {
+    case "glass":
+      return `${GLASS.panel} rounded-[var(--radius-lg)] text-card-foreground`;
+    case "glass-strong":
+      return `${GLASS.strong} rounded-[var(--radius-lg)] text-card-foreground`;
+    case "glass-faint":
+      return `${GLASS.faint} rounded-[var(--radius)] text-card-foreground`;
+    case "glass-gold":
+      return `${GLASS.gold} rounded-[var(--radius-lg)] text-card-foreground`;
+    default:
+      return "rounded-xl border bg-card text-card-foreground shadow";
+  }
+}
+
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant, ...props }, ref) => (
+    <div ref={ref} className={cn(variantClass(variant), className)} {...props} />
   ),
 );
 Card.displayName = "Card";

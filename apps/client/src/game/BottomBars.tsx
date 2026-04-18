@@ -49,7 +49,7 @@ export function BottomBars({ player }: { player: PlayerSnapshot | undefined }) {
           tone="bg-sky-500"
         />
       </div>
-      <div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-2 py-1 backdrop-blur-md">
+      <div className="flex items-center gap-2 polish-glass rounded-[var(--radius-sm)] px-2 py-1">
         <Star className="size-3 shrink-0 text-amber-400" />
         <span className="shrink-0 font-semibold text-[11px] tabular-nums">Lv {level}</span>
         <div className="min-w-0 flex-1">
@@ -79,7 +79,7 @@ function BarRow({
   tone: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/40 bg-background/70 px-2 py-1 backdrop-blur-md">
+    <div className="flex min-w-0 flex-1 items-center gap-2 polish-glass rounded-[var(--radius-sm)] px-2 py-1">
       {icon}
       <span className="shrink-0 font-semibold text-[11px] text-muted-foreground tabular-nums">
         {label}

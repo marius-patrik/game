@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 const STATS: { key: StatKey; label: string; desc: string }[] = [
   { key: "strength", label: "Strength", desc: "+1 damage per 2 STR" },
@@ -139,12 +140,12 @@ function EquipSlotRow({
   const secondary = def?.secondaryAbilityId ? getAbility(def.secondaryAbilityId) : undefined;
   const color =
     def?.rarity === "legendary"
-      ? "#fbbf24"
+      ? GAME_PALETTE.rarity.legendary
       : def?.rarity === "rare"
-        ? "#60a5fa"
+        ? GAME_PALETTE.rarity.rare
         : def
-          ? "#a1a1aa"
-          : "#4b5563";
+          ? GAME_PALETTE.rarity.common
+          : GAME_PALETTE.locked;
   return (
     <div
       className="flex flex-col gap-1 rounded-md border border-border/40 bg-muted/30 p-2"

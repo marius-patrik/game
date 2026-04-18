@@ -11,12 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 function itemColor(item: ReturnType<typeof getItem>): string {
-  if (!item) return "#71717a";
-  if (item.rarity === "legendary") return "#fbbf24";
-  if (item.rarity === "rare") return "#60a5fa";
-  return "#a1a1aa";
+  if (!item) return GAME_PALETTE.emptySlot;
+  if (item.rarity === "legendary") return GAME_PALETTE.rarity.legendary;
+  if (item.rarity === "rare") return GAME_PALETTE.rarity.rare;
+  return GAME_PALETTE.rarity.common;
 }
 
 function SellItemSlot({

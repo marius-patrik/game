@@ -2,8 +2,9 @@ import { Billboard, Float, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
-import { SparkBurst } from "@/fx";
+import { MobDeathDust } from "@/game/fx/presets/MobDeathDust";
 import type { AttackEvent, MobSnapshot } from "@/net/useRoom";
+import { GAME_PALETTE } from "./gamePalette";
 
 const DEATH_FX_MS = 900;
 
@@ -17,11 +18,11 @@ function HPBar({ hp, maxHp }: { hp: number; maxHp: number }) {
     <Billboard position={[0, 1.3, 0]}>
       <mesh>
         <planeGeometry args={[WIDTH + 0.03, HEIGHT + 0.03]} />
-        <meshBasicMaterial color="#27272a" transparent opacity={0.85} />
+        <meshBasicMaterial color={GAME_PALETTE.mob.corpseBase} transparent opacity={0.85} />
       </mesh>
       <mesh position={[fillOffset, 0, 0.001]}>
         <planeGeometry args={[fillWidth, HEIGHT]} />
-        <meshBasicMaterial color="#ef4444" toneMapped={false} />
+        <meshBasicMaterial color={GAME_PALETTE.mob.corpseEmissive} toneMapped={false} />
       </mesh>
     </Billboard>
   );
@@ -42,13 +43,20 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
   // Healer: tint the body green + add a soft halo so players can identify the
   // support target at a glance. Mesh geometry stays identical to keep cost low.
   const isHealer = mob.kind === "healer";
-  const bodyColor = isHealer ? "#22c55e" : "#dc2626";
-  const bodyEmissive = isHealer ? "#14532d" : "#7f1d1d";
-  const spikeColor = isHealer ? "#15803d" : "#b91c1c";
-  const spikeEmissive = isHealer ? "#052e16" : "#450a0a";
-  const trailColor = isHealer ? "#86efac" : "#ef4444";
-  const sparklesColor = enraged ? "#f97316" : isHealer ? "#86efac" : "#fca5a5";
-  const groundRingColor = isHealer ? "#22c55e" : "#ef4444";
+  const pal = isHealer ? GAME_PALETTE.mob.healer : GAME_PALETTE.mob.grunt;
+  const bodyColor = pal.body;
+  const bodyEmissive = pal.emissive;
+  const spikeColor = pal.spike;
+  const spikeEmissive = pal.spikeEmissive;
+  const trailColor = pal.trail;
+  const sparklesColor = enraged
+    ? GAME_PALETTE.mob.enragedSparkles
+    : isHealer
+      ? GAME_PALETTE.mob.healerSparkles
+      : GAME_PALETTE.mob.gruntSparkles;
+  const groundRingColor = isHealer
+    ? GAME_PALETTE.mob.healer.groundRing
+    : GAME_PALETTE.mob.grunt.body;
 
   const target = useRef({ x: mob.x, y: mob.y, z: mob.z });
   target.current.x = mob.x;
@@ -141,8 +149,8 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
         <mesh ref={eye1} position={[-0.13, 0.18, 0.32]}>
           <sphereGeometry args={[0.07, 12, 12]} />
           <meshStandardMaterial
-            color="#fde68a"
-            emissive="#fbbf24"
+            color={GAME_PALETTE.npc.readyRing}
+            emissive={GAME_PALETTE.npc.readyEmissive}
             emissiveIntensity={1}
             toneMapped={false}
           />
@@ -150,8 +158,8 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
         <mesh ref={eye2} position={[0.13, 0.18, 0.32]}>
           <sphereGeometry args={[0.07, 12, 12]} />
           <meshStandardMaterial
-            color="#fde68a"
-            emissive="#fbbf24"
+            color={GAME_PALETTE.npc.readyRing}
+            emissive={GAME_PALETTE.npc.readyEmissive}
             emissiveIntensity={1}
             toneMapped={false}
           />
@@ -188,13 +196,23 @@ function MobModel({ mob, lastAttack }: { mob: MobSnapshot; lastAttack: AttackEve
         {isHealer ? (
           <mesh position={[0, 0.85, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[0.28, 0.36, 24]} />
-            <meshBasicMaterial color="#4ade80" transparent opacity={0.85} toneMapped={false} />
+            <meshBasicMaterial
+              color={GAME_PALETTE.mob.healer.healBeam}
+              transparent
+              opacity={0.85}
+              toneMapped={false}
+            />
           </mesh>
         ) : null}
         {enraged ? (
           <mesh ref={enrageRing} position={[0, -0.48, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[0.75, 1.1, 32]} />
-            <meshBasicMaterial color="#f97316" transparent opacity={0.55} toneMapped={false} />
+            <meshBasicMaterial
+              color={GAME_PALETTE.mob.enragedSparkles}
+              transparent
+              opacity={0.55}
+              toneMapped={false}
+            />
           </mesh>
         ) : null}
       </Float>
@@ -262,8 +280,7 @@ export function Mobs({
       ))}
       {deaths.map((d) => (
         <group key={d.id} position={[d.pos.x, d.pos.y + 0.6, d.pos.z]}>
-          <SparkBurst baseCount={120} color="#ef4444" lifetime={0.9} speed={3.8} loop={false} />
-          <SparkBurst baseCount={40} color="#fbbf24" lifetime={0.6} speed={2.4} loop={false} />
+          <MobDeathDust variant="grunt" />
         </group>
       ))}
     </>

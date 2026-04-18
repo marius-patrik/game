@@ -16,6 +16,12 @@ const zone: Zone = {
     gridMinor: "#000",
     fog: { near: 10, far: 40 },
   },
+  lighting: {
+    ambient: { color: "#fff", intensity: 0.3 },
+    key: { color: "#fff", intensity: 1, position: [0, 10, 0] },
+    fill: { color: "#fff", intensity: 0.3, position: [0, 4, 0] },
+    rim: { color: "#fff", intensity: 0.4, position: [0, 4, -5] },
+  },
 };
 
 describe("validateMovement", () => {
