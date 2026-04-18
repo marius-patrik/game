@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { toast as sonner } from "sonner";
+import { cn } from "@/lib/utils";
 
 type BaseOpts = {
   description?: string;

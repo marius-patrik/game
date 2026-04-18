@@ -1,12 +1,6 @@
 import { useEffect } from "react";
 
-export function CinematicGate({
-  active,
-  onSkip,
-}: {
-  active: boolean;
-  onSkip: () => void;
-}) {
+export function CinematicGate({ active, onSkip }: { active: boolean; onSkip: () => void }) {
   useEffect(() => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {

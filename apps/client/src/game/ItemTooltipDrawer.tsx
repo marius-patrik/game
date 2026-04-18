@@ -1,7 +1,7 @@
+import { getItem, type ItemId } from "@game/shared";
+import { Drawer } from "vaul";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { type ItemId, getItem } from "@game/shared";
-import { Drawer } from "vaul";
 
 type Action = { label: string; onSelect: () => void; variant?: "default" | "destructive" };
 

@@ -1,5 +1,5 @@
 import { BunWebSockets } from "@colyseus/bun-websockets";
-import { Server, matchMaker } from "@colyseus/core";
+import { matchMaker, Server } from "@colyseus/core";
 import { monitor } from "@colyseus/monitor";
 import { desc } from "drizzle-orm";
 import express from "express";

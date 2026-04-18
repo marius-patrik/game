@@ -1,7 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { PerspectiveCamera } from "three";
-import { PHASES, getPortalPlayback } from "./portalSheet";
+import { getPortalPlayback, PHASES } from "./portalSheet";
 
 const FOV_DELTA = 6; // degrees — subtle push/zoom while the scene is still visible
 

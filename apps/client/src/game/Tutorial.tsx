@@ -1,7 +1,7 @@
-import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "framer-motion";
 import { Coins, Hand, Swords, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const TUTORIAL_KEY = "tutorial.v1.seen";
 

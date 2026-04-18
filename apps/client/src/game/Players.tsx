@@ -1,8 +1,8 @@
-import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
 import { Billboard, Sparkles, Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useEffect, useMemo, useRef } from "react";
 import { Color, type Group, MathUtils, type Mesh, type MeshStandardMaterial } from "three";
+import type { AttackEvent, PlayerSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 

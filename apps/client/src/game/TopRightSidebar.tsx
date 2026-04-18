@@ -1,8 +1,8 @@
+import { QUEST_CATALOG, ZONES, type ZoneId } from "@game/shared";
+import { Coins, MapPin, ScrollText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
-import { QUEST_CATALOG, ZONES, type ZoneId } from "@game/shared";
-import { Coins, MapPin, ScrollText } from "lucide-react";
 
 /**
  * Top-right context strip — coins, currently tracked quest (only when one is

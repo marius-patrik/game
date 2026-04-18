@@ -1,7 +1,7 @@
-import type { HazardSnapshot } from "@/net/useRoom";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { type Group, MathUtils, type MeshBasicMaterial } from "three";
+import type { HazardSnapshot } from "@/net/useRoom";
 
 /** Orange floor-painted hazard ring with a pulsing inner fill. One mesh + one
  * shader per hazard — cheap enough for mobile within ADR-0002's 150-draw-call

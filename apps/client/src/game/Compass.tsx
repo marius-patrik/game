@@ -1,16 +1,16 @@
-import { type MobSnapshot, useRoom } from "@/net/useRoom";
-import { peekCameraYaw } from "@/state/cameraStore";
-import { usePreferencesStore } from "@/state/preferencesStore";
 import { QUEST_CATALOG, ZONES } from "@game/shared";
 import { ChevronUp, Circle, MapPin, Target, User } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { type MobSnapshot, useRoom } from "@/net/useRoom";
+import { peekCameraYaw } from "@/state/cameraStore";
+import { usePreferencesStore } from "@/state/preferencesStore";
 import {
-  type POI,
-  type Vec3,
   angleToScreenX,
   bearingFromTo,
   distanceXZ,
   normalizeAngle,
+  type POI,
+  type Vec3,
 } from "./compass/computeBearings";
 
 const MAX_POI_DISTANCE = 40;

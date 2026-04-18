@@ -1,5 +1,5 @@
-import { getProject, types, val } from "@theatre/core";
 import type { ISequence, ISheet } from "@theatre/core";
+import { getProject, types, val } from "@theatre/core";
 
 export const PORTAL_DURATION_SEC = 1.2;
 

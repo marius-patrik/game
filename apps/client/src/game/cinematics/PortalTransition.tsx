@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
-import { PORTAL_DURATION_SEC, getPortalPlayback } from "./portalSheet";
 import type { PortalFrame } from "./portalSheet";
+import { getPortalPlayback, PORTAL_DURATION_SEC } from "./portalSheet";
 
 const MIN_HOLD_MS = 200; // keep full black at least this long for visual sanity
 
@@ -22,13 +22,7 @@ type Phase = "idle" | "playing" | "holding" | "reveal";
  * completion is observed without needing to restart the loop on every status
  * transition.
  */
-export function PortalTransition({
-  status,
-  zoneId,
-}: {
-  status: CinematicStatus;
-  zoneId: string;
-}) {
+export function PortalTransition({ status, zoneId }: { status: CinematicStatus; zoneId: string }) {
   const [frame, setFrame] = useState<PortalFrame | null>(null);
   const phaseRef = useRef<Phase>("idle");
   const cancelRef = useRef<() => void>(() => {});

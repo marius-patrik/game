@@ -1,7 +1,7 @@
-import { tokenStore } from "@/auth/client";
-import { resolveWsEndpoint } from "@/lib/endpoint";
 import { DEFAULT_ZONE, type GameRoomState, type ZoneId } from "@game/shared";
 import { Client, type Room } from "colyseus.js";
+import { tokenStore } from "@/auth/client";
+import { resolveWsEndpoint } from "@/lib/endpoint";
 
 const endpoint = resolveWsEndpoint();
 

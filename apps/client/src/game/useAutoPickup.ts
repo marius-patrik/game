@@ -1,5 +1,5 @@
-import type { DropSnapshot } from "@/net/useRoom";
 import { type MutableRefObject, useEffect, useRef } from "react";
+import type { DropSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 

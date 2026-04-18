@@ -1,5 +1,5 @@
-import { resolveApiBase } from "@/lib/endpoint";
 import { createAuthClient } from "better-auth/react";
+import { resolveApiBase } from "@/lib/endpoint";
 
 const API_BASE = resolveApiBase();
 

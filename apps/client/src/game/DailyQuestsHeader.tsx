@@ -1,8 +1,8 @@
-import { Progress } from "@/components/ui/progress";
-import type { QuestSnapshot } from "@/net/useRoom";
 import { QUEST_CATALOG } from "@game/shared";
 import { Coins, Timer } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Progress } from "@/components/ui/progress";
+import type { QuestSnapshot } from "@/net/useRoom";
 
 export function DailyQuestsHeader({ dailyQuests }: { dailyQuests: QuestSnapshot[] }) {
   const [timeLeft, setTimeLeft] = useState(getTimeUntilMidnight());

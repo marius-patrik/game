@@ -1,8 +1,8 @@
-import type { AbilityCastEvent, AttackEvent, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 import { Billboard } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import { type Group, MathUtils } from "three";
+import type { AbilityCastEvent, AttackEvent, MobSnapshot, PlayerSnapshot } from "@/net/useRoom";
 
 const LIFETIME_MS = 850;
 const RISE = 1.4;

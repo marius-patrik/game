@@ -1,7 +1,7 @@
-import { useQuality } from "@/assets";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
+import { useQuality } from "@/assets";
 import { scaleCinematicDuration } from "./durations";
 import { easeInOutCubic, lerp } from "./easings";
 

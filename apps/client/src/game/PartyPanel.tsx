@@ -1,6 +1,6 @@
+import { Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import type { PlayerSnapshot } from "@/net/useRoom";
-import { Users } from "lucide-react";
 
 /**
  * Always-visible party HUD — top-left, shows up to 3 other members' HP/mana

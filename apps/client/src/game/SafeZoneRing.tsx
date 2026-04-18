@@ -1,7 +1,7 @@
-import { useQuality } from "@/assets";
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import { AdditiveBlending, type Mesh, type MeshBasicMaterial } from "three";
+import { useQuality } from "@/assets";
 
 type Vec3 = { x: number; y: number; z: number };
 

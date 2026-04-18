@@ -1,4 +1,3 @@
-import { useQuality } from "@/assets";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import {
@@ -9,6 +8,7 @@ import {
   type Points,
   PointsMaterial,
 } from "three";
+import { useQuality } from "@/assets";
 import { scaleParticleCount } from "./particleBudget";
 
 type SparkBurstProps = {

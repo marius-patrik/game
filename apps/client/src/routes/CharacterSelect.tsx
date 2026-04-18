@@ -1,3 +1,6 @@
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,9 +13,6 @@ import {
 import { notify } from "@/components/ui/unified-toast";
 import { type Character, charactersApi } from "@/lib/charactersApi";
 import { useCharacterStore } from "@/state/characterStore";
-import { Loader2, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
 
 export function CharacterSelect() {
   const [, setLocation] = useLocation();

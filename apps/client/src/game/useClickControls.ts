@@ -1,4 +1,4 @@
-import { type Zone, clampToBounds } from "@game/shared";
+import { clampToBounds, type Zone } from "@game/shared";
 import { type MutableRefObject, useEffect, useRef } from "react";
 
 type Vec3 = { x: number; y: number; z: number };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { TIER_BUDGETS, pickQualityTier } from "./qualityTier";
+import { pickQualityTier, TIER_BUDGETS } from "./qualityTier";
 
 describe("pickQualityTier", () => {
   test("mobile with weak memory is low", () => {

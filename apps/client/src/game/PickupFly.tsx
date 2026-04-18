@@ -1,9 +1,9 @@
-import type { DropSnapshot } from "@/net/useRoom";
 import { getItem } from "@game/shared/items";
 import { animated, useSpring } from "@react-spring/three";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Color, type Group } from "three";
+import type { DropSnapshot } from "@/net/useRoom";
 
 type Vec3 = { x: number; y: number; z: number };
 type PickupIntentMap = Map<string, number>;

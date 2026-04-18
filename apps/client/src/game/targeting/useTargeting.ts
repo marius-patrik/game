@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { peekGround } from "../cursor/cursorStore";
 import {
-  type TargeterStartOptions,
   cancelActiveTargeting,
   confirmActiveTargeting,
   peekActive,
   startTargeting as startTargetingStore,
+  type TargeterStartOptions,
   useActiveTargetingSource,
 } from "./targetingStore";
 

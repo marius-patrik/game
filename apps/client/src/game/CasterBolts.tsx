@@ -1,8 +1,8 @@
-import type { CasterBoltSnapshot } from "@/net/useRoom";
 import { Trail } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { type Mesh, Vector3 } from "three";
+import type { CasterBoltSnapshot } from "@/net/useRoom";
 
 /**
  * Visual bolts from caster mobs. Each bolt interpolates from its origin to

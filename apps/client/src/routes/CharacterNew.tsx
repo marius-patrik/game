@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,8 +14,6 @@ import { Label } from "@/components/ui/label";
 import { notify } from "@/components/ui/unified-toast";
 import { charactersApi } from "@/lib/charactersApi";
 import { useCharacterStore } from "@/state/characterStore";
-import { useState } from "react";
-import { useLocation } from "wouter";
 
 const PRESET_COLORS = [
   "#66c0f4", // Blue

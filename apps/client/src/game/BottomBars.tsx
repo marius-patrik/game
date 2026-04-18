@@ -1,7 +1,7 @@
+import { Heart, Sparkles, Star } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { PlayerSnapshot } from "@/net/useRoom";
-import { Heart, Sparkles, Star } from "lucide-react";
 
 /**
  * Bottom bars cluster — HP + MP half-width each, XP full-width below, all with

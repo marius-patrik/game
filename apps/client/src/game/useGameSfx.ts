@@ -1,5 +1,5 @@
-import type { RoomState } from "@/net/useRoom";
 import { useEffect, useRef } from "react";
+import type { RoomState } from "@/net/useRoom";
 import { playSfx } from "./sfx";
 
 /**

@@ -1,9 +1,9 @@
-import type { DropSnapshot } from "@/net/useRoom";
 import { getItem } from "@game/shared/items";
 import { Float } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type MutableRefObject, useMemo, useRef } from "react";
 import { Color, type Mesh } from "three";
+import type { DropSnapshot } from "@/net/useRoom";
 import { PickupFly, useFlyingDrops } from "./PickupFly";
 
 type Vec3 = { x: number; y: number; z: number };

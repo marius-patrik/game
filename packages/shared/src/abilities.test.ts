@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   ABILITY_CATALOG,
   ALL_ABILITY_IDS,
-  UNARMED_PRIMARY,
-  UNARMED_SECONDARY,
   getAbility,
   isAbilityId,
+  UNARMED_PRIMARY,
+  UNARMED_SECONDARY,
 } from "./abilities";
 
 describe("ability catalog", () => {

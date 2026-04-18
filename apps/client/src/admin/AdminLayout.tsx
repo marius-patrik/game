@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
 import { Activity, Home, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
+import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/admin", label: "overview", icon: Home, exact: true },

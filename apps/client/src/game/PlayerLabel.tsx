@@ -1,8 +1,8 @@
-import type { PlayerSnapshot } from "@/net/useRoom";
 import { Billboard } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import { type Group, MathUtils, type SpriteMaterial } from "three";
+import type { PlayerSnapshot } from "@/net/useRoom";
 
 /**
  * Hover-above-player name tag. Uses a canvas-textured sprite so we stay in a
