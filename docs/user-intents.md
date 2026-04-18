@@ -56,7 +56,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-25 | Character customizer (name + color minimum), persisted | #96 | verified-preview |
 | ui-26 | Skills tab in HUD | #98 + #93 | verified-preview (2026-04-18: #98/PR #124 — Skills tab renders in SidePanel, bind Cleave→S1 + Meteor→U + unbind verified, persistence confirmed via DB read) |
 | ui-27 | No random disconnects / unwanted zone swaps | #92 | done-untested (diagnostics landed in #104; verify over longer session) |
-| ui-28 | Hotbar: 2 weapon + 2 skill + 1 ultimate + 2 item + 2 potion, separators between groups | #94 | pending |
+| ui-28 | Hotbar: 2 weapon + 2 skill + 1 ultimate + 2 item + 2 potion, separators between groups | #94 | done-untested (2026-04-18: #94/PR #128 — new hotbar + separators + hotbarStore shipped via Codex re-dispatch after transport error; live preview verification pending) |
 | ui-29 | NPCs next to their stands, not inside | #92 | verified-preview |
 | ui-30 | Pickup fly-to-player animation | #100 | done-untested |
 
