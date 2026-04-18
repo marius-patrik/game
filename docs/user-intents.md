@@ -40,7 +40,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-9 | Player name in 3D scene above player | #93 | done-untested (2026-04-18: #93/PR #125 — PlayerLabel Billboard with 14m→20m distance fade wired in Scene; visual still needs a live preview confirmation) |
 | ui-10 | Inventory accessible as a tab in the top-left pane | #93 | verified-preview (2026-04-18: #93/PR #125 — tabs [map, quests, chat, info, inventory, skills] confirmed) |
 | ui-11 | Map tab expands to full pane height | #93 | verified-preview (2026-04-18: #93/PR #125 — Minimap refactored to ResizeObserver-based fill) |
-| ui-12 | Draggable / detachable / merge-able window+tab system (VSCode-style) | #99 | pending |
+| ui-12 | Draggable / detachable / merge-able window+tab system (VSCode-style) | #99 | done-untested (2026-04-18: #99/PR #129 — ADR 0003, tab-window component, layoutStore; rebased onto post-#128 main; live drag verification pending) |
 | ui-13 | Client responsive to window size; no forced larger viewport | #92 | verified-preview (2026-04-18: viewport no longer overflows in 1440×900 or 390×844) |
 | ui-14 | Progress persists across reloads AND server updates | #92 + #96 + #116 | verified-preview (2026-04-18: level/xp/color survive reload after #115 + #116) |
 | ui-15 | Drop items don't show "talk to Mercer the vendor" | #92 | verified-preview |

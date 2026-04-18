@@ -46,6 +46,9 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 
 ## Done (2026-04-18 session)
 
+- [x] **#129** draggable window+tab system (#99) — ADR 0003, `tab-window/` component, `layoutStore` with per-user persistence, TopLeftPane wired for drag/dock/merge. Rebased onto post-#128 main by conflict-resolver agent (additive conflicts, both features preserved). 199/199 tests pass.
+- [x] **#128** hotbar redesign (#94) — 2W+2S+U+2I+2P layout with group separators, new `hotbarStore`, `keybinds` store foundation (extends in #95), item/potion slot wiring, `canBindItemToHotbar` + `HOTBAR_ITEM_MIME` drag-drop. Shipped via Codex re-dispatch after initial transport error.
+- [x] **#127** Biome 2.x bump (#90) — autofix sweep across 95 files, +263/-250 lines, shipped via Codex.
 - [x] **#126** compass / radar strip (#110) — horizontal compass at top with cardinal ticks + POI icons (quests, mobs, portals, NPCs). Shipped via Gemini dispatch after Claude hit the shared rate limit; CI green, 6 files. Flipped ui-35 → done-untested (visual preview verification pending).
 - [x] **#125** HUD teardown + rebuild (#93) — unified-toast with notify.* API, TopLeftPane (6-tab), TopRightSidebar (coins + quest + location), BottomBars (HP/MP half-width + XP full-width), PlayerLabel billboard in Scene, Minimap ResizeObserver fill, PartyPanel relocated. Deleted HUD.tsx, ProgressBar.tsx, LevelUpBanner.tsx, QuestToast.tsx, QuestTracker.tsx, SidePanel.tsx, CursorLockIndicator.tsx. 180 tests pass. Flipped ui-4/5/6/7/8/10/11/16 → verified-preview; ui-9 stays done-untested (visual sight-check pending).
 - [x] **#124** skill allocator + skills tab + ultimate slot (#98) — shared skills registry (6 normal + 2 ultimate), `Player.skillsEquipped/ultimateSkill/skillPoints`, `onMessage("allocate-skill" / "unbind-skill")`, `validateAllocation/validateUnbind` helpers, ultimate cooldown ×3, SkillsTab in SidePanel, ActionBar drops legacy heal/dash. 180 tests pass.
