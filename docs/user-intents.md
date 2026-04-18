@@ -68,7 +68,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-32 | Floating sphere players; dynamic game-declared camera arm; FOV slider; cursor-lock (Ctrl) | #107 | verified-preview |
 | ui-33 | Custom 3D cursor + ground targeting system (movement circle, dash two-step, cast-in-space reusable) | #108 | done-untested |
 | ui-34 | Skyrim-style NPC dialog system | #109 | pending |
-| ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | pending |
+| ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | done-untested (2026-04-18: #110/PR #126 — Compass.tsx with cardinal ticks + POI dots shipped via Gemini dispatch; visual preview confirmation pending) |
 | ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | pending |
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
 | ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/skills/multi-cli-dispatch/SKILL.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
