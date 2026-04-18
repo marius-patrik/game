@@ -20,7 +20,7 @@ import type { PlayerSnapshot } from "@/net/useRoom";
 import { useCharacterStore } from "@/state/characterStore";
 import { useHotbarStore, useItemQuickSlotBindings } from "@/state/hotbarStore";
 import { formatKeybind, matchesKeybind } from "@/state/keybinds";
-import { useKeybindsStore } from "@/state/keybindsStore";
+import { useCharacterKeybinds } from "@/state/keybindsStore";
 import { HotbarSlot } from "./hotbar/HotbarSlot";
 import { PotionSlot } from "./hotbar/PotionSlot";
 import {
@@ -75,7 +75,7 @@ export function ActionBar({
   enabledRef.current = enabled;
   const activeTargetingSource = useActiveTargetingSource();
   const selectedCharacterId = useCharacterStore((state) => state.selectedCharacterId);
-  const keybinds = useKeybindsStore((state) => state.keybinds);
+  const keybinds = useCharacterKeybinds(selectedCharacterId);
   const itemQuickSlots = useItemQuickSlotBindings(selectedCharacterId);
   const setItemQuickSlot = useHotbarStore((state) => state.setItemQuickSlot);
   const [dragOverSlot, setDragOverSlot] = useState<ItemQuickSlotKey | null>(null);

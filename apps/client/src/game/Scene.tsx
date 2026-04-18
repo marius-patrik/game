@@ -27,7 +27,6 @@ import { peekGround, peekLocked } from "./cursor/cursorStore";
 import { DamageNumbers } from "./DamageNumbers";
 import { Drops } from "./Drops";
 import { HazardZones } from "./HazardZones";
-import { InteractionPrompt } from "./InteractionPrompt";
 import { Mobs } from "./Mobs";
 import { Npcs } from "./Npcs";
 import { PlayerLabels } from "./PlayerLabel";
@@ -63,7 +62,6 @@ export function Scene({
   onGroundClick,
   onPickup,
   onNpcInteract,
-  interactionTargetId,
 }: {
   players: Map<string, PlayerSnapshot>;
   drops: Map<string, DropSnapshot>;
@@ -84,7 +82,6 @@ export function Scene({
   onGroundClick: (pos: Vec3) => void;
   onPickup: (dropId: string) => void;
   onNpcInteract: (npc: NpcSnapshot) => void;
-  interactionTargetId?: string;
 }) {
   const cubeGroup = useRef<Group>(null);
   const { tier, budget } = useQuality();
@@ -191,13 +188,6 @@ export function Scene({
       />
       <BossTelegraph event={lastTelegraph} />
       <CasterBolts bolts={bolts} />
-
-      <InteractionPrompt
-        npcs={npcs}
-        drops={drops}
-        selfPosRef={selfPosRef}
-        activeTargetId={interactionTargetId}
-      />
 
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}

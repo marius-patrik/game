@@ -15,6 +15,8 @@ type PreferencesState = {
   setSkipCinematics: (value: boolean) => void;
   fov: number;
   setFov: (value: number) => void;
+  autoPickup: boolean;
+  setAutoPickup: (value: boolean) => void;
 };
 
 export const usePreferencesStore = create<PreferencesState>()(
@@ -24,12 +26,15 @@ export const usePreferencesStore = create<PreferencesState>()(
       setSkipCinematics: (value) => set({ skipCinematics: value }),
       fov: FOV_DEFAULT,
       setFov: (value) => set({ fov: clampFov(value) }),
+      autoPickup: true,
+      setAutoPickup: (value) => set({ autoPickup: value }),
     }),
     {
       name: "game.preferences.v1",
       partialize: (state) => ({
         skipCinematics: state.skipCinematics,
         fov: state.fov,
+        autoPickup: state.autoPickup,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<PreferencesState>;
@@ -37,6 +42,7 @@ export const usePreferencesStore = create<PreferencesState>()(
           ...current,
           ...p,
           fov: clampFov(p.fov ?? current.fov),
+          autoPickup: typeof p.autoPickup === "boolean" ? p.autoPickup : current.autoPickup,
         };
       },
     },
