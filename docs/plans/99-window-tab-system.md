@@ -103,3 +103,33 @@ Inherited from WIP:
 - `GameView.tsx`, `TopLeftPane.tsx`, `TopMenu.tsx` — modified
 
 Complete remaining #99 scope per the plan above.
+
+---
+
+## Resume note — 2026-04-19 v2 re-dispatch
+
+Previous v1 (PR #129) was merged then REVERTED — `TabWindow` had infinite render loop (Maximum update depth exceeded from unstable zustand selectors returning new objects each render).
+
+v2 attempt #1 was cut mid-implementation before completing `TabWindow.tsx`. Partial work lives on **`origin/feat/draggable-tabs-v2-wip`**:
+- `apps/client/src/state/layoutStore.ts` — persistent layout state (review for stable selectors!)
+- `apps/client/src/components/ui/tab-window/` — partial scaffold (may be missing `TabWindow.tsx`, `Tab.tsx`, `FloatingWindow.tsx`)
+- `docs/decisions/0003-window-tab-system.md` — ADR
+
+**First action for this agent:**
+```bash
+git fetch origin
+git checkout -b feat/draggable-tabs-v2 origin/main
+git merge origin/feat/draggable-tabs-v2-wip --no-edit || true
+bun install
+```
+
+Inspect `apps/client/src/components/ui/tab-window/`. If TabWindow.tsx is missing/incomplete, write it. If layoutStore selectors return objects without `shallow`, **fix them** — this was the root cause of the v1 revert.
+
+**Hard requirements (any failure = revert):**
+1. `preview_console_logs level=error` after mount must contain ZERO `Maximum update depth exceeded` entries.
+2. Add `apps/client/src/components/ui/tab-window/TabWindow.test.tsx` that mounts `<TabWindow />` + fails if render count > 5 on initial mount.
+3. Any `useLayoutStore((s) => ({ ... }))` MUST use `shallow` from `zustand/shallow` OR return a primitive.
+4. Any `useEffect` calling `setLayout` MUST have primitive deps (ids, numbers), not the full layout object.
+
+PR branch: `feat/draggable-tabs-v2` (NOT `feat/draggable-tabs` — that was the reverted v1 name).
+PR title: `feat(hud): draggable window+tab system v2 (#99)`
