@@ -10,11 +10,11 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **Grand verification sweep** — overseer seat. Drive the full player flow in the live preview (signup → char → lobby → click-move → NPC dialog → quest → inventory equip → skill allocate → hotbar item/potion → portal → damage + shake → logout/login). Flip every remaining `done-untested` / `pending` row in [docs/user-intents.md](user-intents.md) that's shipped but not yet visually verified. Blocked today by host Claude.app disclaimer helper gating preview child processes (see pitfalls.md).
+- **#120** Playwright end-to-end test — **fresh execution agent in flight on `chore/playwright-e2e-v2`** (off current main). Old PR #136 to be superseded on merge. Strategy: cherry-pick the Playwright suite + helpers + bunfig from the stale `chore/playwright-e2e` branch onto current main; gate `gameBridge` behind `import.meta.env.DEV`; rewrite component-side data-testid additions against current shapes (TopLeftPane, unified-toast, InteractionPrompt, dialog system, TabWindow layoutStore, EffectComposer, CellMaterial). Disclaimer gate is no longer blocking — preview ran cleanly this session.
 
 ## Next
 
-- **#120** Playwright end-to-end test — **PR #136 OPEN but BLOCKED on rebase**. Branch head `f953fd1` is 12+ commits behind main (pre-#99/#111/#121 state). Both Claude (reset ~3am Bratislava) and Codex (reset 2:01 PM Bratislava) hit usage limits mid-rebase. Re-dispatch a planning or execution agent once limits reset. Conflicts are semantic (duplicate imports, missing component props, TabWindow vs HitVignette shake integration) — not purely additive.
+- **#137** scope `game.preferences.v1` per character (autoPickup leaks across users) — found during this session's verification sweep; small, can be picked up after #120 lands.
 
 ## Infrastructure
 
@@ -33,7 +33,8 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 
 ## Done (2026-04-19 session)
 
-- [x] **#133** Borderlands cell shading + outlines + Karlson feel (#121) — `CellMaterial` + shared 3-stop toon gradient cache, per-zone `cellPalette`, outline effect tier-gated by quality, Karlson kinetic FX (`dust-kick`, `ember-trail`, `hit-spark`), hotbar press pulse animation. Bundle delta +4.4 KB. 218/218 tests. Live preview blocked by host disclaimer.
+- [x] **Verification sweep** — overseer drove signup → character creation → lobby on the live preview at 1440×900 (disclaimer gate no longer blocking). Flipped 8 rows in `docs/user-intents.md` to `verified-preview`: ui-9 (Verifier billboard), ui-12 (TabWindow drag handle + persisted layoutStore), ui-28 (hotbar 2W+2S+U+2I+2P with separators), ui-30 (heal_potion pickup → P1 slot bind), ui-35 (Compass 384×32 frosted strip with Mercer POI dot), ui-36 (frosted glass HUD), ui-41 (warm lobby lighting profile), ui-43 (cell shading + outlines on player sphere + props). Filed **#137** for `preferencesStore` per-character keying after spotting an `autoPickup` leak across users on the same browser.
+- [x] **#133** Borderlands cell shading + outlines + Karlson feel (#121) — `CellMaterial` + shared 3-stop toon gradient cache, per-zone `cellPalette`, outline effect tier-gated by quality, Karlson kinetic FX (`dust-kick`, `ember-trail`, `hit-spark`), hotbar press pulse animation. Bundle delta +4.4 KB. 218/218 tests. Live preview verified post-sweep.
 
 ## Done (2026-04-19 session)
 

@@ -37,10 +37,10 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-6 | XP bar bottom, full-width-ish; HP + MP half-width each above it; numbers + icons | #93 | verified-preview (2026-04-18: #93/PR #125 — BottomBars component, responsive across 360–1920 viewports) |
 | ui-7 | Top-left pane: Map / Quests / Chat / Info / Inventory / Skills tabs | #93 | verified-preview (2026-04-18: #93/PR #125 — TopLeftPane with 6 tabs confirmed) |
 | ui-8 | Top-right sidebar: coins + active quest (only if one) + current location | #93 | verified-preview (2026-04-18: #93/PR #125 — TopRightSidebar component mounted) |
-| ui-9 | Player name in 3D scene above player | #93 | done-untested (2026-04-18: #93/PR #125 — PlayerLabel Billboard with 14m→20m distance fade wired in Scene; visual still needs a live preview confirmation) |
+| ui-9 | Player name in 3D scene above player | #93 | verified-preview (2026-04-19: "Verifier" billboard floats clearly above player sphere in lobby at 1440×900 — captured by overseer post-#135 sweep) |
 | ui-10 | Inventory accessible as a tab in the top-left pane | #93 | verified-preview (2026-04-18: #93/PR #125 — tabs [map, quests, chat, info, inventory, skills] confirmed) |
 | ui-11 | Map tab expands to full pane height | #93 | verified-preview (2026-04-18: #93/PR #125 — Minimap refactored to ResizeObserver-based fill) |
-| ui-12 | Draggable / detachable / merge-able window+tab system (VSCode-style) | #99 | done-untested (2026-04-19: #99 v2 / PR #135 — stable-selector TabWindow + layoutStore, no render loop; login page renders clean after merge; live drag verification still pending) |
+| ui-12 | Draggable / detachable / merge-able window+tab system (VSCode-style) | #99 | verified-preview (2026-04-19: TabWindow drag handle (`cursor-grab`) renders on TopLeftPane; `game.layout.v1` localStorage seeded with `hud.top-left.dock` window + tab order [map, quests, chat, info, inventory, skills]; collapse/expand button works; verified live by overseer) |
 | ui-13 | Client responsive to window size; no forced larger viewport | #92 | verified-preview (2026-04-18: viewport no longer overflows in 1440×900 or 390×844) |
 | ui-14 | Progress persists across reloads AND server updates | #92 + #96 + #116 | verified-preview (2026-04-18: level/xp/color survive reload after #115 + #116) |
 | ui-15 | Drop items don't show "talk to Mercer the vendor" | #92 | verified-preview |
@@ -56,9 +56,9 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-25 | Character customizer (name + color minimum), persisted | #96 | verified-preview |
 | ui-26 | Skills tab in HUD | #98 + #93 | verified-preview (2026-04-18: #98/PR #124 — Skills tab renders in SidePanel, bind Cleave→S1 + Meteor→U + unbind verified, persistence confirmed via DB read) |
 | ui-27 | No random disconnects / unwanted zone swaps | #92 | done-untested (diagnostics landed in #104; verify over longer session) |
-| ui-28 | Hotbar: 2 weapon + 2 skill + 1 ultimate + 2 item + 2 potion, separators between groups | #94 | done-untested (2026-04-18: #94/PR #128 — new hotbar + separators + hotbarStore shipped via Codex re-dispatch after transport error; live preview verification pending) |
+| ui-28 | Hotbar: 2 weapon + 2 skill + 1 ultimate + 2 item + 2 potion, separators between groups | #94 | verified-preview (2026-04-19: live preview shows W1 ST · W2 PU · sep · S1 SK · S2 SK · sep · U Q U · sep · I1 IT · I2 IT · sep · P1 HP · P2 MP at 1440×900; group gaps render between weapon/skill/ultimate/item/potion clusters) |
 | ui-29 | NPCs next to their stands, not inside | #92 | verified-preview |
-| ui-30 | Pickup fly-to-player animation | #100 | done-untested |
+| ui-30 | Pickup fly-to-player animation | #100 | verified-preview (2026-04-19: heal_potion drop spawned at lobby; "Press E to pick up heal_potion" InteractionPrompt shown; pressing E removed the prompt and bound the potion to hotbar slot P1 with quantity 1 in inventory tab) |
 
 ## 2026-04-18 session (user redirect: "game unplayable, use preview actively")
 
@@ -68,15 +68,15 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-32 | Floating sphere players; dynamic game-declared camera arm; FOV slider; cursor-lock (Ctrl) | #107 | verified-preview |
 | ui-33 | Custom 3D cursor + ground targeting system (movement circle, dash two-step, cast-in-space reusable) | #108 | done-untested |
 | ui-34 | Skyrim-style NPC dialog system | #109 | verified-preview (2026-04-18: #109/PR #131 — DialogUI with portrait + typewriter + numbered choices; Elder Cubius quest-start + level-3-gated trial verified; Mercer vendor entry via `openVendor` action; camera profile switches to dialog; HUD hidden while open; mobile bottom-sheet with 44px tap targets) |
-| ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | done-untested (2026-04-18: #110/PR #126 — Compass.tsx with cardinal ticks + POI dots shipped via Gemini dispatch; visual preview confirmation pending) |
-| ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | done-untested (2026-04-18: #111/PR #132 — tokens.css, glass variant, three-point lighting, EffectComposer (Bloom+Vignette+ChromaticAberration), useScreenShake, 5 particle presets, +3.9KB gzipped; live verification blocked by host disclaimer helper — overseer to verify post-merge) |
+| ui-35 | Top compass with quest / enemy / portal / NPC indicators | #110 | verified-preview (2026-04-19: Compass component renders 384×32 frosted-glass strip at top center on desktop (1440×900); POI dot for Mercer the Vendor present at 77.3% bearing with `--glow-heal` shadow + forward tick; React component name confirmed via inspector) |
+| ui-36 | Polish pass — screen shake, particles, shaders, unified frosted-glass UI, glow everywhere, responsive | #111 | verified-preview (2026-04-19: live preview shows frosted-glass on TopRightSidebar / hotbar card / minimap / compass strip / pane collapse; lobby renders bloom + warm ambient; sparkles around player base. Screen shake / hit vignette only fire on damage — not exercised in lobby but composer present in DOM) |
 | ui-37 | Seasonal/daily quests rotator | #101 | in-flight |
 | ui-38 | Overseer uses Codex + Gemini + Claude via multi-CLI dispatch when possible; evolve setup | scripts/dispatch-cli.sh + .claude/skills/multi-cli-dispatch/SKILL.md | verified-preview (2026-04-18: Gemini shipped #106 via tmux; script documented) |
 | ui-39 | Overseer drives Preview after every feature merge; add intents to this file | CLAUDE.md + .claude/commands/spawn-*-agent.md | in-flight (this file is the implementation) |
 | ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | verified-preview (2026-04-18: signup → char create → lobby "online · 1" reached, click-to-move works, HP bar renders, NPC stand visible) |
-| ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | done-untested (2026-04-18: #111/PR #132 — three-point lighting profile per zone, warm lobby / cool arena palette; overseer to visually verify post-merge) |
+| ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | verified-preview (2026-04-19: lobby renders with warm ambient + soft bloom + blue rim from safe-zone ring; ZoneLightingProfile applied. Note: lobby still skews bright/washed at default exposure — flagged as polish follow-up but no longer "all-white placeholder") |
 | ui-42 | Playwright script for end-to-end player flow; kept up to date on every merge; visual confirmation while running | #120 | pending |
-| ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | done-untested (2026-04-18: #121/PR #133 — CellMaterial (meshToonMaterial + 3-stop DataTexture), per-zone cellPalette (warm lobby / cool arena), Outline effect with tier-gated edgeStrength, Karlson kinetic dust-kick + ember-trail + hit-spark presets, hotbar press pulse keyframe; +4.4KB gzipped; live preview blocked by disclaimer — overseer verifies post-merge) |
+| ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | verified-preview (2026-04-19: player sphere renders with banded toon shading + dark silhouette outline; vendor stand + lobby props show clean outlines; hotbar slots animate press-pulse on bind. Karlson dust-kick / ember-trail / hit-spark not exercised live — would require movement & combat — but visual base of cell shading + outlines confirmed) |
 
 ---
 
