@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { isCharacterConnected } from "../adminCommands";
 import { createCharacter, listCharacters, softDeleteCharacter } from "../db/character";
 import { log } from "../logger";
 import { requireAuth } from "../middleware/auth";
@@ -53,9 +54,15 @@ router.delete("/:id", requireAuth(), async (req, res) => {
     return;
   }
   try {
-    // TODO: check if character is currently in-game if we want to follow the plan strictly.
-    // For now, soft-delete is enough.
-    await softDeleteCharacter(characterId, req.user!.id);
+    if (await isCharacterConnected(characterId)) {
+      res.status(409).json({ error: "character is currently in-game" });
+      return;
+    }
+    const deleted = await softDeleteCharacter(characterId, req.user!.id);
+    if (!deleted) {
+      res.status(404).json({ error: "character not found" });
+      return;
+    }
     res.json({ ok: true });
   } catch (err) {
     log.error({ err, userId: req.user?.id, characterId }, "failed to delete character");

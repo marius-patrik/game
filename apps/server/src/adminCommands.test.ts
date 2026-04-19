@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { revokeUserSessions } from "./adminCommands";
+import { isCharacterConnected, revokeUserSessions } from "./adminCommands";
 import * as schema from "./db/schema";
 
 function makeDb() {
@@ -58,5 +58,42 @@ describe("revokeUserSessions", () => {
     expect(removed).toBe(0);
     const remaining = db.$client.query("SELECT id FROM session").all();
     expect(remaining).toHaveLength(3);
+  });
+});
+
+describe("isCharacterConnected", () => {
+  test("returns true when any live zone has the character active", async () => {
+    const calls: string[] = [];
+    const connected = await isCharacterConnected("c_live", {
+      async query(filter) {
+        expect(filter).toEqual({ name: "zone" });
+        return [{ roomId: "room-a" }, { roomId: "room-b" }];
+      },
+      async remoteRoomCall(roomId, method, args) {
+        calls.push(roomId);
+        expect(method).toBe("_hasCharacter");
+        expect(args).toEqual(["c_live"]);
+        return roomId === "room-b";
+      },
+    });
+
+    expect(connected).toBe(true);
+    expect(calls).toEqual(["room-a", "room-b"]);
+  });
+
+  test("returns false when no live zone has the character active", async () => {
+    const connected = await isCharacterConnected("c_offline", {
+      async query() {
+        return [{ roomId: "room-a" }];
+      },
+      async remoteRoomCall(roomId, method, args) {
+        expect(roomId).toBe("room-a");
+        expect(method).toBe("_hasCharacter");
+        expect(args).toEqual(["c_offline"]);
+        return false;
+      },
+    });
+
+    expect(connected).toBe(false);
   });
 });

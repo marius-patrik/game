@@ -7,7 +7,7 @@ import {
   Vignette,
 } from "@react-three/postprocessing";
 import { BlendFunction, KernelSize } from "postprocessing";
-import { Fragment, type ReactElement, useEffect, useMemo, useState } from "react";
+import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { Color, Vector2 } from "three";
 import { useQuality } from "@/assets";
 import { useRoom } from "@/net/useRoom";
@@ -108,11 +108,7 @@ export function PostProcessing({
   }
   effects.push(<Vignette key="vignette" eskil={false} offset={0.2} darkness={0.55} />);
 
-  return (
-    <EffectComposer multisampling={0}>
-      <Fragment>{effects}</Fragment>
-    </EffectComposer>
-  );
+  return <EffectComposer multisampling={0}>{effects}</EffectComposer>;
 }
 
 const lastHpRef: { v: number | undefined } = { v: undefined };

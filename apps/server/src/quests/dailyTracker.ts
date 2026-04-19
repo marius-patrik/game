@@ -1,4 +1,4 @@
-import { QUEST_CATALOG, type QuestDef } from "@game/shared/quests";
+import type { QuestDef } from "@game/shared/quests";
 import { type Player, QuestProgress } from "@game/shared/schema";
 import { loadDailyProgress, saveDailyProgress } from "../db/character";
 import { getActiveDailyQuests, getTodayUTC } from "./dailyRotator";
@@ -44,7 +44,7 @@ export class DailyQuestTracker {
     }
   }
 
-  onMobKilled(p: Player, mobKind: string) {
+  onMobKilled(p: Player, _mobKind: string) {
     this.updateToday();
     const rewards: { xp: number; gold: number; questId: string }[] = [];
     for (const def of this.activeDailies) {

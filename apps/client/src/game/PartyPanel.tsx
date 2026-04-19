@@ -15,7 +15,7 @@ export function PartyPanel({
   sessionId?: string;
 }) {
   const self = sessionId ? players.get(sessionId) : undefined;
-  if (!self || !self.partyId) return null;
+  if (!self?.partyId) return null;
 
   const members: PlayerSnapshot[] = [];
   for (const p of players.values()) {

@@ -10,16 +10,21 @@ Agents spawned via the Agent tool don't see slash commands. They see only the pr
 ## Minimal dispatch prompt template
 
 ```
-You are a <role> execution agent for the marius-patrik/game repo at /Users/user/Documents/projects/game.
+You are a <role> agent for the marius-patrik/game repo.
+Your assigned checkout is: <path-to-worktree-or-checkout>.
 
 ## Bootstrap
-Read /Users/user/Documents/projects/game/.claude/commands/spawn-<role>-agent.md and follow it. That file has your full role brief, required reading list, and execution flow.
+Read <path-to-worktree-or-checkout>/.claude/commands/spawn-<role>-agent.md and follow it. That file has your full role brief, required reading list, and execution flow.
 
 ## Assignment
 - Issue: #<N>
 - Branch: <feat|fix|chore>/<slug>
 - Plan: docs/plans/<N>-<slug>.md (read this first — it has the chosen approach, file impact, and acceptance mapping)
 - Preconditions: <none | "X already installed", etc.>
+
+## Guardrails
+- Work only inside <path-to-worktree-or-checkout>.
+- Do not read from or write to the primary checkout when a worktree was assigned.
 
 ## Return
 When the PR is open and CI is green:
@@ -39,11 +44,10 @@ Do NOT merge the PR. The overseer merges.
 
 ## Choosing a role
 
-- New file is mostly under `apps/client/`? → `frontend`
-- New file is mostly under `apps/server/` or `packages/shared/`? → `backend`
-- Cuts across both? → `execution` (generalist)
-- It's design / planning, not code? → `architect`
-- It's review of an existing PR? → `reviewer`
+- Shipping code across client/server/shared? → `execution`
+- Design / scoping / ADR work before code? → `planning`
+- Critique of an open PR against the plan? → `review`
+- Orchestrating multiple issues / workstreams? → `overseer`
 
 ## Convenience script
 

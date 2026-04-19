@@ -4,8 +4,17 @@ import { db as defaultDb } from "./db/client";
 import { session as sessionTable } from "./db/schema";
 
 type DB = typeof defaultDb;
+type MatchMakerRoom = { roomId: string };
+type MatchMakerLike = {
+  query(filter: { name: string }): Promise<MatchMakerRoom[]>;
+  remoteRoomCall(roomId: string, method: string, args: unknown[]): Promise<unknown>;
+};
 
 const DEFAULT_MUTE_DURATION_MS = 900_000;
+const liveMatchMaker: MatchMakerLike = {
+  query: (filter) => matchMaker.query(filter),
+  remoteRoomCall: (roomId, method, args) => matchMaker.remoteRoomCall(roomId, method, args),
+};
 
 export type AdminCommandResult = { ok: true; roomId: string } | { ok: false; reason: "not_found" };
 
@@ -44,6 +53,18 @@ export async function resolveUserIdForSession(sessionId: string): Promise<string
     | string
     | undefined;
   return userId;
+}
+
+export async function isCharacterConnected(
+  characterId: string,
+  roomApi: MatchMakerLike = liveMatchMaker,
+): Promise<boolean> {
+  const rooms = await roomApi.query({ name: "zone" });
+  for (const room of rooms) {
+    const found = await roomApi.remoteRoomCall(room.roomId, "_hasCharacter", [characterId]);
+    if (found === true) return true;
+  }
+  return false;
 }
 
 export async function revokeUserSessions(userId: string, db: DB = defaultDb): Promise<number> {

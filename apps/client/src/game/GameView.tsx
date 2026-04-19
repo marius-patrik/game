@@ -11,7 +11,7 @@ import { Canvas } from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
-import { emitFxEvent, triggerScreenShake, useScreenShakeDom } from "@/game/fx";
+import { emitFxEvent, useScreenShakeDom } from "@/game/fx";
 import { GAME_PALETTE } from "@/game/gamePalette";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";

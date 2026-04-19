@@ -14,7 +14,8 @@ Canonical flow for landing a feature in this repo. Each step is mandatory unless
 
 ## 2. Branch
 ```bash
-cd /Users/user/Documents/projects/game
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
 git checkout main && git pull
 git checkout -b feat/<short-name>
 ```
@@ -30,6 +31,7 @@ Invoke the `preflight` skill. It runs:
 ```bash
 bun run check:fix
 bun run typecheck
+bun test
 ```
 Both must be clean.
 

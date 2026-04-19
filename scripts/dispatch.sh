@@ -2,7 +2,7 @@
 # Print a self-contained dispatch prompt for an execution agent.
 #
 # Usage: ./scripts/dispatch.sh <role> <issue#> <branch> [preconditions]
-#   role:   execution | frontend | backend | reviewer | architect
+#   role:   overseer | execution | planning | review
 #   issue:  numeric (e.g. 16)
 #   branch: e.g. feat/log-rotation
 set -euo pipefail
@@ -26,7 +26,8 @@ if [ -z "$PLAN" ]; then
 fi
 
 cat <<EOF
-You are a ${ROLE} execution agent for the marius-patrik/game repo at ${REPO}.
+You are a ${ROLE} agent for the marius-patrik/game repo.
+Your assigned checkout is ${REPO}.
 
 ## Bootstrap
 Read ${REPO}/${ROLE_FILE} and follow it. That file has your full role brief, required reading, and execution flow.
