@@ -37,6 +37,7 @@ function SellItemSlot({
     <button
       type="button"
       title={tooltip}
+      data-item-id={itemId}
       onClick={(e) => {
         if (e.shiftKey) {
           onSell(qty);
@@ -106,6 +107,7 @@ export function VendorPanel({
                   <div
                     key={id}
                     className="flex items-center justify-between gap-2 rounded-md border border-border/40 bg-muted/30 px-2 py-1.5 text-sm"
+                    data-item-id={id}
                   >
                     <div className="min-w-0">
                       <div className="truncate font-medium">{def.name}</div>

@@ -4,6 +4,16 @@ import { character, characterDailyProgress, characterInventory, characterProgres
 
 type DB = typeof defaultDb;
 
+const E2E_CHARACTER_START_GOLD_ENV = "GAME_E2E_CHARACTER_START_GOLD";
+
+function getE2ECharacterStartGold(): number | undefined {
+  const raw = process.env[E2E_CHARACTER_START_GOLD_ENV];
+  if (!raw) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return parsed;
+}
+
 export type CharacterRow = {
   id: string;
   userId: string;
@@ -123,6 +133,7 @@ export async function createCharacter(
 ): Promise<CharacterRow> {
   const id = `c_${crypto.randomUUID().replace(/-/g, "").substring(0, 16)}`;
   const now = new Date();
+  const startGold = getE2ECharacterStartGold();
   const charRow = {
     id,
     userId: input.userId,
@@ -137,6 +148,7 @@ export async function createCharacter(
     await tx.insert(character).values(charRow);
     await tx.insert(characterProgress).values({
       characterId: id,
+      ...(startGold !== undefined ? { gold: startGold } : {}),
       updatedAt: now,
     });
   });

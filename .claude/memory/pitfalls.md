@@ -6,6 +6,12 @@ type: project
 
 # Pitfalls
 
+## `useRoom()` must stay single-owner in the React tree
+`useRoom()` owns a live Colyseus connection. Mounting it in both `GameView` and a child HUD component (we hit this with `Compass`) creates a hidden second room session for the same character. The stale session can keep persisting default lobby progress and overwrite the real session's level/gear on logout. Fix pattern from #120: call `useRoom()` once at the screen root, then pass `room` / `self` down as props. Symptom: DB briefly shows the correct upgraded state, but relogin restores level 1 / starter loadout.
+
+## Plain `bun test` will try to execute Playwright `*.spec.ts`
+Bun's test discovery matches `*.spec.ts` by default, so a Playwright file like `apps/client/e2e/full-flow.spec.ts` is picked up by plain `bun test` and crashes with `Playwright Test did not expect test() to be called here.` Fix pattern from #120: keep Playwright running through `bun run test:e2e`, and add `bunfig.toml` with `[test].pathIgnorePatterns = ["**/e2e/**"]` so root preflight `bun test` only runs Bun/Jest-style suites.
+
 ## `Room<GameRoomState>` does NOT auto-initialize `this.state`
 Colyseus `Room` is agnostic about state shape. If `onCreate` doesn't call `this.setState(new GameRoomState())`, `this.state` is undefined and anything reading it throws `TypeError: undefined is not an object`. Every matchmake `joinOrCreate` returns a 500 and the client stays on "offline". Fix pattern from #116: value-import `GameRoomState` (not `type`-only) and call `this.setState(new GameRoomState())` as the first statement in `onCreate`, before any system wiring. The symptom looks like a client/networking bug but is always a server init bug.
 

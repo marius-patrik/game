@@ -67,3 +67,7 @@ Overseer invokes the `update-work` skill. Strike-through the item and add it to 
 ## 11. Update plan retro + memory
 - Fill the **Retro** section of `docs/plans/<issue>-<slug>.md` and set Status to `shipped`.
 - If you discovered a non-obvious gotcha, append to [.claude/memory/pitfalls.md](../../memory/pitfalls.md).
+
+## 12. Keep The Playwright Flow Current
+- If your PR changes the core player journey, update `apps/client/e2e/full-flow.spec.ts` and the relevant helper under `apps/client/e2e/helpers/`.
+- Treat the scripted flow as part of the acceptance surface, not optional follow-up.

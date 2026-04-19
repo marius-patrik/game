@@ -92,11 +92,13 @@ export function CharacterNew() {
                   <button
                     key={c}
                     type="button"
+                    aria-label={`Choose character color ${c}`}
                     className={`h-10 w-full rounded-md border-2 transition-all ${
                       color === c ? "border-primary scale-110" : "border-transparent opacity-80"
                     }`}
                     style={{ backgroundColor: c }}
                     onClick={() => setColor(c)}
+                    data-color={c}
                   />
                 ))}
               </div>

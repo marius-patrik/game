@@ -99,6 +99,7 @@ type UnbindSkillMessage = { slot: SkillSlot };
 type BuyMessage = { itemId: string; qty?: number };
 type SellMessage = { itemId: string; qty?: number };
 type TurnInQuestMessage = { questId: string };
+type SyncProgressMessage = { requestId?: string };
 type JoinOptions = { token?: string; zoneId?: string; characterId?: string };
 
 const SKILL_POINTS_PER_LEVEL = 1;
@@ -117,6 +118,7 @@ const SELL_FRACTION = 0.4;
 const PARTY_SHARE_RADIUS = 10;
 const PARTY_SHARE_RADIUS_SQ = PARTY_SHARE_RADIUS * PARTY_SHARE_RADIUS;
 const PARTY_XP_SHARE_FRACTION = 0.6;
+const QUEUED_PROGRESS_SAVE_MS = 250;
 
 function stripControlChars(input: string): string {
   let out = "";
@@ -150,6 +152,8 @@ export class GameRoom extends Room<GameRoomState> {
   private hazardSystem!: HazardSystem;
   private muteUntil = new Map<string, number>();
   private partyManager = new PartyManager();
+  private pendingProgressSave = new Map<string, ReturnType<typeof setTimeout>>();
+  private progressSaveChain = new Map<string, Promise<void>>();
 
   override async onAuth(_client: Client, options: JoinOptions, ctx: AuthContext) {
     const headers = new Headers();
@@ -204,6 +208,9 @@ export class GameRoom extends Room<GameRoomState> {
     this.onMessage<TurnInQuestMessage>("turnInQuest", (client, msg) =>
       this.handleTurnInQuest(client, msg),
     );
+    this.onMessage<SyncProgressMessage>("sync-progress", (client, msg) => {
+      void this.handleSyncProgress(client, msg);
+    });
 
     this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
     this.saveInterval = setInterval(() => this.flushAllProgress(), SAVE_INTERVAL_MS);
@@ -293,6 +300,7 @@ export class GameRoom extends Room<GameRoomState> {
       log.warn({ err, characterId, zoneId: this.zone.id }, "failed to load player location");
     }
 
+    let progressTouched = false;
     if (progress) {
       p.level = progress.level;
       p.xp = progress.xp;
@@ -324,6 +332,7 @@ export class GameRoom extends Room<GameRoomState> {
     for (const r of exploreRewards) {
       this.awardXp(p, r.xp);
       client.send("quest-complete", { questId: r.questId, isDaily: true });
+      progressTouched = true;
     }
 
     for (const row of inventory) {
@@ -345,10 +354,14 @@ export class GameRoom extends Room<GameRoomState> {
     if (!p.quests.has(FIRST_QUEST_ID) && this.zone.id === "lobby") {
       // auto-accept first quest to simplify onboarding
       const def = getQuest(FIRST_QUEST_ID);
-      if (def) this.grantQuest(p, def.id);
+      if (def) {
+        this.grantQuest(p, def.id);
+        progressTouched = true;
+      }
     }
 
     this.state.players.set(client.sessionId, p);
+    if (progressTouched) this.scheduleProgressSave(client.sessionId);
     this.playerSec.set(client.sessionId, {
       lastPos: { x: p.x, y: p.y, z: p.z },
       lastMoveAt: Date.now(),
@@ -380,6 +393,7 @@ export class GameRoom extends Room<GameRoomState> {
   }
 
   override async onLeave(client: Client<unknown, SessionUser>) {
+    this.clearQueuedProgressSave(client.sessionId);
     const p = this.state.players.get(client.sessionId);
     const charId = this.playerCharacterId.get(client.sessionId);
     if (p && charId) {
@@ -415,6 +429,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.violations.forget(client.sessionId);
     this.mobSystem?.onPlayerLeave(client.sessionId);
     this.muteUntil.delete(client.sessionId);
+    this.progressSaveChain.delete(client.sessionId);
   }
 
   override async onDispose() {
@@ -606,6 +621,7 @@ export class GameRoom extends Room<GameRoomState> {
     p.skillsEquipped = this.buildSkillsEquipped(result.nextNormal);
     p.ultimateSkill = result.nextUltimate;
     p.skillPoints = Math.max(0, p.skillPoints - result.pointsSpent);
+    this.scheduleProgressSave(client.sessionId);
     client.send("skill-ok", { skillId: result.skill.id, slot: result.slot });
   }
 
@@ -624,6 +640,7 @@ export class GameRoom extends Room<GameRoomState> {
     }
     p.skillsEquipped = this.buildSkillsEquipped(result.nextNormal);
     p.ultimateSkill = result.nextUltimate;
+    this.scheduleProgressSave(client.sessionId);
     client.send("skill-ok", { skillId: "", slot: result.slot });
   }
 
@@ -926,6 +943,7 @@ export class GameRoom extends Room<GameRoomState> {
     // overshooting the new cap.
     if (p.maxHp > prevMaxHp) p.hp = Math.min(p.maxHp, p.hp + (p.maxHp - prevMaxHp));
     if (p.maxMana > prevMaxMana) p.mana = Math.min(p.maxMana, p.mana + (p.maxMana - prevMaxMana));
+    this.scheduleProgressSave(client.sessionId);
   }
 
   // ---------- Equipment slots ----------
@@ -960,6 +978,7 @@ export class GameRoom extends Room<GameRoomState> {
     p.equipment.set(slot, itemId);
     if (slot === "weapon") p.equippedItemId = itemId;
     this.recomputeDerivedStats(p);
+    this.scheduleProgressSave(client.sessionId);
     client.send("equip-ok", { slot, itemId });
   }
 
@@ -974,6 +993,7 @@ export class GameRoom extends Room<GameRoomState> {
     p.equipment.delete(slot);
     if (slot === "weapon") p.equippedItemId = "";
     this.recomputeDerivedStats(p);
+    this.scheduleProgressSave(client.sessionId);
     client.send("equip-ok", { slot, itemId: "" });
   }
 
@@ -1015,6 +1035,7 @@ export class GameRoom extends Room<GameRoomState> {
     }
     p.gold -= totalCost;
     this.writeSlotsToPlayer(p, add.slots);
+    this.scheduleProgressSave(client.sessionId);
     client.send("vendor-ok", { action: "buy", itemId, qty: add.added, gold: p.gold });
   }
 
@@ -1041,6 +1062,7 @@ export class GameRoom extends Room<GameRoomState> {
     }
     const sellPrice = Math.max(1, Math.floor(def.price * SELL_FRACTION));
     p.gold += sellPrice * qty;
+    this.scheduleProgressSave(client.sessionId);
     client.send("vendor-ok", { action: "sell", itemId, qty, gold: p.gold });
   }
 
@@ -1078,6 +1100,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (questId === FIRST_QUEST_ID && !p.quests.has("arena-initiate")) {
       this.grantQuest(p, "arena-initiate");
     }
+    this.scheduleProgressSave(client.sessionId);
     client.send("quest-complete", { questId });
   }
 
@@ -1110,6 +1133,7 @@ export class GameRoom extends Room<GameRoomState> {
     }
 
     client.send("pickup", { itemId: drop.itemId, qty: result.added });
+    this.scheduleProgressSave(client.sessionId);
   }
 
   private handleUse(client: Client<unknown, SessionUser>, msg: UseMessage) {
@@ -1126,6 +1150,7 @@ export class GameRoom extends Room<GameRoomState> {
     this.writeSlotsToPlayer(p, result.slots);
     if (def.healAmount) p.hp = Math.min(p.maxHp, p.hp + def.healAmount);
     if (def.manaAmount) p.mana = Math.min(p.maxMana, p.mana + def.manaAmount);
+    this.scheduleProgressSave(client.sessionId);
     client.send("used", { itemId, hp: p.hp, mana: p.mana });
   }
 
@@ -1146,6 +1171,7 @@ export class GameRoom extends Room<GameRoomState> {
     p.equippedItemId = itemId;
     p.equipment.set("weapon", itemId);
     this.recomputeDerivedStats(p);
+    this.scheduleProgressSave(client.sessionId);
   }
 
   private handleDrop(client: Client<unknown, SessionUser>, msg: DropMessage) {
@@ -1161,6 +1187,7 @@ export class GameRoom extends Room<GameRoomState> {
       p.equippedItemId = "";
     }
     this.spawnDrop(itemId as ItemId, qty, { x: p.x, y: p.y, z: p.z });
+    this.scheduleProgressSave(client.sessionId);
   }
 
   // ---------- Mob kill callbacks ----------
@@ -1210,6 +1237,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (kind === "boss") {
       this.spawnDrop("soul", 1, { x: p.x, y: p.y, z: p.z });
     }
+    this.scheduleProgressSave(p.id);
   }
 
   private removeFromParty(sessionId: string) {
@@ -1356,6 +1384,42 @@ export class GameRoom extends Room<GameRoomState> {
     await Promise.all(saves);
   }
 
+  private clearQueuedProgressSave(sessionId: string) {
+    const timeout = this.pendingProgressSave.get(sessionId);
+    if (!timeout) return;
+    clearTimeout(timeout);
+    this.pendingProgressSave.delete(sessionId);
+  }
+
+  private scheduleProgressSave(sessionId: string) {
+    this.clearQueuedProgressSave(sessionId);
+    const timeout = setTimeout(() => {
+      this.pendingProgressSave.delete(sessionId);
+      void this.flushProgressForSession(sessionId);
+    }, QUEUED_PROGRESS_SAVE_MS);
+    this.pendingProgressSave.set(sessionId, timeout);
+  }
+
+  private async flushProgressForSession(sessionId: string) {
+    const previous = this.progressSaveChain.get(sessionId) ?? Promise.resolve();
+    const next = previous
+      .catch(() => {})
+      .then(async () => {
+        const p = this.state.players.get(sessionId);
+        const charId = this.playerCharacterId.get(sessionId);
+        if (!p || !charId) return;
+        await this.persistProgress(charId, p);
+      });
+    this.progressSaveChain.set(sessionId, next);
+    try {
+      await next;
+    } finally {
+      if (this.progressSaveChain.get(sessionId) === next) {
+        this.progressSaveChain.delete(sessionId);
+      }
+    }
+  }
+
   private async persistProgress(characterId: string, p: Player) {
     const equip: Record<string, string> = {};
     for (const [slot, itemId] of p.equipment) {
@@ -1394,6 +1458,28 @@ export class GameRoom extends Room<GameRoomState> {
       inventory: this.slotsFromPlayer(p),
     });
     await dailyTracker.persistPlayerDailies(characterId, p);
+  }
+
+  private async handleSyncProgress(client: Client<unknown, SessionUser>, msg: SyncProgressMessage) {
+    const requestId = typeof msg?.requestId === "string" ? msg.requestId : "";
+    if (!requestId) return;
+    const p = this.state.players.get(client.sessionId);
+    const charId = this.playerCharacterId.get(client.sessionId);
+    if (!p || !charId) {
+      client.send("progress-synced", { requestId, ok: false });
+      return;
+    }
+    try {
+      await savePlayerLocation(charId, this.zone.id, { x: p.x, y: p.y, z: p.z });
+      await this.flushProgressForSession(client.sessionId);
+      client.send("progress-synced", { requestId, ok: true });
+    } catch (err) {
+      log.warn(
+        { err, characterId: charId, zoneId: this.zone.id },
+        "failed to sync player progress before leave",
+      );
+      client.send("progress-synced", { requestId, ok: false });
+    }
   }
 
   private parseSkillsEquipped(json: string): ArraySchema<string> {

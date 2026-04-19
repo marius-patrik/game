@@ -35,12 +35,14 @@ export function TopMenu({
   zoneId,
   onTravel,
   onOpenSettings,
+  onSignOut,
 }: {
   status: Status;
   playerCount: number;
   zoneId: ZoneId;
   onTravel: (zoneId: ZoneId) => void;
   onOpenSettings: () => void;
+  onSignOut: () => Promise<void>;
 }) {
   const { data: session } = useSession();
   const isAdmin = ((session?.user as { role?: string } | undefined)?.role ?? "player") === "admin";
@@ -50,6 +52,7 @@ export function TopMenu({
 
   async function doSignOut() {
     setSigningOut(true);
+    await onSignOut();
     await signOut();
     tokenStore.clear();
     setSigningOut(false);

@@ -12,6 +12,11 @@ import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { QualityProvider, type QualityTier, useQuality } from "@/assets";
 import { CinematicGate } from "@/cinematic";
+import {
+  clearGameE2ESnapshot,
+  publishGameE2ESnapshot,
+  setGameE2EMoveSender,
+} from "@/e2e/gameBridge";
 import type { DropSnapshot, NpcSnapshot } from "@/net/useRoom";
 import { useRoom } from "@/net/useRoom";
 import { usePreferencesStore } from "@/state/preferencesStore";
@@ -339,6 +344,40 @@ function GameViewInner({
 
   const readyToTurnIn = Boolean(self?.quests.some((q) => q.status === "complete"));
   const canTurnIn = nearestNpc?.kind === "questgiver" && readyToTurnIn;
+  const e2eSnapshotOwnerIdRef = useRef(`game-view-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    publishGameE2ESnapshot({
+      ownerId: e2eSnapshotOwnerIdRef.current,
+      status: room.status,
+      error: room.error,
+      zoneId: room.zoneId,
+      sessionId: room.sessionId,
+      self,
+      players: room.players,
+      mobs: room.mobs,
+      npcs: room.npcs,
+      drops: room.drops,
+      hazards: room.hazards,
+    });
+    return () => clearGameE2ESnapshot(e2eSnapshotOwnerIdRef.current);
+  }, [
+    room.status,
+    room.error,
+    room.zoneId,
+    room.sessionId,
+    self,
+    room.players,
+    room.mobs,
+    room.npcs,
+    room.drops,
+    room.hazards,
+  ]);
+
+  useEffect(() => {
+    setGameE2EMoveSender((point) => onMove({ x: point.x, y: 0, z: point.z }));
+    return () => setGameE2EMoveSender(null);
+  }, [onMove]);
 
   return (
     <div className="relative h-full w-full" style={{ background: bg }}>
@@ -386,7 +425,7 @@ function GameViewInner({
 
       {!cinematicActive && room.sessionId ? (
         <>
-          <Compass cinematicActive={cinematicActive} />
+          <Compass cinematicActive={cinematicActive} room={room} self={self} />
           <TopLeftPane
             zoneId={room.zoneId}
             players={room.players}
@@ -418,6 +457,7 @@ function GameViewInner({
               zoneId={room.zoneId}
               onTravel={room.travel}
               onOpenSettings={() => setSettingsOpen(true)}
+              onSignOut={room.leave}
             />
           </div>
           <PartyPanel players={room.players} sessionId={room.sessionId} />

@@ -1,25 +1,32 @@
 import { QUEST_CATALOG, ZONES } from "@game/shared";
-import { ChevronUp, Circle, MapPin, Target, User } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { type MobSnapshot, useRoom } from "@/net/useRoom";
+import { ChevronUp, Circle, Target } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { MobSnapshot, PlayerSnapshot, RoomState } from "@/net/useRoom";
 import { peekCameraYaw } from "@/state/cameraStore";
 import { usePreferencesStore } from "@/state/preferencesStore";
 import {
   angleToScreenX,
   bearingFromTo,
   distanceXZ,
-  normalizeAngle,
   type POI,
   type Vec3,
 } from "./compass/computeBearings";
 
 const MAX_POI_DISTANCE = 40;
-const COMPASS_FOV_DEG = 90;
 
-export function Compass({ cinematicActive }: { cinematicActive?: boolean }) {
-  const room = useRoom();
+type CompassRoom = Pick<RoomState, "mobs" | "npcs" | "zoneId">;
+
+export function Compass({
+  cinematicActive,
+  room,
+  self,
+}: {
+  cinematicActive?: boolean;
+  room: CompassRoom;
+  self: PlayerSnapshot | undefined;
+}) {
   const fov = usePreferencesStore((s) => s.fov);
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
 
   // Throttled update at ~30Hz
   useEffect(() => {
@@ -28,8 +35,6 @@ export function Compass({ cinematicActive }: { cinematicActive?: boolean }) {
   }, []);
 
   if (cinematicActive) return null;
-
-  const self = room.sessionId ? room.players.get(room.sessionId) : undefined;
   if (!self) return null;
 
   const facing = -peekCameraYaw(); // bearing = -yaw

@@ -74,6 +74,7 @@ function makeDb() {
 describe("character repo", () => {
   let db: ReturnType<typeof makeDb>;
   beforeEach(() => {
+    delete process.env.GAME_E2E_CHARACTER_START_GOLD;
     db = makeDb();
   });
 
@@ -118,5 +119,14 @@ describe("character repo", () => {
     expect(loaded.inventory).toHaveLength(1);
     expect(loaded.inventory[0]!.itemId).toBe("potion");
     expect(loaded.character!.lastPlayedAt.getTime()).toBe(1000);
+  });
+
+  test("applies e2e character start gold when configured", async () => {
+    process.env.GAME_E2E_CHARACTER_START_GOLD = "20";
+
+    const c1 = await createCharacter({ userId: "u1", name: "Hero", color: "#ff0000" }, db);
+    const loaded = await loadCharacter(c1.id, db);
+
+    expect(loaded.progress!.gold).toBe(20);
   });
 });

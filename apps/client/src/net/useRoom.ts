@@ -23,7 +23,7 @@ import {
   type ZoneId,
 } from "@game/shared";
 import { getStateCallbacks, type Room } from "colyseus.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { notify } from "@/components/ui/unified-toast";
 import { useCharacterStore } from "@/state/characterStore";
 import { joinZone } from "./room";
@@ -193,6 +193,7 @@ export type RoomState = {
     (type: "turnInQuest", payload: { questId: string }): void;
   };
   travel: (zoneId: ZoneId) => void;
+  leave: () => Promise<void>;
 };
 
 function snapPlayer(p: Player, key: string): PlayerSnapshot {
@@ -319,32 +320,57 @@ export function useRoom(): RoomState {
     zoneId: DEFAULT_ZONE,
     send: (() => {}) as RoomState["send"],
     travel: () => {},
+    leave: async () => {},
   }));
   const roomRef = useRef<Room<GameRoomState> | undefined>(undefined);
+  const syncRoomProgressRef = useRef<(room: Room<GameRoomState>) => Promise<void>>(async () => {});
   const zoneSwitchingRef = useRef(false);
+  const connectAttemptRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
     let room: Room<GameRoomState> | undefined;
+    const attemptId = ++connectAttemptRef.current;
 
     setState((s) => ({ ...s, status: "connecting", zoneId }));
 
     const travel = (next: ZoneId) => {
       if (next === zoneId) return;
       zoneSwitchingRef.current = true;
-      console.info("[game] zone travel requested", { from: zoneId, to: next });
-      setZoneId(next);
+      const active = roomRef.current;
+      roomRef.current = undefined;
+      void (async () => {
+        if (active) {
+          try {
+            await syncRoomProgressRef.current(active);
+          } catch (err) {
+            console.warn("[game] progress sync failed before travel", {
+              zoneId,
+              next,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+          try {
+            await active.leave();
+          } catch {}
+        }
+        console.info("[game] zone travel requested", { from: zoneId, to: next });
+        setZoneId(next);
+      })();
     };
 
     (async () => {
       try {
         console.info("[game] joining zone", { zoneId, characterId: selectedCharacterId });
-        room = await joinZone(zoneId, selectedCharacterId ?? undefined);
-        roomRef.current = room;
-        if (cancelled) {
-          room.leave();
+        const joinedRoom = await joinZone(zoneId, selectedCharacterId ?? undefined);
+        if (cancelled || attemptId !== connectAttemptRef.current) {
+          try {
+            await joinedRoom.leave();
+          } catch {}
           return;
         }
+        room = joinedRoom;
+        roomRef.current = joinedRoom;
 
         const players = new Map<string, PlayerSnapshot>();
         const drops = new Map<string, DropSnapshot>();
@@ -361,6 +387,35 @@ export function useRoom(): RoomState {
         let lastAbility: AbilityCastEvent | undefined;
         let lastTelegraph: BossTelegraphEvent | undefined;
         let lastDied: DiedEvent | undefined;
+        const pendingSyncs = new Map<
+          string,
+          {
+            resolve: () => void;
+            reject: (error: Error) => void;
+            timeoutId: ReturnType<typeof setTimeout>;
+          }
+        >();
+
+        const rejectPendingSyncs = (message: string) => {
+          for (const [requestId, pending] of pendingSyncs) {
+            clearTimeout(pending.timeoutId);
+            pending.reject(new Error(message));
+            pendingSyncs.delete(requestId);
+          }
+        };
+
+        syncRoomProgressRef.current = async (targetRoom: Room<GameRoomState>) => {
+          if (targetRoom !== room) return;
+          return new Promise<void>((resolve, reject) => {
+            const requestId = crypto.randomUUID();
+            const timeoutId = setTimeout(() => {
+              pendingSyncs.delete(requestId);
+              reject(new Error("progress_sync_timeout"));
+            }, 5000);
+            pendingSyncs.set(requestId, { resolve, reject, timeoutId });
+            targetRoom.send("sync-progress", { requestId });
+          });
+        };
 
         const send = ((type: string, payload?: unknown) => {
           if (!room) return;
@@ -390,6 +445,7 @@ export function useRoom(): RoomState {
             lastDied,
             send,
             travel,
+            leave,
           });
         };
 
@@ -645,8 +701,21 @@ export function useRoom(): RoomState {
         room.onMessage("quest-complete", (_msg: unknown) => {
           notify.success("Quest turned in!");
         });
+        room.onMessage("progress-synced", (msg: { requestId?: string; ok?: boolean }) => {
+          const requestId = typeof msg.requestId === "string" ? msg.requestId : "";
+          const pending = pendingSyncs.get(requestId);
+          if (!pending) return;
+          clearTimeout(pending.timeoutId);
+          pendingSyncs.delete(requestId);
+          if (msg.ok === false) {
+            pending.reject(new Error("progress_sync_failed"));
+            return;
+          }
+          pending.resolve();
+        });
 
         room.onLeave(() => {
+          rejectPendingSyncs("room_left");
           if (cancelled) return;
           console.info("[game] room left", { zoneId, sessionId: room?.sessionId });
           setState((s) => ({
@@ -662,6 +731,7 @@ export function useRoom(): RoomState {
           }));
         });
         room.onError((_code, message) => {
+          rejectPendingSyncs(message || "room_error");
           if (cancelled) return;
           console.warn("[game] room error", { zoneId, message });
           setState((s) => ({
@@ -696,8 +766,14 @@ export function useRoom(): RoomState {
 
     return () => {
       cancelled = true;
-      room?.leave();
-      roomRef.current = undefined;
+      if (connectAttemptRef.current === attemptId) {
+        connectAttemptRef.current += 1;
+      }
+      syncRoomProgressRef.current = async () => {};
+      if (roomRef.current === room) {
+        roomRef.current = undefined;
+      }
+      void room?.leave();
     };
   }, [zoneId, selectedCharacterId]);
 
@@ -720,6 +796,36 @@ export function useRoom(): RoomState {
       zoneSwitchingRef.current = false;
     }
   }, [state.status, state.error, state.zoneId]);
+
+  const leave = useCallback(async () => {
+    const active = roomRef.current;
+    roomRef.current = undefined;
+    if (active) {
+      try {
+        await syncRoomProgressRef.current(active);
+      } catch (err) {
+        console.warn("[game] progress sync failed before leave", {
+          zoneId: state.zoneId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        await active.leave();
+      } catch {}
+    }
+    setState((s) => ({
+      ...s,
+      status: "idle",
+      error: undefined,
+      players: new Map(),
+      drops: new Map(),
+      mobs: new Map(),
+      npcs: new Map(),
+      hazards: new Map(),
+      chat: [],
+      bolts: new Map(),
+    }));
+  }, []);
 
   const lastLevelRef = useRef<number | undefined>(undefined);
   const knownQuestStatusRef = useRef<Map<string, string>>(new Map());
@@ -747,5 +853,5 @@ export function useRoom(): RoomState {
     }
   }, [self]);
 
-  return state;
+  return { ...state, leave };
 }
