@@ -10,14 +10,11 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **#102** final audit / pitfalls / cleanup — in progress on `chore/final-audit`.
+- **Grand verification sweep** — overseer seat. Drive the full player flow in the live preview (signup → char → lobby → click-move → NPC dialog → quest → inventory equip → skill allocate → hotbar item/potion → portal → damage + shake → logout/login). Flip every remaining `done-untested` / `pending` row in [docs/user-intents.md](user-intents.md) that's shipped but not yet visually verified. Blocked today by host Claude.app disclaimer helper gating preview child processes (see pitfalls.md).
 
 ## Next
 
-Dependency-ordered; each PR must be preview-verified before merge (see CLAUDE.md → Preview verification loop):
-
-1. **#120** Playwright end-to-end test script (kept actively up to date).
-2. **Grand verification sweep** — after #102 and #120 merge, drive the full player flow in preview, promote every remaining `done-untested` row in [docs/user-intents.md](user-intents.md).
+- **#120** Playwright end-to-end test — **PR #136 OPEN but BLOCKED on rebase**. Branch head `f953fd1` is 12+ commits behind main (pre-#99/#111/#121 state). Both Claude (reset ~3am Bratislava) and Codex (reset 2:01 PM Bratislava) hit usage limits mid-rebase. Re-dispatch a planning or execution agent once limits reset. Conflicts are semantic (duplicate imports, missing component props, TabWindow vs HitVignette shake integration) — not purely additive.
 
 ## Infrastructure
 
@@ -29,8 +26,7 @@ Dependency-ordered; each PR must be preview-verified before merge (see CLAUDE.md
 
 Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89, #103-104, #112-119.
 
-**Maintenance chores:**
-- [ ] **#90** bump Biome 1.9.4 → 2.x — config-schema migration + autofix sweep, narrow chore PR.
+**Maintenance chores:** _(none queued)_
 
 ## Superseded
 - **#91** per-class skill trees ADR — closed; the class-less skill allocator in #98 covers the same design surface more simply.
@@ -38,6 +34,12 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 ## Done (2026-04-19 session)
 
 - [x] **#133** Borderlands cell shading + outlines + Karlson feel (#121) — `CellMaterial` + shared 3-stop toon gradient cache, per-zone `cellPalette`, outline effect tier-gated by quality, Karlson kinetic FX (`dust-kick`, `ember-trail`, `hit-spark`), hotbar press pulse animation. Bundle delta +4.4 KB. 218/218 tests. Live preview blocked by host disclaimer.
+
+## Done (2026-04-19 session)
+
+- [x] **#135** draggable window+tab system v2 (#99) — stable-selector `TabWindow` + `layoutStore`, render-count regression test, no infinite loop (fixed v1 revert cause). Shipped via Codex re-dispatch from parked WIP branch. Login page renders clean post-merge. Flipped ui-12 → done-untested.
+- [x] **#134** final audit cleanup (#102) — guardrails tightened, memory hygiene pass via Codex.
+- [x] **#133** Borderlands cell shading + outlines + Karlson feel (#121) — `CellMaterial` + shared 3-stop toon gradient cache, per-zone `cellPalette`, outline effect tier-gated by quality, Karlson kinetic FX (`dust-kick`, `ember-trail`, `hit-spark`), hotbar press pulse animation. Bundle +4.4KB. 218/218 tests. Live preview blocked by host disclaimer.
 
 ## Done (2026-04-18 session)
 
