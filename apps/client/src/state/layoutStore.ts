@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 
 export type LayoutPoint = {
   x: number;
@@ -35,6 +35,7 @@ export type LayoutConfig = {
 };
 
 const LAYOUT_STORE_KEY = "game.layout.v1";
+const memoryStorage = new Map<string, string>();
 
 function removeFromArray(values: string[], value: string): string[] {
   return values.filter((entry) => entry !== value);
@@ -210,7 +211,7 @@ function withWindow(
 
 function pruneWindow(layout: WindowLayout, windowId: string): WindowLayout {
   const window = layout.windows[windowId];
-  if (!window || !window.floating) return layout;
+  if (!window?.floating) return layout;
 
   const nextWindows = { ...layout.windows };
   delete nextWindows[windowId];
@@ -315,7 +316,7 @@ export function floatTabInLayout(
   size: LayoutSize,
 ): WindowLayout {
   const sourceWindow = layout.windows[sourceWindowId];
-  if (!sourceWindow || !sourceWindow.tabs.includes(tabId)) return layout;
+  if (!sourceWindow?.tabs.includes(tabId)) return layout;
 
   const nextSourceTabs = removeFromArray(sourceWindow.tabs, tabId);
   const floatingWindowId = `floating-${layout.nextWindowIndex}`;
@@ -450,10 +451,19 @@ function updateLayout(
   };
 }
 
-const storageOptions =
-  typeof window === "undefined"
-    ? {}
-    : { storage: createJSONStorage<Pick<LayoutStoreState, "layouts">>(() => localStorage) };
+const fallbackStorage: StateStorage = {
+  getItem: (name) => memoryStorage.get(name) ?? null,
+  setItem: (name, value) => {
+    memoryStorage.set(name, value);
+  },
+  removeItem: (name) => {
+    memoryStorage.delete(name);
+  },
+};
+
+const storage = createJSONStorage<Pick<LayoutStoreState, "layouts">>(() =>
+  typeof window === "undefined" ? fallbackStorage : localStorage,
+);
 
 export const useLayoutStore = create<LayoutStoreState>()(
   persist(
@@ -538,7 +548,7 @@ export const useLayoutStore = create<LayoutStoreState>()(
       name: LAYOUT_STORE_KEY,
       version: 1,
       partialize: (state) => ({ layouts: state.layouts }),
-      ...storageOptions,
+      storage,
     },
   ),
 );
