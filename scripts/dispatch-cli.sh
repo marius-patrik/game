@@ -46,6 +46,7 @@ PLAN_PATH=$(ls ${PLAN_FILE}*.md 2>/dev/null | head -1 || true)
 # Worktree naming: agent-<cli>-<issue> for clarity in `git worktree list`.
 WT_NAME="agent-${CLI}-${ISSUE}"
 WT_PATH=".claude/worktrees/${WT_NAME}"
+WT_ROOT="${REPO_ROOT}/${WT_PATH}"
 
 if [[ -d "$WT_PATH" ]]; then
   echo "Worktree already exists at $WT_PATH. Aborting so we don't stomp it." >&2
@@ -62,16 +63,16 @@ git worktree add -b "$BRANCH" "$WT_PATH" origin/main
 # Build the prompt. Deliberately self-contained — agents in non-Claude CLIs
 # don't have the auto-reminder layer that Claude Code sub-agents get.
 PROMPT=$(cat <<EOF
-You are a ${ROLE} execution agent for the marius-patrik/game repo at ${REPO_ROOT}.
-Your worktree is at ${WT_PATH} (branch ${BRANCH}, based on origin/main).
+You are a ${ROLE} agent for the marius-patrik/game repo.
+Your assigned checkout is ${WT_ROOT} (branch ${BRANCH}, based on origin/main).
 
 ## Bootstrap
-Read ${REPO_ROOT}/.claude/commands/spawn-${ROLE}-agent.md and follow it.
+Read ${WT_ROOT}/.claude/commands/spawn-${ROLE}-agent.md and follow it.
 Also read:
-- ${REPO_ROOT}/CLAUDE.md
-- ${REPO_ROOT}/.claude/memory/project.md
-- ${REPO_ROOT}/.claude/memory/pitfalls.md
-- ${REPO_ROOT}/.claude/skills/multi-cli-dispatch/SKILL.md
+- ${WT_ROOT}/CLAUDE.md
+- ${WT_ROOT}/.claude/memory/project.md
+- ${WT_ROOT}/.claude/memory/pitfalls.md
+- ${WT_ROOT}/.claude/skills/multi-cli-dispatch/SKILL.md
 
 ## Assignment
 - Issue: #${ISSUE}
@@ -79,7 +80,7 @@ Also read:
 - Plan: ${PLAN_PATH:-"(no plan file — read the GitHub issue body directly via 'gh issue view ${ISSUE}' and execute the plan described there)"}
 
 ## Contract
-- Work ONLY inside ${WT_PATH}. Do not touch the primary repo checkout or other worktrees.
+- Work ONLY inside ${WT_ROOT}. Do not touch the primary repo checkout or other worktrees.
 - No hacky solutions. No stubs. No TODOs that defer the spec.
 - Run preflight (bun run check, bun run typecheck, bun test) before opening the PR.
 - Open the PR when CI is expected to be green. Do NOT merge — overseer merges.

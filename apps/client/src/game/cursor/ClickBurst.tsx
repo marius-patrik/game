@@ -55,7 +55,7 @@ export function ClickBurst() {
     const pool = burstsRef.current;
     for (let i = 0; i < pool.length; i++) {
       const b = pool[i];
-      if (!b || !b.alive) {
+      if (!b?.alive) {
         const group = groupRefs.current[i];
         if (group) group.visible = false;
         continue;

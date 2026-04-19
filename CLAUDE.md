@@ -176,9 +176,17 @@ Keep subject ≤ 72 chars, imperative mood. Body optional but preferred for non-
 - **Zones over rooms.** We're instanced-zone, not session-based. Zone persistence and zone transitions are first-class concerns — not grafted on later.
 - **Mobile + desktop are equal citizens.** See [ADR-0002](docs/decisions/0002-mobile-and-desktop.md). Every gameplay UI change must be verified in both 1440×900 (desktop) and 390×844 (mobile) viewports. Input abstraction covers keyboard/mouse + touch. Performance budgets: desktop 60 FPS / <500 draw calls, mobile 30 FPS / <150 draw calls. Assets ship with Draco + KTX2 + mobile LOD. Admin UI is desktop-first — not gameplay.
 
-## Testing (TBD)
+## Testing
 
-No tests yet. Before we write any, pick a runner — `bun test` is the default. Write tests as the game loop solidifies; don't over-invest until mechanics stabilize.
+`bun test` runs the workspace test suite. Before opening a PR, run:
+
+```bash
+bun run check
+bun run typecheck
+bun test
+```
+
+Add or update tests whenever you touch non-trivial game logic, persistence, or pure client helpers. UI-heavy changes still require the preview verification loop; tests do not replace live browser checks.
 
 ## Deploy
 

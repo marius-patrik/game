@@ -1,5 +1,4 @@
 import type { ZoneLightingProfile } from "@game/shared";
-import { useMemo } from "react";
 import {
   Color,
   type ColorRepresentation,
@@ -57,7 +56,7 @@ function buildGradientTexture(bands: CellBands): Texture {
 }
 
 export function useCellGradient(bands: CellBands): Texture {
-  return useMemo(() => buildGradientTexture(bands), [bands.dark, bands.mid, bands.bright]);
+  return buildGradientTexture(bands);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { type MutableRefObject, useEffect, useRef } from "react";
+import { type MutableRefObject, useCallback, useEffect, useRef } from "react";
 import { MathUtils, PerspectiveCamera, Vector3 } from "three";
 import { sampleShakeOffset } from "@/game/fx/ScreenShake";
 import { setCameraYaw } from "@/state/cameraStore";
@@ -85,6 +85,15 @@ export function ChaseCamera({
   }, []);
 
   // Subscribe to profile changes for interpolated transitions.
+  const profileTransitionProgress = useCallback((): number => {
+    const dur = profileDurationRef.current;
+    if (dur <= 0) return 1;
+    const t = (performance.now() - profileStartRef.current) / dur;
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    return easeInOutCubic(t);
+  }, []);
+
   useEffect(() => {
     return subscribeCameraProfile((next) => {
       const progress = profileTransitionProgress();
@@ -95,7 +104,7 @@ export function ChaseCamera({
       profileDurationRef.current = next.transitionMs;
       currentProfileIdRef.current = next.id;
     });
-  }, []);
+  }, [profileTransitionProgress]);
 
   // Yaw input: pointer-lock mouse movement + drag-to-rotate on the canvas.
   useEffect(() => {
@@ -215,15 +224,6 @@ export function ChaseCamera({
       }
     }
   });
-
-  function profileTransitionProgress(): number {
-    const dur = profileDurationRef.current;
-    if (dur <= 0) return 1;
-    const t = (performance.now() - profileStartRef.current) / dur;
-    if (t <= 0) return 0;
-    if (t >= 1) return 1;
-    return easeInOutCubic(t);
-  }
 
   function currentProfile(): CameraProfile {
     const progress = profileTransitionProgress();

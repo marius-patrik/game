@@ -1,7 +1,6 @@
 import { type AuthContext, type Client, matchMaker, Room } from "@colyseus/core";
 import { ArraySchema, MapSchema } from "@colyseus/schema";
 import type { AbilityDef, WeaponSlotKey } from "@game/shared/abilities";
-import { getAbility } from "@game/shared/abilities";
 import {
   CHAT_MAX_LEN,
   type ChatCommand,
@@ -15,7 +14,7 @@ import { filterProfanity } from "@game/shared/chat-profanity";
 import type { DeathCause, DiedMessage } from "@game/shared/combat";
 import { type EquipSlot, getItem, type ItemId, isItemId, VENDOR_STOCK } from "@game/shared/items";
 import { applyXp, xpToNextLevel } from "@game/shared/progression";
-import { FIRST_QUEST_ID, getQuest, QUEST_CATALOG } from "@game/shared/quests";
+import { FIRST_QUEST_ID, getQuest } from "@game/shared/quests";
 import {
   GameRoomState,
   InventorySlot,
@@ -25,7 +24,6 @@ import {
   WorldDrop,
 } from "@game/shared/schema";
 import {
-  getSkill,
   isSkillId,
   resolveSkillAbility,
   type SkillSlot,
@@ -488,7 +486,7 @@ export class GameRoom extends Room<GameRoomState> {
   private handleAttack(client: Client<unknown, SessionUser>) {
     const attacker = this.state.players.get(client.sessionId);
     const combat = this.playerCombat.get(client.sessionId);
-    if (!attacker || !attacker.alive || !combat) return;
+    if (!attacker?.alive || !combat) return;
     if (!this.rateLimiter.consume(client.sessionId, "attack")) {
       this.recordViolation(client, attacker, "rate_limit:attack");
       return;
@@ -1260,7 +1258,7 @@ export class GameRoom extends Room<GameRoomState> {
 
   private handlePickup(client: Client<unknown, SessionUser>, msg: PickupMessage) {
     const p = this.state.players.get(client.sessionId);
-    if (!p || !p.alive) return;
+    if (!p?.alive) return;
     if (!this.rateLimiter.consume(client.sessionId, "move")) return;
     const drop = this.state.drops.get(msg?.dropId ?? "");
     if (!drop) return;
@@ -1289,7 +1287,7 @@ export class GameRoom extends Room<GameRoomState> {
 
   private handleUse(client: Client<unknown, SessionUser>, msg: UseMessage) {
     const p = this.state.players.get(client.sessionId);
-    if (!p || !p.alive) return;
+    if (!p?.alive) return;
     if (!this.rateLimiter.consume(client.sessionId, "attack")) return;
     const itemId = msg?.itemId;
     if (!itemId || !isItemId(itemId)) return;
@@ -1325,7 +1323,7 @@ export class GameRoom extends Room<GameRoomState> {
 
   private handleDrop(client: Client<unknown, SessionUser>, msg: DropMessage) {
     const p = this.state.players.get(client.sessionId);
-    if (!p || !p.alive) return;
+    if (!p?.alive) return;
     const qty = Math.max(1, Math.floor(msg?.qty ?? 1));
     const itemId = msg?.itemId;
     if (!itemId || !isItemId(itemId)) return;
@@ -1352,7 +1350,7 @@ export class GameRoom extends Room<GameRoomState> {
     if (party && mobPos) {
       for (const memberSid of party.members) {
         const member = this.state.players.get(memberSid);
-        if (!member || !member.alive) continue;
+        if (!member?.alive) continue;
         if (memberSid === p.id) {
           this.awardXp(member, baseXp);
           continue;
@@ -2181,6 +2179,13 @@ export class GameRoom extends Room<GameRoomState> {
 
   _adminGetUserId(sessionId: string): string | undefined {
     return this.playerUserId.get(sessionId);
+  }
+
+  _hasCharacter(characterId: string): boolean {
+    for (const activeCharacterId of this.playerCharacterId.values()) {
+      if (activeCharacterId === characterId) return true;
+    }
+    return false;
   }
 
   private sendChatError(client: Client, reason: ChatError["reason"]) {

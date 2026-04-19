@@ -10,23 +10,14 @@ Single source of truth for what's being done, what's next, and what's parked.
 
 ## Now
 
-- **Wave 3 parallel fan-out** — #110, #94, #99, #120 dispatched in parallel (all #93-dependent; #93 shipped).
+- **#102** final audit / pitfalls / cleanup — in progress on `chore/final-audit`.
 
 ## Next
 
 Dependency-ordered; each PR must be preview-verified before merge (see CLAUDE.md → Preview verification loop):
 
-1. **#110** compass/radar at top (quests, mobs, portals, NPCs) — in flight.
-2. **#94** hotbar redesign (2W+2S+U+2I+2P) — in flight.
-3. **#99** draggable window/tab system (ADR + impl) — in flight.
-4. **#120** Playwright end-to-end test script (kept actively up to date) — in flight.
-5. **#95** unified InteractionPrompt + full keybinds + auto-pickup — depends on #93/#94/#107.
-6. **#109** Skyrim-style dialog system — depends on #95/#107.
-7. **#121** Borderlands cell shading + outlines + Karlson-style feel — can bundle with or precede #111.
-8. **#111** game-feel polish pass (particles, shaders, screen shake, frosted-glass UI, glow) — depends on HUD + hotbar + dialog.
-9. **#90** Biome 1.9.4 → 2.x bump — narrow chore PR, slottable between waves.
-10. **#102** final audit / pitfalls / cleanup — absolute last.
-11. **Grand verification sweep** — after all above merge, drive the full player flow in preview, promote every remaining `done-untested` row in [docs/user-intents.md](user-intents.md).
+1. **#120** Playwright end-to-end test script (kept actively up to date).
+2. **Grand verification sweep** — after #102 and #120 merge, drive the full player flow in preview, promote every remaining `done-untested` row in [docs/user-intents.md](user-intents.md).
 
 ## Infrastructure
 
@@ -43,6 +34,10 @@ Previous backlog blocks closed in #58-60, #62, #64-68, #76-77, #80, #83, #87-89,
 
 ## Superseded
 - **#91** per-class skill trees ADR — closed; the class-less skill allocator in #98 covers the same design surface more simply.
+
+## Done (2026-04-19 session)
+
+- [x] **#133** Borderlands cell shading + outlines + Karlson feel (#121) — `CellMaterial` + shared 3-stop toon gradient cache, per-zone `cellPalette`, outline effect tier-gated by quality, Karlson kinetic FX (`dust-kick`, `ember-trail`, `hit-spark`), hotbar press pulse animation. Bundle delta +4.4 KB. 218/218 tests. Live preview blocked by host disclaimer.
 
 ## Done (2026-04-18 session)
 

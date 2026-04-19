@@ -148,11 +148,19 @@ export async function softDeleteCharacter(
   characterId: string,
   userId: string,
   db: DB = defaultDb,
-): Promise<void> {
-  await db
+): Promise<boolean> {
+  const rows = await db
     .update(character)
     .set({ isDeleted: true })
-    .where(and(eq(character.id, characterId), eq(character.userId, userId)));
+    .where(
+      and(
+        eq(character.id, characterId),
+        eq(character.userId, userId),
+        eq(character.isDeleted, false),
+      ),
+    )
+    .returning({ id: character.id });
+  return rows.length > 0;
 }
 
 export async function loadCharacter(

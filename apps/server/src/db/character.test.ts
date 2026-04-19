@@ -66,7 +66,8 @@ function makeDb() {
       FOREIGN KEY (character_id) REFERENCES character(id) ON DELETE CASCADE
     );
     INSERT INTO user (id, name, email, createdAt, updatedAt) VALUES
-      ('u1', 'alice', 'a@x', 0, 0);
+      ('u1', 'alice', 'a@x', 0, 0),
+      ('u2', 'bob', 'b@x', 0, 0);
   `);
   return drizzle(sqlite, { schema });
 }
@@ -78,8 +79,8 @@ describe("character repo", () => {
   });
 
   test("create and list characters", async () => {
-    const c1 = await createCharacter({ userId: "u1", name: "Hero", color: "#ff0000" }, db);
-    const c2 = await createCharacter({ userId: "u1", name: "Mage", color: "#0000ff" }, db);
+    await createCharacter({ userId: "u1", name: "Hero", color: "#ff0000" }, db);
+    await createCharacter({ userId: "u1", name: "Mage", color: "#0000ff" }, db);
 
     const list = await listCharacters("u1", db);
     expect(list).toHaveLength(2);
@@ -89,13 +90,24 @@ describe("character repo", () => {
 
   test("soft delete character", async () => {
     const c1 = await createCharacter({ userId: "u1", name: "Hero", color: "#ff0000" }, db);
-    await softDeleteCharacter(c1.id, "u1", db);
+    const deleted = await softDeleteCharacter(c1.id, "u1", db);
 
+    expect(deleted).toBe(true);
     const list = await listCharacters("u1", db);
     expect(list).toHaveLength(0);
 
     const loaded = await loadCharacter(c1.id, db);
     expect(loaded.character).toBeUndefined();
+  });
+
+  test("soft delete is scoped to the owning user", async () => {
+    const c1 = await createCharacter({ userId: "u1", name: "Hero", color: "#ff0000" }, db);
+    const deleted = await softDeleteCharacter(c1.id, "u2", db);
+
+    expect(deleted).toBe(false);
+    const list = await listCharacters("u1", db);
+    expect(list).toHaveLength(1);
+    expect(list[0]?.id).toBe(c1.id);
   });
 
   test("save and load character", async () => {

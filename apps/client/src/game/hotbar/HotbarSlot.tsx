@@ -76,7 +76,7 @@ export function HotbarSlot({
     if (!pressActive) return;
     const to = window.setTimeout(() => setPressActive(false), PRESS_PULSE_MS + 20);
     return () => window.clearTimeout(to);
-  }, [pressActive, pressTick]);
+  }, [pressActive]);
 
   const handleClick = useCallback(() => {
     if (longPressFiredRef.current) {

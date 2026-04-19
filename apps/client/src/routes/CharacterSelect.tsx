@@ -2,14 +2,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { notify } from "@/components/ui/unified-toast";
 import { type Character, charactersApi } from "@/lib/charactersApi";
 import { useCharacterStore } from "@/state/characterStore";
@@ -24,7 +17,7 @@ export function CharacterSelect() {
     charactersApi
       .list()
       .then(setCharacters)
-      .catch((err) => notify.error("Failed to load characters"))
+      .catch((_err) => notify.error("Failed to load characters"))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -43,7 +36,7 @@ export function CharacterSelect() {
       }
       notify.success("Character deleted");
     } catch (err) {
-      notify.error("Failed to delete character");
+      notify.error(err instanceof Error ? err.message : "Failed to delete character");
     }
   };
 

@@ -1,6 +1,6 @@
 ---
 name: preflight
-description: Run the checks that CI will run — biome + typecheck. Invoke before every git commit.
+description: Run the checks that CI will run — biome + typecheck + tests. Invoke before every git commit and before opening a PR.
 ---
 
 # preflight
@@ -8,9 +8,11 @@ description: Run the checks that CI will run — biome + typecheck. Invoke befor
 Mirror of what CI runs. Must be clean before commit.
 
 ```bash
-cd /Users/user/Documents/projects/game
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
 bun run check:fix   # biome autofix
 bun run typecheck   # tsc --noEmit across workspaces
+bun test            # workspace test suite
 ```
 
 If either fails, fix and re-run. Never commit red.
