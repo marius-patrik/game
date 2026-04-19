@@ -15,6 +15,9 @@ Colyseus `Room` is agnostic about state shape. If `onCreate` doesn't call `this.
 ## `preview_start server` under monorepo dev prints combined client+server rsbuild logs
 `preview_logs` for the server serverId often shows rsbuild output that looks like client build errors (historical `selfPosRef is not defined`, theatre.js config-state warning). Those are leftover HMR noise, not current failures. Always re-check with `curl :2567/health` + `lsof -iTCP:2567` to confirm the server process is actually listening before trusting log scrollback.
 
+## Dev auth CORS trusts `localhost`, not `127.0.0.1`
+`apps/server/src/index.ts` only whitelists `http://localhost:3000` by default. Hitting the client as `http://127.0.0.1:3000` makes better-auth signup/signin fail its preflight with `No 'Access-Control-Allow-Origin' header`. For preview/headless verification, always open the client on `localhost` OR extend `TRUSTED_ORIGINS` before assuming auth is broken. Surfaced while verifying #99.
+
 ## `git reset --hard origin/main` wipes in-flight doc edits
 The overseer's worktree often sits on `wip/preview` with uncommitted CLAUDE.md / spawn-docs edits. A reflex `git reset --hard origin/main` to sync for the preview loop will drop those edits silently. Always `git stash -u` first (or commit to a `chore/` branch) before hard-resetting the overseer worktree. Lost the #119 infra edits once this session — redid them on a branch.
 
