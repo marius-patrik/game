@@ -76,7 +76,7 @@ Every time the user voices an intent ("the X should do Y", "I want X", "fix X"),
 | ui-40 | Hotfix: matchmake 500 / "offline" after #115 | #116 | verified-preview (2026-04-18: signup → char create → lobby "online · 1" reached, click-to-move works, HP bar renders, NPC stand visible) |
 | ui-41 | Scene lighting / atmosphere — the all-white lobby look is a placeholder | #111 | done-untested (2026-04-18: #111/PR #132 — three-point lighting profile per zone, warm lobby / cool arena palette; overseer to visually verify post-merge) |
 | ui-42 | Playwright script for end-to-end player flow; kept up to date on every merge; visual confirmation while running | #120 | pending |
-| ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | pending |
+| ui-43 | Borderlands-style cell shading + outlines; Karlson-style visual & feel reference (snappy response, kinetic camera) | #121 | done-untested (2026-04-18: #121/PR #133 — CellMaterial (meshToonMaterial + 3-stop DataTexture), per-zone cellPalette (warm lobby / cool arena), Outline effect with tier-gated edgeStrength, Karlson kinetic dust-kick + ember-trail + hit-spark presets, hotbar press pulse keyframe; +4.4KB gzipped; live preview blocked by disclaimer — overseer verifies post-merge) |
 
 ---
 
